@@ -12,7 +12,7 @@ from .peak_pipeline import (
 )
 from .tools import make_multi_method_doc
 
-from spikeinterface.core import get_channel_distances
+from spikeinterface.core import get_channel_distances, get_noise_levels
 
 from ..postprocessing.unit_localization import (
     dtype_localize_by_method,
@@ -154,7 +154,7 @@ class LocalizeCenterOfMass(LocalizeBase):
     params_doc = """
     local_radius_um: float
         Radius in um for channel sparsity.
-    feature: str ['ptp', 'mean', 'energy', 'peak_voltage']
+    feature: str ['ptp', 'mean', 'energy', 'peak_voltage', 'noise_free_energy']
         Feature to consider for computation. Default is 'ptp'
     """
 
@@ -166,15 +166,18 @@ class LocalizeCenterOfMass(LocalizeBase):
         )
         self._dtype = np.dtype(dtype_localize_by_method["center_of_mass"])
 
-        assert feature in ["ptp", "mean", "energy", "peak_voltage"], f"{feature} is not a valid feature"
+        assert feature in ["ptp", "mean", "energy", "peak_voltage", "noise_free_energy"], f"{feature} is not a valid feature"
         self.feature = feature
 
+        if self.feature == "noise_free_energy":
+            self.noise_levels = get_noise_levels(recording)
         # Find waveform extractor in the parents
         waveform_extractor = find_parent_of_type(self.parents, WaveformsNode)
         if waveform_extractor is None:
             raise TypeError(f"{self.name} should have a single {WaveformsNode.__name__} in its parents")
 
         self.nbefore = waveform_extractor.nbefore
+        self.nsamples = waveform_extractor.nbefore + waveform_extractor.nafter
         self._kwargs.update(dict(feature=feature))
 
     def get_dtype(self):
@@ -188,14 +191,18 @@ class LocalizeCenterOfMass(LocalizeBase):
             (chan_inds,) = np.nonzero(self.neighbours_mask[main_chan])
             local_contact_locations = self.contact_locations[chan_inds, :]
 
+            wf = waveforms[idx][:, :, chan_inds]
+
             if self.feature == "ptp":
-                wf_data = (waveforms[idx][:, :, chan_inds]).ptp(axis=1)
+                wf_data = wf.ptp(axis=1)
             elif self.feature == "mean":
-                wf_data = (waveforms[idx][:, :, chan_inds]).mean(axis=1)
+                wf_data = wf.mean(axis=1)
             elif self.feature == "energy":
-                wf_data = np.linalg.norm(waveforms[idx][:, :, chan_inds], axis=1)
+                wf_data = np.linalg.norm(wf, axis=1)
             elif self.feature == "peak_voltage":
-                wf_data = waveforms[idx][:, self.nbefore, chan_inds]
+                wf_data = wf[:, self.nbefore]
+            elif self.feature == "noise_free_energy":
+                wf_data = (np.linalg.norm(wf, axis=1)/(np.sqrt(self.nsamples) * self.noise_levels[chan_inds]))**4
 
             coms = np.dot(wf_data, local_contact_locations) / (np.sum(wf_data, axis=1)[:, np.newaxis])
             peak_locations["x"][idx] = coms[:, 0]
@@ -222,7 +229,7 @@ class LocalizeMonopolarTriangulation(PipelineNode):
         Boundary for distance estimation.
     enforce_decrease : bool (default True)
         Enforce spatial decreasingness for PTP vectors
-    feature: string in ['ptp', 'energy', 'peak_voltage']
+    feature: string in ['ptp', 'energy', 'peak_voltage', 'noise_free_energy']
         The available features to consider for estimating the position via
         monopolar triangulation are peak-to-peak amplitudes (ptp, default),
         energy ('energy', as L2 norm) or voltages at the center of the waveform
@@ -244,16 +251,20 @@ class LocalizeMonopolarTriangulation(PipelineNode):
             self, recording, return_output=return_output, parents=parents, local_radius_um=local_radius_um
         )
 
-        assert feature in ["ptp", "energy", "peak_voltage"], f"{feature} is not a valid feature"
+        assert feature in ["ptp", "energy", "peak_voltage", "noise_free_energy"], f"{feature} is not a valid feature"
         self.max_distance_um = max_distance_um
         self.optimizer = optimizer
         self.feature = feature
+
+        if self.feature == "noise_free_energy":
+            self.noise_levels = get_noise_levels(recording)
 
         waveform_extractor = find_parent_of_type(self.parents, WaveformsNode)
         if waveform_extractor is None:
             raise TypeError(f"{self.name} should have a single {WaveformsNode.__name__} in its parents")
 
         self.nbefore = waveform_extractor.nbefore
+        self.nsamples = waveform_extractor.nbefore + waveform_extractor.nafter
         if enforce_decrease:
             self.enforce_decrease_radial_parents = make_radial_order_parents(
                 self.contact_locations, self.neighbours_mask
@@ -285,6 +296,8 @@ class LocalizeMonopolarTriangulation(PipelineNode):
                 wf_data = np.linalg.norm(wf, axis=0)
             elif self.feature == "peak_voltage":
                 wf_data = np.abs(wf[self.nbefore])
+            elif self.feature == "noise_free_energy":
+                wf_data = (np.linalg.norm(wf, axis=0)/(np.sqrt(self.nsamples) * self.noise_levels[chan_inds]))**4
 
             if self.enforce_decrease_radial_parents is not None:
                 enforce_decrease_shells_data(
