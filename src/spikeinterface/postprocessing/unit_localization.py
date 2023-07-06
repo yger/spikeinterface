@@ -305,7 +305,7 @@ def compute_monopolar_triangulation(
         elif feature == "peak_voltage":
             wf_data = np.abs(wf[nbefore])
         elif feature == "noise_free_energy":
-            wf_data = np.linalg.norm(wf, axis=0) - np.sqrt(waveform_extractor.nsamples)*noise_levels[chan_inds]
+            wf_data = (np.linalg.norm(wf, axis=0)/(np.sqrt(waveform_extractor.nsamples)*noise_levels[chan_inds]))**4
 
         # if enforce_decrease:
         #    enforce_decrease_shells_data(
@@ -368,7 +368,7 @@ def compute_center_of_mass(waveform_extractor, peak_sign="neg", radius_um=75, fe
         elif feature == "peak_voltage":
             wf_data = wf[waveform_extractor.nbefore]
         elif feature == "noise_free_energy":
-            wf_data = np.linalg.norm(wf, axis=0) - np.sqrt(waveform_extractor.nsamples)*noise_levels[chan_inds]
+            wf_data = (np.linalg.norm(wf, axis=0)/(np.sqrt(waveform_extractor.nsamples)*noise_levels[chan_inds]))**4
 
         # center of mass
         com = np.sum(wf_data[:, np.newaxis] * local_contact_locations, axis=0) / np.sum(wf_data)

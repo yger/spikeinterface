@@ -202,7 +202,7 @@ class LocalizeCenterOfMass(LocalizeBase):
             elif self.feature == "peak_voltage":
                 wf_data = wf[:, self.nbefore]
             elif self.feature == "noise_free_energy":
-                wf_data = np.linalg.norm(wf, axis=1) - np.sqrt(self.nsamples) * self.noise_levels[chan_inds]
+                wf_data = (np.linalg.norm(wf, axis=1)/(np.sqrt(self.nsamples) * self.noise_levels[chan_inds]))**4
 
             coms = np.dot(wf_data, local_contact_locations) / (np.sum(wf_data, axis=1)[:, np.newaxis])
             peak_locations["x"][idx] = coms[:, 0]
@@ -297,7 +297,7 @@ class LocalizeMonopolarTriangulation(PipelineNode):
             elif self.feature == "peak_voltage":
                 wf_data = np.abs(wf[self.nbefore])
             elif self.feature == "noise_free_energy":
-                wf_data = np.linalg.norm(wf, axis=0) - np.sqrt(self.nsamples)*self.noise_levels[chan_inds]
+                wf_data = (np.linalg.norm(wf, axis=0)/(np.sqrt(self.nsamples) * self.noise_levels[chan_inds]))**4
 
             if self.enforce_decrease_radial_parents is not None:
                 enforce_decrease_shells_data(
