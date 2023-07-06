@@ -257,7 +257,7 @@ def compute_monopolar_triangulation(
         Return or not the alpha value
     enforce_decrease : bool (default False)
         Enforce spatial decreasingness for PTP vectors
-    feature: string in ['ptp', 'energy', 'peak_voltage']
+    feature: string in ['ptp', 'energy', 'peak_voltage', 'noise_free_energy']
         The available features to consider for estimating the position via
         monopolar triangulation are peak-to-peak amplitudes ('ptp', default),
         energy ('energy', as L2 norm) or voltages at the center of the waveform
@@ -271,11 +271,14 @@ def compute_monopolar_triangulation(
     """
     assert optimizer in ("least_square", "minimize_with_log_penality")
 
-    assert feature in ["ptp", "energy", "peak_voltage"], f"{feature} is not a valid feature"
+    assert feature in ["ptp", "energy", "peak_voltage", "noise_free_energy"], f"{feature} is not a valid feature"
     unit_ids = waveform_extractor.sorting.unit_ids
 
     contact_locations = waveform_extractor.get_channel_locations()
     nbefore = waveform_extractor.nbefore
+
+    if feature == 'noise_free_energy':
+        noise_levels = si.get_noise_levels(waveform_extractor.recording)
 
     sparsity = compute_sparsity(waveform_extractor, method="radius", radius_um=radius_um)
     templates = waveform_extractor.get_all_templates(mode="average")
@@ -301,6 +304,8 @@ def compute_monopolar_triangulation(
             wf_data = np.linalg.norm(wf, axis=0)
         elif feature == "peak_voltage":
             wf_data = np.abs(wf[nbefore])
+        elif feature == "noise_free_energy":
+            wf_data = np.linalg.norm(wf, axis=0) - np.sqrt(waveform_extractor.nsamples)*noise_levels[chan_inds]
 
         # if enforce_decrease:
         #    enforce_decrease_shells_data(
@@ -327,7 +332,7 @@ def compute_center_of_mass(waveform_extractor, peak_sign="neg", radius_um=75, fe
         Sign of the template to compute best channels ('neg', 'pos', 'both')
     radius_um: float
         Radius to consider in order to estimate the COM
-    feature: str ['ptp', 'mean', 'energy', 'peak_voltage']
+    feature: str ['ptp', 'mean', 'energy', 'peak_voltage', 'noise_free_energy']
         Feature to consider for computation. Default is 'ptp'
 
     Returns
@@ -339,7 +344,10 @@ def compute_center_of_mass(waveform_extractor, peak_sign="neg", radius_um=75, fe
     recording = waveform_extractor.recording
     contact_locations = recording.get_channel_locations()
 
-    assert feature in ["ptp", "mean", "energy", "peak_voltage"], f"{feature} is not a valid feature"
+    assert feature in ["ptp", "mean", "energy", "peak_voltage", "noise_free_energy"], f"{feature} is not a valid feature"
+
+    if feature == 'noise_free_energy':
+        noise_levels = si.get_noise_levels(waveform_extractor.recording)
 
     sparsity = compute_sparsity(waveform_extractor, peak_sign=peak_sign, method="radius", radius_um=radius_um)
     templates = waveform_extractor.get_all_templates(mode="average")
@@ -349,16 +357,18 @@ def compute_center_of_mass(waveform_extractor, peak_sign="neg", radius_um=75, fe
         chan_inds = sparsity.unit_id_to_channel_indices[unit_id]
         local_contact_locations = contact_locations[chan_inds, :]
 
-        wf = templates[i, :, :]
+        wf = templates[i, :, :][:, chan_inds]
 
         if feature == "ptp":
-            wf_data = (wf[:, chan_inds]).ptp(axis=0)
+            wf_data = wf.ptp(axis=0)
         elif feature == "mean":
-            wf_data = (wf[:, chan_inds]).mean(axis=0)
+            wf_data = wf.mean(axis=0)
         elif feature == "energy":
-            wf_data = np.linalg.norm(wf[:, chan_inds], axis=0)
+            wf_data = np.linalg.norm(wf, axis=0)
         elif feature == "peak_voltage":
-            wf_data = wf[waveform_extractor.nbefore, chan_inds]
+            wf_data = wf[waveform_extractor.nbefore]
+        elif feature == "noise_free_energy":
+            wf_data = np.linalg.norm(wf, axis=0) - np.sqrt(waveform_extractor.nsamples)*noise_levels[chan_inds]
 
         # center of mass
         com = np.sum(wf_data[:, np.newaxis] * local_contact_locations, axis=0) / np.sum(wf_data)
