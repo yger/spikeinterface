@@ -341,6 +341,7 @@ class LocalizeGridConvolution(PipelineNode):
         prototype=None,
         percentile=5.0,
         sparsity_threshold=0.01,
+        depth_um=50
     ):
         PipelineNode.__init__(self, recording, return_output=return_output, parents=parents)
 
@@ -352,7 +353,7 @@ class LocalizeGridConvolution(PipelineNode):
         assert 0 <= self.percentile <= 100, "Percentile should be in [0, 100]"
         self.sparsity_threshold = sparsity_threshold
         assert 0 <= self.sparsity_threshold <= 1, "sparsity_threshold should be in [0, 1]"
-
+        self.depth_um = depth_um
         contact_locations = recording.get_channel_locations()
         # Find waveform extractor in the parents
         waveform_extractor = find_parent_of_type(self.parents, WaveformsNode)
@@ -371,7 +372,7 @@ class LocalizeGridConvolution(PipelineNode):
         self.prototype = self.prototype[:, np.newaxis]
 
         self.template_positions, self.weights, self.nearest_template_mask = get_grid_convolution_templates_and_weights(
-            contact_locations, self.local_radius_um, self.upsampling_um, self.sigma_um, self.margin_um
+            contact_locations, self.local_radius_um, self.upsampling_um, self.sigma_um, self.margin_um, self.depth_um
         )
 
         self.weights_sparsity_mask = self.weights > self.sparsity_threshold
@@ -386,6 +387,7 @@ class LocalizeGridConvolution(PipelineNode):
                 weights=self.weights,
                 nbefore=self.nbefore,
                 percentile=self.percentile,
+                depth_um=self.depth_um
             )
         )
 
@@ -407,8 +409,11 @@ class LocalizeGridConvolution(PipelineNode):
             nearest_templates = self.nearest_template_mask[main_chan, :]
             num_templates = np.sum(nearest_templates)
             channel_mask = np.sum(self.weights_sparsity_mask[:, :, nearest_templates], axis=(0, 2)) > 0
-            # print(np.sum(nearest_templates), channel_mask.shape, self.weights.shape, np.sum(channel_mask))
 
+            ndim = 2
+            if self.depth_um > 0:
+                ndim = 3
+                
             global_products = (
                 waveforms[idx, :, :][:, :, channel_mask] / (amplitudes[:, np.newaxis, np.newaxis]) * self.prototype
             ).sum(axis=1)
@@ -423,7 +428,8 @@ class LocalizeGridConvolution(PipelineNode):
                 dot_products[dot_products < thresholds[np.newaxis, :, np.newaxis]] = 0
 
             scalar_products = np.zeros((num_spikes, num_templates), dtype=np.float32)
-            found_positions = np.zeros((num_spikes, 3), dtype=np.float32)
+            
+            found_positions = np.zeros((num_spikes, ndim), dtype=np.float32)
             for count in range(self.weights.shape[0]):
                 scalar_products += dot_products[count, :, :]
                 found_positions += np.dot(dot_products[count, :, :], self.template_positions[nearest_templates, :])
@@ -431,7 +437,8 @@ class LocalizeGridConvolution(PipelineNode):
 
             peak_locations["x"][idx] = found_positions[:, 0]
             peak_locations["y"][idx] = found_positions[:, 1]
-            peak_locations["z"][idx] = found_positions[:, 2]
+            if ndim == 3:
+                peak_locations["z"][idx] = found_positions[:, 2]
 
         return peak_locations
 
