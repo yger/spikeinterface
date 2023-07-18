@@ -419,7 +419,7 @@ def plot_comparison_precision(benchmarks):
 
         dx = np.abs(all_x - real_x)
         dy = np.abs(all_y - real_y)
-        dz = np.abs(all_z - real_z)
+        dz = np.abs(all_z - np.abs(real_z))
         ax = axes[0, 0]
         ax.errorbar(np.arange(3), [dx.mean(), dy.mean(), dz.mean()], yerr=[dx.std(), dy.std(), dz.std()], label=bench.title)
     ax.legend()
