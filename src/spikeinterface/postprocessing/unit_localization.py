@@ -568,7 +568,8 @@ def enforce_decrease_shells_data(wf_data, maxchan, radial_parents, in_place=Fals
 
 
 def get_grid_convolution_templates_and_weights(
-    contact_locations, local_radius_um=50, upsampling_um=5, sigma_um=np.linspace(10, 50.0, 5), margin_um=50, depth_um=0,
+    contact_locations, local_radius_um=50, upsampling_um=5, sigma_um=np.linspace(10, 50.0, 5), margin_um=50, 
+    depth_um=None, depth_upsampling_um=10
 ):
     x_min, x_max = contact_locations[:, 0].min(), contact_locations[:, 0].max()
     y_min, y_max = contact_locations[:, 1].min(), contact_locations[:, 1].max()
@@ -582,7 +583,7 @@ def get_grid_convolution_templates_and_weights(
 
     import sklearn
 
-    if depth_um == 0:
+    if depth_um is None:
         all_x, all_y = np.meshgrid(
             np.arange(x_min, x_max + eps, upsampling_um), np.arange(y_min, y_max + eps, upsampling_um)
         )
@@ -592,19 +593,19 @@ def get_grid_convolution_templates_and_weights(
         template_positions[:, 1] = all_y.flatten()
 
     else:
-        z_min = 0
+        z_min = depth_upsampling_um / 10
         z_max = depth_um
 
         all_x, all_y, all_z = np.meshgrid(
             np.arange(x_min, x_max + eps, upsampling_um), np.arange(y_min, y_max + eps, upsampling_um),
-            np.arange(z_min, z_max + eps, upsampling_um)
+            np.arange(z_min, z_max + eps, depth_upsampling_um)
         )
         nb_templates = all_x.size
         template_positions = np.zeros((nb_templates, 3))
         template_positions[:, 0] = all_x.flatten()
         template_positions[:, 1] = all_y.flatten()
         template_positions[:, 2] = all_z.flatten()
-
+        sigma_um = [1]
         if len(contact_locations.shape) == 2:
             contact_locations = np.hstack((contact_locations, np.zeros((len(contact_locations), 1))))
     
@@ -613,11 +614,11 @@ def get_grid_convolution_templates_and_weights(
     # mask to get nearest template given a channel
     nearest_template_mask = dist < local_radius_um
     weights = np.zeros((len(sigma_um), len(contact_locations), nb_templates), dtype=np.float32)
-    if depth_um == 0:
+    if depth_um is None:
         for count, sigma in enumerate(sigma_um):
             weights[count] = np.exp(-(dist**2) / (2 * (sigma**2)))
     else:
-        weights[0] = 1/(1 + dist)
+        weights[0] = 1/(dist**2)
 
     # normalize
     with np.errstate(divide="ignore", invalid="ignore"):

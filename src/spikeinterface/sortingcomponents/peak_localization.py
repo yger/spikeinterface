@@ -340,8 +340,9 @@ class LocalizeGridConvolution(PipelineNode):
         margin_um=50.0,
         prototype=None,
         percentile=5.0,
-        sparsity_threshold=0.1,
-        depth_um=50
+        sparsity_threshold=0.01,
+        depth_um=50,
+        depth_upsampling_um=10
     ):
         PipelineNode.__init__(self, recording, return_output=return_output, parents=parents)
 
@@ -354,6 +355,7 @@ class LocalizeGridConvolution(PipelineNode):
         self.sparsity_threshold = sparsity_threshold
         assert 0 <= self.sparsity_threshold <= 1, "sparsity_threshold should be in [0, 1]"
         self.depth_um = depth_um
+        self.depth_upsampling_um = depth_upsampling_um
         contact_locations = recording.get_channel_locations()
         # Find waveform extractor in the parents
         waveform_extractor = find_parent_of_type(self.parents, WaveformsNode)
@@ -372,7 +374,8 @@ class LocalizeGridConvolution(PipelineNode):
         self.prototype = self.prototype[:, np.newaxis]
 
         self.template_positions, self.weights, self.nearest_template_mask = get_grid_convolution_templates_and_weights(
-            contact_locations, self.local_radius_um, self.upsampling_um, self.sigma_um, self.margin_um, self.depth_um
+            contact_locations, self.local_radius_um, self.upsampling_um, self.sigma_um, self.margin_um, self.depth_um, 
+            self.depth_upsampling_um
         )
 
         self.weights_sparsity_mask = self.weights > self.sparsity_threshold
@@ -387,7 +390,8 @@ class LocalizeGridConvolution(PipelineNode):
                 weights=self.weights,
                 nbefore=self.nbefore,
                 percentile=self.percentile,
-                depth_um=self.depth_um
+                depth_um=self.depth_um,
+                depth_upsampling_um=self.depth_upsampling_um
             )
         )
 
@@ -411,7 +415,7 @@ class LocalizeGridConvolution(PipelineNode):
             channel_mask = np.sum(self.weights_sparsity_mask[:, :, nearest_templates], axis=(0, 2)) > 0
 
             ndim = 2
-            if self.depth_um > 0:
+            if self.depth_um is not None:
                 ndim = 3
                 
             global_products = (
