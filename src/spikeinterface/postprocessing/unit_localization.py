@@ -607,16 +607,17 @@ def get_grid_convolution_templates_and_weights(
 
         if len(contact_locations.shape) == 2:
             contact_locations = np.hstack((contact_locations, np.zeros((len(contact_locations), 1))))
-
-        sigma_um = np.array([depth_um])
     
     dist = sklearn.metrics.pairwise_distances(contact_locations, template_positions)
     
     # mask to get nearest template given a channel
     nearest_template_mask = dist < local_radius_um
     weights = np.zeros((len(sigma_um), len(contact_locations), nb_templates), dtype=np.float32)
-    for count, sigma in enumerate(sigma_um):
-        weights[count] = np.exp(-(dist**2) / (2 * (sigma**2)))
+    if depth_um == 0:
+        for count, sigma in enumerate(sigma_um):
+            weights[count] = np.exp(-(dist**2) / (2 * (sigma**2)))
+    else:
+        weights[0] = 1/(1 + dist)
 
     # normalize
     with np.errstate(divide="ignore", invalid="ignore"):
