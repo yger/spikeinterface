@@ -40,6 +40,7 @@ class BenchmarkPeakLocalization:
             self.tmp_folder = os.path.join('.', ''.join(random.choices(string.ascii_uppercase + string.digits, k=8)))
 
         self.gt_positions = gt_positions
+        self.gt_positions[:, 2] = np.abs(self.gt_positions[:, 2])
 
     def __del__(self):
         import shutil
