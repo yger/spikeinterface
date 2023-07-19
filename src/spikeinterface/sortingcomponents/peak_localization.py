@@ -339,6 +339,10 @@ class LocalizeGridConvolution(PipelineNode):
         estimate the position
     sparsity_threshold: float (default 0.1)
         The sparsity threshold (in 0-1) below which weights should be considered as 0.
+    depth_um: float (default None)
+        If not None, the depth considered to extent the grid in 3 dimensions
+    depth_upsampling_um: float (default 10)
+        The spatial resolution of the grid in depth
     """
 
     def __init__(
@@ -354,7 +358,7 @@ class LocalizeGridConvolution(PipelineNode):
         prototype=None,
         percentile=5.0,
         sparsity_threshold=0.01,
-        depth_um=50,
+        depth_um=100,
         depth_upsampling_um=10
     ):
         PipelineNode.__init__(self, recording, return_output=return_output, parents=parents)
