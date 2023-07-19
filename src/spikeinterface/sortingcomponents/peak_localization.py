@@ -12,7 +12,7 @@ from .peak_pipeline import (
 )
 from .tools import make_multi_method_doc
 
-from spikeinterface.core import get_channel_distances
+from spikeinterface.core import get_channel_distances, get_noise_levels
 
 from ..postprocessing.unit_localization import (
     dtype_localize_by_method,
@@ -175,6 +175,7 @@ class LocalizeCenterOfMass(LocalizeBase):
             raise TypeError(f"{self.name} should have a single {WaveformsNode.__name__} in its parents")
 
         self.nbefore = waveform_extractor.nbefore
+        self.nsamples = waveform_extractor.nbefore + waveform_extractor.nafter
         self._kwargs.update(dict(feature=feature))
 
     def get_dtype(self):
@@ -188,14 +189,16 @@ class LocalizeCenterOfMass(LocalizeBase):
             (chan_inds,) = np.nonzero(self.neighbours_mask[main_chan])
             local_contact_locations = self.contact_locations[chan_inds, :]
 
+            wf = waveforms[idx][:, :, chan_inds]
+
             if self.feature == "ptp":
-                wf_data = (waveforms[idx][:, :, chan_inds]).ptp(axis=1)
+                wf_data = wf.ptp(axis=1)
             elif self.feature == "mean":
-                wf_data = (waveforms[idx][:, :, chan_inds]).mean(axis=1)
+                wf_data = wf.mean(axis=1)
             elif self.feature == "energy":
-                wf_data = np.linalg.norm(waveforms[idx][:, :, chan_inds], axis=1)
+                wf_data = np.linalg.norm(wf, axis=1)
             elif self.feature == "peak_voltage":
-                wf_data = waveforms[idx][:, self.nbefore, chan_inds]
+                wf_data = wf[:, self.nbefore]
 
             coms = np.dot(wf_data, local_contact_locations) / (np.sum(wf_data, axis=1)[:, np.newaxis])
             peak_locations["x"][idx] = coms[:, 0]
@@ -254,6 +257,7 @@ class LocalizeMonopolarTriangulation(PipelineNode):
             raise TypeError(f"{self.name} should have a single {WaveformsNode.__name__} in its parents")
 
         self.nbefore = waveform_extractor.nbefore
+        self.nsamples = waveform_extractor.nbefore + waveform_extractor.nafter
         if enforce_decrease:
             self.enforce_decrease_radial_parents = make_radial_order_parents(
                 self.contact_locations, self.neighbours_mask
@@ -326,6 +330,10 @@ class LocalizeGridConvolution(PipelineNode):
         estimate the position
     sparsity_threshold: float (default 0.1)
         The sparsity threshold (in 0-1) below which weights should be considered as 0.
+    depth_um: float (default None)
+        If not None, the depth considered to extent the grid in 3 dimensions
+    depth_upsampling_um: float (default 10)
+        The spatial resolution of the grid in depth
     """
 
     def __init__(
@@ -341,7 +349,7 @@ class LocalizeGridConvolution(PipelineNode):
         prototype=None,
         percentile=5.0,
         sparsity_threshold=0.01,
-        depth_um=50,
+        depth_um=100,
         depth_upsampling_um=10
     ):
         PipelineNode.__init__(self, recording, return_output=return_output, parents=parents)
