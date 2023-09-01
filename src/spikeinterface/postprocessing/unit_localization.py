@@ -257,7 +257,7 @@ def compute_monopolar_triangulation(
         Return or not the alpha value
     enforce_decrease : bool (default False)
         Enforce spatial decreasingness for PTP vectors
-    feature: string in ['ptp', 'energy', 'peak_voltage', 'noise_free_energy']
+    feature: string in ['ptp', 'energy', 'peak_voltage']
         The available features to consider for estimating the position via
         monopolar triangulation are peak-to-peak amplitudes ('ptp', default),
         energy ('energy', as L2 norm) or voltages at the center of the waveform
@@ -271,14 +271,11 @@ def compute_monopolar_triangulation(
     """
     assert optimizer in ("least_square", "minimize_with_log_penality")
 
-    assert feature in ["ptp", "energy", "peak_voltage", "noise_free_energy"], f"{feature} is not a valid feature"
+    assert feature in ["ptp", "energy", "peak_voltage"], f"{feature} is not a valid feature"
     unit_ids = waveform_extractor.sorting.unit_ids
 
     contact_locations = waveform_extractor.get_channel_locations()
     nbefore = waveform_extractor.nbefore
-
-    if feature == 'noise_free_energy':
-        noise_levels = si.get_noise_levels(waveform_extractor.recording)
 
     sparsity = compute_sparsity(waveform_extractor, method="radius", radius_um=radius_um)
     templates = waveform_extractor.get_all_templates(mode="average")
@@ -304,8 +301,6 @@ def compute_monopolar_triangulation(
             wf_data = np.linalg.norm(wf, axis=0)
         elif feature == "peak_voltage":
             wf_data = np.abs(wf[nbefore])
-        elif feature == "noise_free_energy":
-            wf_data = (np.linalg.norm(wf, axis=0)/(np.sqrt(waveform_extractor.nsamples)*noise_levels[chan_inds]))**4
 
         # if enforce_decrease:
         #    enforce_decrease_shells_data(
@@ -332,7 +327,7 @@ def compute_center_of_mass(waveform_extractor, peak_sign="neg", radius_um=75, fe
         Sign of the template to compute best channels ('neg', 'pos', 'both')
     radius_um: float
         Radius to consider in order to estimate the COM
-    feature: str ['ptp', 'mean', 'energy', 'peak_voltage', 'noise_free_energy']
+    feature: str ['ptp', 'mean', 'energy', 'peak_voltage']
         Feature to consider for computation. Default is 'ptp'
 
     Returns
@@ -344,10 +339,7 @@ def compute_center_of_mass(waveform_extractor, peak_sign="neg", radius_um=75, fe
     recording = waveform_extractor.recording
     contact_locations = recording.get_channel_locations()
 
-    assert feature in ["ptp", "mean", "energy", "peak_voltage", "noise_free_energy"], f"{feature} is not a valid feature"
-
-    if feature == 'noise_free_energy':
-        noise_levels = si.get_noise_levels(waveform_extractor.recording)
+    assert feature in ["ptp", "mean", "energy", "peak_voltage"], f"{feature} is not a valid feature"
 
     sparsity = compute_sparsity(waveform_extractor, peak_sign=peak_sign, method="radius", radius_um=radius_um)
     templates = waveform_extractor.get_all_templates(mode="average")
@@ -367,8 +359,6 @@ def compute_center_of_mass(waveform_extractor, peak_sign="neg", radius_um=75, fe
             wf_data = np.linalg.norm(wf, axis=0)
         elif feature == "peak_voltage":
             wf_data = wf[waveform_extractor.nbefore]
-        elif feature == "noise_free_energy":
-            wf_data = (np.linalg.norm(wf, axis=0)/(np.sqrt(waveform_extractor.nsamples)*noise_levels[chan_inds]))**4
 
         # center of mass
         com = np.sum(wf_data[:, np.newaxis] * local_contact_locations, axis=0) / np.sum(wf_data)
@@ -381,7 +371,7 @@ def compute_center_of_mass(waveform_extractor, peak_sign="neg", radius_um=75, fe
 def compute_grid_convolution(
     waveform_extractor,
     peak_sign="neg",
-    radius_um=40.0,
+    radius_um=100.0,
     upsampling_um=5,
     sigma_um=np.linspace(5.0, 25.0, 5),
     sigma_ms=0.25,
@@ -389,8 +379,8 @@ def compute_grid_convolution(
     prototype=None,
     percentile=10,
     sparsity_threshold=0.01,
-    depth_um=100,
-    depth_upsampling_um=10
+    mode='3d',
+    z_upsampling_um=5
 ):
     """
     Estimate the positions of the templates from a large grid of fake templates
@@ -418,10 +408,10 @@ def compute_grid_convolution(
         estimate the position
     sparsity_threshold: float (default 0.01)
         The sparsity threshold (in 0-1) below which weights should be considered as 0.
-    depth_um: float (default None)
-        If not None, the depth considered to extent the grid in 3 dimensions
-    depth_upsampling_um: float (default 10)
-        The spatial resolution of the grid in depth
+    mode: string (default '2d')
+        Should be in ['2d', '3d']. Decide if the z should also be interpolated
+    z_upsampling_um: float (default 5)
+        The spatial resolution of the grid along the z axis
     Returns
     -------
     unit_location: np.array
@@ -443,19 +433,19 @@ def compute_grid_convolution(
     prototype = prototype[:, np.newaxis]
 
     template_positions, weights, nearest_template_mask = get_grid_convolution_templates_and_weights(
-        contact_locations, radius_um, upsampling_um, sigma_um, margin_um, depth_um, depth_upsampling_um
+        contact_locations, radius_um, upsampling_um, sigma_um, margin_um, mode, z_upsampling_um
     )
 
     templates = waveform_extractor.get_all_templates(mode="average")
-
+    
     peak_channels = get_template_extremum_channel(waveform_extractor, peak_sign, outputs="index")
     unit_ids = waveform_extractor.sorting.unit_ids
 
     weights_sparsity_mask = weights > sparsity_threshold
 
-    if depth_um is not None:
+    if mode =='3d':
         ndim = 3
-    else:
+    elif mode == '2d':
         ndim = 2
 
     unit_location = np.zeros((unit_ids.size, ndim), dtype="float64")
@@ -475,6 +465,13 @@ def compute_grid_convolution(
             dot_products[count, :] = np.dot(global_products, w)
 
         dot_products = np.maximum(0, dot_products)
+
+        #np.save(f'weights_{unit_id}', weights[0, :, :][channel_mask, :][:, nearest_templates])
+        #np.save(f'dot_products_{unit_id}', dot_products)
+        #np.save(f'positions_{unit_id}', template_positions[nearest_templates])
+        #np.save(f'nearest_{main_chan}', nearest_templates)
+        #np.save(f'channel_mask_{main_chan}', channel_mask)
+
         if percentile < 100:
             thresholds = np.percentile(dot_products, percentile, axis=0)
             dot_products[dot_products < thresholds[np.newaxis, :]] = 0
@@ -587,9 +584,9 @@ def enforce_decrease_shells_data(wf_data, maxchan, radial_parents, in_place=Fals
 
 
 def get_grid_convolution_templates_and_weights(
-    contact_locations, local_radius_um=50, upsampling_um=5, sigma_um=np.linspace(10, 50.0, 5), margin_um=50, 
-    depth_um=None, depth_upsampling_um=10
+    contact_locations, local_radius_um=50, upsampling_um=5, sigma_um=np.linspace(10, 50.0, 5), margin_um=50
 ):
+
     x_min, x_max = contact_locations[:, 0].min(), contact_locations[:, 0].max()
     y_min, y_max = contact_locations[:, 1].min(), contact_locations[:, 1].max()
 
@@ -602,50 +599,21 @@ def get_grid_convolution_templates_and_weights(
     eps = upsampling_um / 10
 
     import sklearn
-
-    if depth_um is None:
-        all_x, all_y = np.meshgrid(
-            np.arange(x_min, x_max + eps, upsampling_um), np.arange(y_min, y_max + eps, upsampling_um)
-        )
-        nb_templates = all_x.size
-        template_positions = np.zeros((nb_templates, 2))
-        template_positions[:, 0] = all_x.flatten()
-        template_positions[:, 1] = all_y.flatten()
-
-    else:
-        z_min = depth_upsampling_um / 10
-        z_max = depth_um
-        z_eps = depth_upsampling_um / 10
-
-        all_x, all_y, all_z = np.meshgrid(
-            np.arange(x_min, x_max + eps, upsampling_um), np.arange(y_min, y_max + eps, upsampling_um),
-            np.arange(z_min, z_max + z_eps, depth_upsampling_um)
-        )
-        nb_templates = all_x.size
-        template_positions = np.zeros((nb_templates, 3))
-        template_positions[:, 0] = all_x.flatten()
-        template_positions[:, 1] = all_y.flatten()
-        template_positions[:, 2] = all_z.flatten()
-
-        dist_2d = sklearn.metrics.pairwise_distances(contact_locations, template_positions[:,:2])
-
-        if len(contact_locations.shape) == 2:
-            contact_locations = np.hstack((contact_locations, np.zeros((len(contact_locations), 1))))
     
+    all_x, all_y = np.meshgrid(
+        np.arange(x_min, x_max + eps, upsampling_um), np.arange(y_min, y_max + eps, upsampling_um)
+    )
+    nb_templates = all_x.size
+    template_positions = np.zeros((nb_templates, 2))
+    template_positions[:, 0] = all_x.flatten()
+    template_positions[:, 1] = all_y.flatten()
+
     dist = sklearn.metrics.pairwise_distances(contact_locations, template_positions)
-    
-    # mask to get nearest template given a channel
-    if depth_um is None:
-        nearest_template_mask = dist < local_radius_um
-    else:
-        nearest_template_mask = dist_2d < local_radius_um
+    nearest_template_mask = dist < radius_um
 
-    weights = np.zeros((len(sigma_um), len(contact_locations), nb_templates), dtype=np.float32)
-    if depth_um is None:
-        for count, sigma in enumerate(sigma_um):
-            weights[count] = np.exp(-(dist**2) / (2 * (sigma**2)))
-    else:
-        weights[0] = 1/(dist**2)
+    weights = np.zeros((len(sigma_um), len( ), nb_templates), dtype=np.float32)
+    for count, sigma in enumerate(sigma_um):
+        weights[count] = np.exp(-(dist**2) / (2 * (sigma**2)))
 
     # normalize
     with np.errstate(divide="ignore", invalid="ignore"):

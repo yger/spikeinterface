@@ -479,6 +479,7 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto'):
     plt.rc('ytick', labelsize=12)
 
     import spikeinterface.full as si
+<<<<<<< HEAD
     unit_id = benchmark.waveforms.sorting.unit_ids[cell_ind]
 
     mask = benchmark.waveforms.sorting.get_all_spike_trains()[0][1] == unit_id
@@ -487,6 +488,37 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto'):
     waveforms = extract_waveforms(benchmark.recording, benchmark.gt_sorting, None, mode='memory',
                                    ms_before=2.5, ms_after=2.5, max_spikes_per_unit=100, return_scaled=False,
                                    **benchmark.job_kwargs, sparse=True, method='radius', radius_um=100)
+=======
+
+    sorting = benchmark.waveforms.sorting
+    unit_id = sorting.unit_ids[cell_ind]
+
+    spikes_seg0 = sorting.to_spike_vector(concatenated=False)[0]
+    mask = spikes_seg0["unit_index"] == cell_ind
+    times = spikes_seg0[mask] / sorting.get_sampling_frequency()
+
+    print(benchmark.recording)
+    # si.plot_traces(benchmark.recording, mode='line', time_range=(times[0]-0.01, times[0] + 0.1), channel_ids=benchmark.recording.channel_ids[:20], ax=axs[0, 1])
+    # axs[0, 1].set_ylabel('Neurons')
+
+    # si.plot_spikes_on_traces(benchmark.waveforms, unit_ids=[unit_id], time_range=(times[0]-0.01, times[0] + 0.1), unit_colors={unit_id : 'r'}, ax=axs[0, 1],
+    #    channel_ids=benchmark.recording.channel_ids[120:180], )
+
+    waveforms = extract_waveforms(
+        benchmark.recording,
+        benchmark.gt_sorting,
+        None,
+        mode="memory",
+        ms_before=2.5,
+        ms_after=2.5,
+        max_spikes_per_unit=100,
+        return_scaled=False,
+        **benchmark.job_kwargs,
+        sparse=True,
+        method="radius",
+        radius_um=100,
+    )
+>>>>>>> 23aef27cf5ee8abe9149f8c760d73176dff101ca
 
     valid_channels = waveforms.sparsity.mask[cell_ind]
     unit_id = waveforms.sorting.unit_ids[cell_ind]
