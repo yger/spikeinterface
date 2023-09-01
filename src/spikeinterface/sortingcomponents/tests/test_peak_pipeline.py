@@ -9,12 +9,11 @@ from spikeinterface import download_dataset, BaseSorting
 from spikeinterface.extractors import MEArecRecordingExtractor
 
 from spikeinterface.sortingcomponents.peak_detection import detect_peaks
-from spikeinterface.sortingcomponents.peak_pipeline import (
+from spikeinterface.core.node_pipeline import (
     run_node_pipeline,
     PeakRetriever,
     PipelineNode,
     ExtractDenseWaveforms,
-    ExtractSparseWaveforms,
 )
 
 
