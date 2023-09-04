@@ -335,10 +335,6 @@ class LocalizeGridConvolution(PipelineNode):
         estimate the position
     sparsity_threshold: float (default 0.1)
         The sparsity threshold (in 0-1) below which weights should be considered as 0.
-    mode: string (default '2d')
-        Should be in ['2d', '3d']. Decide if the z should also be interpolated
-    z_upsampling_um: float (default 5)
-        The spatial resolution of the grid along the z axis
     """
 
     def __init__(
@@ -346,21 +342,17 @@ class LocalizeGridConvolution(PipelineNode):
         recording,
         return_output=True,
         parents=["extract_waveforms"],
-        radius_um=40.0,
+        radius_um=50.0,
         upsampling_um=5.0,
         sigma_um=np.linspace(5.0, 25.0, 5),
         sigma_ms=0.25,
         margin_um=50.0,
         prototype=None,
-        percentile=5.0,
+        percentile=10.0,
         sparsity_threshold=0.01,
-        mode='3d',
-        z_upsampling_um=5,
-        z_max_um=100, 
     ):
         PipelineNode.__init__(self, recording, return_output=return_output, parents=parents)
 
-        assert mode in ['2d', '3d'], "mode should be in ['2d', '3d']"
         self.radius_um = radius_um
         self.sigma_um = sigma_um
         self.margin_um = margin_um
@@ -369,9 +361,7 @@ class LocalizeGridConvolution(PipelineNode):
         assert 0 <= self.percentile <= 100, "Percentile should be in [0, 100]"
         self.sparsity_threshold = sparsity_threshold
         assert 0 <= self.sparsity_threshold <= 1, "sparsity_threshold should be in [0, 1]"
-        self.mode = mode
-        self.z_max_um = z_max_um
-        self.z_upsampling_um = z_upsampling_um
+
         contact_locations = recording.get_channel_locations()
         # Find waveform extractor in the parents
         waveform_extractor = find_parent_of_type(self.parents, WaveformsNode)
@@ -389,16 +379,10 @@ class LocalizeGridConvolution(PipelineNode):
             self.prototype = prototype
         self.prototype = self.prototype[:, np.newaxis]
 
-        self.template_positions, self.weights, self.nearest_template_mask, self.all_z = get_grid_convolution_templates_and_weights(
+        self.template_positions, self.weights, self.nearest_template_mask = get_grid_convolution_templates_and_weights(
             contact_locations, self.radius_um, self.upsampling_um, self.sigma_um, self.margin_um
         )
-        
-        if self.mode == '3d':
-            eps = upsampling_um / 10
-            self.all_z = np.arange(0, self.z_max_um + eps, self.z_upsampling_um)
-        elif self.mode == '2d':
-            self.all_z = None
-    
+
         self.weights_sparsity_mask = self.weights > self.sparsity_threshold
 
         self._dtype = np.dtype(dtype_localize_by_method["grid_convolution"])
@@ -411,10 +395,6 @@ class LocalizeGridConvolution(PipelineNode):
                 weights=self.weights,
                 nbefore=self.nbefore,
                 percentile=self.percentile,
-                mode=self.mode,
-                all_z=self.all_z,
-                z_max_um=self.z_max_um,
-                z_upsampling_um=self.z_upsampling_um
             )
         )
 
@@ -437,17 +417,12 @@ class LocalizeGridConvolution(PipelineNode):
             num_templates = np.sum(nearest_templates)
             channel_mask = np.sum(self.weights_sparsity_mask[:, :, nearest_templates], axis=(0, 2)) > 0
 
-            if self.mode == '3d':
-                ndim = 3
-            elif self.mode == '2d':
-                ndim = 2
-                
             global_products = (
                 waveforms[idx, :, :][:, :, channel_mask] / (amplitudes[:, np.newaxis, np.newaxis]) * self.prototype
             ).sum(axis=1)
 
             dot_products = np.zeros((self.weights.shape[0], num_spikes, num_templates), dtype=np.float32)
-
+            
             for count in range(self.weights.shape[0]):
                 w = self.weights[count, :, :][channel_mask, :][:, nearest_templates]
                 dot_products[count, :, :] = np.dot(global_products, w)
@@ -456,46 +431,16 @@ class LocalizeGridConvolution(PipelineNode):
                 thresholds = np.percentile(dot_products, self.percentile, axis=(0, 2))
                 dot_products[dot_products < thresholds[np.newaxis, :, np.newaxis]] = 0
 
-            scalar_products = np.zeros((num_spikes, num_templates), dtype=np.float32)
             
-            found_positions = np.zeros((num_spikes, ndim), dtype=np.float32)
-
+            scalar_products = np.zeros((num_spikes, num_templates), dtype=np.float32)
+            found_positions = np.zeros((num_spikes, 2), dtype=np.float32)
             for count in range(self.weights.shape[0]):
                 scalar_products += dot_products[count, :, :]
                 found_positions += np.dot(dot_products[count, :, :], self.template_positions[nearest_templates, :])
-            
             found_positions /= scalar_products.sum(1)[:, np.newaxis]
 
             peak_locations["x"][idx] = found_positions[:, 0]
             peak_locations["y"][idx] = found_positions[:, 1]
-
-            # If 3d mode, we need to estimate the z also
-            if ndim == 3:
-                # We find first the nearest fake templates
-                x, y = self.template_positions[:, 0], self.template_positions[:, 1]
-                norms = np.sqrt((peak_locations["x"][idx][:, np.newaxis] - x)**2 + (peak_locations["y"][idx][:, np.newaxis] - y)**2)
-                best_templates = np.argmin(norms, axis=1)
-
-                valid_templates = np.zeros(len(self.template_positions), dtype=bool)
-                for count, best in enumerate(self.template_positions[best_templates]):
-                    mask = (self.template_positions[:, 0] == best[0])*(self.template_positions[:, 1] == best[1])
-                    valid_templates[mask] = True
-
-                #num_templates = np.sum(valid_templates)
-                #dot_products = np.zeros((self.weights.shape[0], num_spikes, num_templates), dtype=np.float32)
-                #for count in range(self.weights.shape[0]):
-                #    w = self.weights[0, :, :][channel_mask, :][:, valid_templates]
-                #    dot_products[count, :, :] = np.dot(global_products, w)
-                #
-                #dot_products = np.maximum(0, dot_products)
-                #found_positions = np.zeros(num_spikes, dtype=np.float32)
-                #scalar_products = np.zeros((num_spikes, num_templates), dtype=np.float32)
-                #
-                #for count in range(self.weights.shape[0]):
-                #    scalar_products += dot_products[count, :, :]
-                #    found_positions += (dot_products[count, :, :] * self.template_positions[valid_templates, 2]).sum(1)
- 
-                peak_locations["z"][idx] = found_positions / scalar_products.sum(1)
 
         return peak_locations
 

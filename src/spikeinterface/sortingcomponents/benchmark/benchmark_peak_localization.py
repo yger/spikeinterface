@@ -13,9 +13,9 @@ from spikeinterface.sortingcomponents.benchmark.benchmark_tools import Benchmark
 from spikeinterface.core.template_tools import get_template_extremum_channel
 
 from spikeinterface.sortingcomponents.waveforms.savgol_denoiser import SavGolDenoiser
-from spikeinterface.sortingcomponents.peak_pipeline import (
+from spikeinterface.core.node_pipeline import (
     ExtractDenseWaveforms,
-    run_peak_pipeline,
+    run_node_pipeline,
 )
 
 import time
@@ -63,9 +63,6 @@ class BenchmarkPeakLocalization:
             if key in unit_params:
                unit_params.pop(key)
 
-        if 'local_radius_um' in unit_params:
-            unit_params['radius_um'] = unit_params.pop('local_radius_um')
-
         if method == 'center_of_mass':
             self.template_positions = compute_center_of_mass(self.waveforms, **unit_params)
         elif method == 'monopolar_triangulation':
@@ -73,7 +70,8 @@ class BenchmarkPeakLocalization:
         elif method == 'grid_convolution':
             self.template_positions = compute_grid_convolution(self.waveforms, **unit_params)
 
-        self.spike_positions = compute_spike_locations(self.waveforms, method=method, method_kwargs=method_kwargs, **self.job_kwargs, outputs='by_unit')
+        self.spike_positions = compute_spike_locations(self.waveforms, method=method, method_kwargs=method_kwargs, 
+                                                       channel_from_template=False, **self.job_kwargs, outputs='by_unit')
 
         self.raw_templates_results = {}
 
@@ -479,16 +477,6 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto'):
     plt.rc('ytick', labelsize=12)
 
     import spikeinterface.full as si
-<<<<<<< HEAD
-    unit_id = benchmark.waveforms.sorting.unit_ids[cell_ind]
-
-    mask = benchmark.waveforms.sorting.get_all_spike_trains()[0][1] == unit_id
-    times = benchmark.waveforms.sorting.get_all_spike_trains()[0][0][mask]/benchmark.recording.get_sampling_frequency()
-
-    waveforms = extract_waveforms(benchmark.recording, benchmark.gt_sorting, None, mode='memory',
-                                   ms_before=2.5, ms_after=2.5, max_spikes_per_unit=100, return_scaled=False,
-                                   **benchmark.job_kwargs, sparse=True, method='radius', radius_um=100)
-=======
 
     sorting = benchmark.waveforms.sorting
     unit_id = sorting.unit_ids[cell_ind]
@@ -518,7 +506,7 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto'):
         method="radius",
         radius_um=100,
     )
->>>>>>> 23aef27cf5ee8abe9149f8c760d73176dff101ca
+
 
     valid_channels = waveforms.sparsity.mask[cell_ind]
     unit_id = waveforms.sorting.unit_ids[cell_ind]

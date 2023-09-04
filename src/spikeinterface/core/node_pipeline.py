@@ -217,7 +217,7 @@ class SpikeRetriever(PeakSource):
                     local_peaks[i]["channel_index"] = chans[np.argmax(sparse_wfs)]
                 elif self.peak_sign == "both":
                     local_peaks[i]["channel_index"] = chans[np.argmax(np.abs(sparse_wfs))]
-
+                local_peaks["amplitude"][i] = traces[peak["sample_index"], local_peaks[i]["channel_index"]]
         # TODO: "amplitude" ???
 
         return (local_peaks,)
@@ -229,7 +229,7 @@ def sorting_to_peak(sorting, extremum_channel_inds):
     peaks["sample_index"] = spikes["sample_index"]
     extremum_channel_inds_ = np.array([extremum_channel_inds[unit_id] for unit_id in sorting.unit_ids])
     peaks["channel_index"] = extremum_channel_inds_[spikes["unit_index"]]
-    peaks["amplitude"] = 0.0
+    peaks["amplitude"] = np.ones(len(spikes), dtype=np.float32)
     peaks["segment_index"] = spikes["segment_index"]
     return peaks
 

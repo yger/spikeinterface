@@ -33,7 +33,6 @@ class SpikeLocationsCalculator(BaseWaveformExtractorExtension):
             ms_before=ms_before, ms_after=ms_after, channel_from_template=channel_from_template, method=method
         )
         params.update(**method_kwargs)
-        print(params)
         return params
 
     def _select_extension_data(self, unit_ids):
