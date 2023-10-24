@@ -214,7 +214,9 @@ class SpikeRetriever(PeakSource):
                     local_peaks[i]["channel_index"] = chans[np.argmax(np.abs(sparse_wfs))]
                 local_peaks["amplitude"][i] = traces[peak["sample_index"], local_peaks[i]["channel_index"]]
 
-        # TODO: "amplitude" ???
+        # handle amplitude
+        for i, peak in enumerate(local_peaks):
+            local_peaks["amplitude"][i] = traces[local_peaks["sample_index"], local_peaks[i]["channel_index"]]
 
         return (local_peaks,)
 
