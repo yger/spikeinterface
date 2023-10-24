@@ -71,7 +71,8 @@ class BenchmarkPeakLocalization:
             self.template_positions = compute_grid_convolution(self.waveforms, **unit_params)
 
         self.spike_positions = compute_spike_locations(self.waveforms, method=method, method_kwargs=method_kwargs, 
-                                                       channel_from_template=False, **self.job_kwargs, outputs='by_unit')
+                                                        spike_retriver_kwargs={'channel_from_template' : False},
+                                                       **self.job_kwargs, outputs='by_unit')
 
         self.raw_templates_results = {}
 
