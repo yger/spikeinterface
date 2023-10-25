@@ -484,7 +484,7 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto'):
 
     spikes_seg0 = sorting.to_spike_vector(concatenated=False)[0]
     mask = spikes_seg0["unit_index"] == cell_ind
-    times = spikes_seg0[mask] / sorting.get_sampling_frequency()
+    times = spikes_seg0[mask]['sample_index'] / sorting.get_sampling_frequency()
 
     print(benchmark.recording)
     # si.plot_traces(benchmark.recording, mode='line', time_range=(times[0]-0.01, times[0] + 0.1), channel_ids=benchmark.recording.channel_ids[:20], ax=axs[0, 1])
