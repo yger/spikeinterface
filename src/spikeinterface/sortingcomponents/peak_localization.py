@@ -344,12 +344,13 @@ class LocalizeGridConvolution(PipelineNode):
         parents=["extract_waveforms"],
         radius_um=50.0,
         upsampling_um=5.0,
-        sigma_um=np.linspace(5.0, 25.0, 5),
+        sigma_um=np.linspace(10.0, 50.0, 5),
         sigma_ms=0.25,
         margin_um=50.0,
         prototype=None,
         percentile=10.0,
         sparsity_threshold=0.01,
+        mode='2d'
     ):
         PipelineNode.__init__(self, recording, return_output=return_output, parents=parents)
 
@@ -358,10 +359,11 @@ class LocalizeGridConvolution(PipelineNode):
         self.margin_um = margin_um
         self.upsampling_um = upsampling_um
         self.percentile = 100 - percentile
+        self.mode = mode
         assert 0 <= self.percentile <= 100, "Percentile should be in [0, 100]"
         self.sparsity_threshold = sparsity_threshold
         assert 0 <= self.sparsity_threshold <= 1, "sparsity_threshold should be in [0, 1]"
-
+        assert self.mode in ['2d', '3d'], "mode should be in ['2d', '3d']"
         contact_locations = recording.get_channel_locations()
         # Find waveform extractor in the parents
         waveform_extractor = find_parent_of_type(self.parents, WaveformsNode)
@@ -394,6 +396,7 @@ class LocalizeGridConvolution(PipelineNode):
                 nearest_template_mask=self.nearest_template_mask,
                 weights=self.weights,
                 nbefore=self.nbefore,
+                mode=self.mode,
                 percentile=self.percentile,
             )
         )
@@ -404,6 +407,12 @@ class LocalizeGridConvolution(PipelineNode):
     @np.errstate(divide="ignore", invalid="ignore")
     def compute(self, traces, peaks, waveforms):
         peak_locations = np.zeros(peaks.size, dtype=self._dtype)
+
+        if self.mode == '3d':
+            ndim = 3
+            import sklearn
+        elif self.mode == '2d':
+            ndim = 2
 
         for main_chan in np.unique(peaks["channel_index"]):
             (idx,) = np.nonzero(peaks["channel_index"] == main_chan)
@@ -426,6 +435,7 @@ class LocalizeGridConvolution(PipelineNode):
             for count in range(self.weights.shape[0]):
                 w = self.weights[count, :, :][channel_mask, :][:, nearest_templates]
                 dot_products[count, :, :] = np.dot(global_products, w)
+
             dot_products = np.maximum(0, dot_products)
             if self.percentile < 100:
                 thresholds = np.percentile(dot_products, self.percentile, axis=(0, 2))
@@ -433,14 +443,23 @@ class LocalizeGridConvolution(PipelineNode):
 
             
             scalar_products = np.zeros((num_spikes, num_templates), dtype=np.float32)
-            found_positions = np.zeros((num_spikes, 2), dtype=np.float32)
+            found_positions = np.zeros((num_spikes, ndim), dtype=np.float32)
             for count in range(self.weights.shape[0]):
                 scalar_products += dot_products[count, :, :]
-                found_positions += np.dot(dot_products[count, :, :], self.template_positions[nearest_templates, :])
+                found_positions[:, :2] += np.dot(dot_products[count, :, :], self.template_positions[nearest_templates, :])
+            
             found_positions /= scalar_products.sum(1)[:, np.newaxis]
-
             peak_locations["x"][idx] = found_positions[:, 0]
             peak_locations["y"][idx] = found_positions[:, 1]
+
+            if self.mode == '3d':
+                d = sklearn.metrics.pairwise_distances(self.template_positions, np.nan_to_num(found_positions[:, :2]))
+                best_templates = np.argmin(d, axis=0)
+                for i, t in enumerate(best_templates):
+                    w = self.weights[:, :, t]
+                    dot_products = np.dot(w[:, channel_mask], global_products[i])/np.sum(w, axis=1)
+                    found_positions[i, 2] = (dot_products * self.sigma_um).sum() / dot_products.sum()
+                peak_locations["z"][idx] = found_positions[:, 2]
 
         return peak_locations
 
