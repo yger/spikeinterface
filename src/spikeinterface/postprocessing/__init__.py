@@ -10,7 +10,6 @@ from .template_tools import (
 from .template_metrics import (
     TemplateMetricsCalculator,
     compute_template_metrics,
-    calculate_template_metrics,
     get_template_metric_names,
 )
 
@@ -39,7 +38,6 @@ from .correlograms import (
 
 from .isi import (
     ISIHistogramsCalculator,
-    compute_isi_histograms_from_spiketrain,
     compute_isi_histograms,
     compute_isi_histograms_numpy,
     compute_isi_histograms_numba,
