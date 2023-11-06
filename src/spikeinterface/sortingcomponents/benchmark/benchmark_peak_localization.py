@@ -71,7 +71,7 @@ class BenchmarkPeakLocalization:
             self.template_positions = compute_grid_convolution(self.waveforms, **unit_params)
 
         self.spike_positions = compute_spike_locations(self.waveforms, method=method, method_kwargs=method_kwargs, 
-                                                        spike_retriver_kwargs={'channel_from_template' : False},
+                                                       spike_retriver_kwargs={'channel_from_template' : False}, 
                                                        **self.job_kwargs, outputs='by_unit')
 
         self.raw_templates_results = {}
@@ -457,7 +457,7 @@ def plot_comparison_precision(benchmarks):
     ax.legend()
 
 
-def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto'):
+def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto', examples=[0, 3]):
 
     benchmark = benchmarks[0]
 
@@ -550,23 +550,27 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto'):
 
     probeinterface.plotting.plot_probe(probe, ax=axs[0, 2])
     
-    data = benchmark.spike_positions[0][unit_id]
+    benchmark_1 = benchmarks[examples[0]]
+
+    data = benchmark_1.spike_positions[0][unit_id]
     axs[0, 2].scatter(data['x'], data['y'], c='k', alpha=0.25)
-    axs[0, 2].scatter(benchmark.template_positions[cell_ind, 0], benchmark.template_positions[cell_ind, 1], c=colors[benchmark.title], s=100)
-    axs[0, 2].scatter(benchmark.gt_positions[cell_ind, 0], benchmark.gt_positions[cell_ind, 1], c='r', s=100)
+    axs[0, 2].scatter(benchmark_1.template_positions[cell_ind, 0], benchmark_1.template_positions[cell_ind, 1], c=colors[benchmark_1.title], s=100)
+    axs[0, 2].scatter(benchmark_1.gt_positions[cell_ind, 0], benchmark_1.gt_positions[cell_ind, 1], c='r', s=100)
     axs[0, 2].set_xlim(-50, 50)
     axs[0, 2].set_ylim(-50, 50)
     axs[0, 2].set_xticks([])
     axs[0, 2].set_xlabel('')
-    axs[0, 2].set_title(benchmark.title)
+    axs[0, 2].set_title(benchmark_1.title)
 
     probeinterface.plotting.plot_probe(probe, ax=axs[1, 2])
     
-    data = benchmarks[1].spike_positions[0][unit_id]
+    benchmark_2 = benchmarks[examples[1]]
+
+    data = benchmark_2.spike_positions[0][unit_id]
     axs[1, 2].scatter(data['x'], data['y'], c='k', alpha=0.25)
-    axs[1, 2].scatter(benchmarks[1].template_positions[cell_ind, 0], benchmark.template_positions[cell_ind, 1], c=colors[benchmarks[1].title], s=100)
-    axs[1, 2].scatter(benchmarks[1].gt_positions[cell_ind, 0], benchmarks[1].gt_positions[cell_ind, 1], c='r', s=100)
+    axs[1, 2].scatter(benchmark_2.template_positions[cell_ind, 0], benchmark_2.template_positions[cell_ind, 1], c=colors[benchmark_2.title], s=100)
+    axs[1, 2].scatter(benchmark_2.gt_positions[cell_ind, 0], benchmark_2.gt_positions[cell_ind, 1], c='r', s=100)
     axs[1, 2].set_xlim(-50, 50)
     axs[1, 2].set_ylim(-50, 50)
-    axs[1, 2].set_title(benchmarks[1].title)
+    axs[1, 2].set_title(benchmark_2.title)
 
