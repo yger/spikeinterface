@@ -322,7 +322,7 @@ class LocalizeGridConvolution(PipelineNode):
         Radius in um for channel sparsity.
     upsampling_um: float
         Upsampling resolution for the grid of templates
-    depth_um: np.array, default: np.linspace(5.0, 100.0, 5)
+    depth_um: np.array, default: np.linspace(5, 150.0, 10)
         Putative depth of the fake templates
     decay_power: float, default:2
         The decay power as function of the distances for the amplitudes
@@ -346,7 +346,7 @@ class LocalizeGridConvolution(PipelineNode):
         parents=["extract_waveforms"],
         radius_um=50.0,
         upsampling_um=5.0,
-        depth_um=np.arange(5.0, 150.0, 5),
+        depth_um=np.linspace(5, 150.0, 10),
         decay_power=2,
         sigma_ms=0.25,
         margin_um=50.0,
@@ -434,7 +434,7 @@ class LocalizeGridConvolution(PipelineNode):
                 waveforms[idx, :, :][:, :, channel_mask] / (amplitudes[:, np.newaxis, np.newaxis]) * self.prototype
             ).sum(axis=1)
 
-            mid_depth = len(self.depth_um) // 2
+            mid_depth = 0 #len(self.depth_um) // 2
             dot_products = np.zeros((num_spikes, num_templates), dtype=np.float32)
             w = self.weights[mid_depth, :, :][channel_mask, :][:, nearest_templates]
             dot_products = np.dot(global_products, w)
