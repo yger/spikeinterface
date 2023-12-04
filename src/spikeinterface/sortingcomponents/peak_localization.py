@@ -322,15 +322,17 @@ class LocalizeGridConvolution(PipelineNode):
         Radius in um for channel sparsity.
     upsampling_um: float
         Upsampling resolution for the grid of templates
-    sigma_um: np.array
-        Spatial decays of the fake templates
+    depth_um: np.array, default: np.linspace(5.0, 100.0, 5)
+        Putative depth of the fake templates
+    decay_power: float, default:2
+        The decay power as function of the distances for the amplitudes
     sigma_ms: float
         The temporal decay of the fake templates
     margin_um: float
         The margin for the grid of fake templates
     prototype: np.array
         Fake waveforms for the templates. If None, generated as Gaussian
-    percentile: float, default: 5
+    percentile: float, default: 20
         The percentage in [0, 100] of the best scalar products kept to
         estimate the position
     sparsity_threshold: float, default: 0.01
@@ -344,21 +346,23 @@ class LocalizeGridConvolution(PipelineNode):
         parents=["extract_waveforms"],
         radius_um=50.0,
         upsampling_um=5.0,
-        sigma_um=np.linspace(5.0, 25.0, 5),
+        depth_um=np.arange(5.0, 150.0, 5),
+        decay_power=2,
         sigma_ms=0.25,
         margin_um=50.0,
         prototype=None,
-        percentile=10.0,
+        percentile=20.0,
         sparsity_threshold=0.01,
         mode="2d",
     ):
         PipelineNode.__init__(self, recording, return_output=return_output, parents=parents)
 
         self.radius_um = radius_um
-        self.sigma_um = sigma_um
+        self.depth_um = depth_um
         self.margin_um = margin_um
         self.upsampling_um = upsampling_um
         self.percentile = 100 - percentile
+        self.decay_power = decay_power
         self.mode = mode
         assert 0 <= self.percentile <= 100, "Percentile should be in [0, 100]"
         self.sparsity_threshold = sparsity_threshold
@@ -382,7 +386,7 @@ class LocalizeGridConvolution(PipelineNode):
         self.prototype = self.prototype[:, np.newaxis]
 
         self.template_positions, self.weights, self.nearest_template_mask = get_grid_convolution_templates_and_weights(
-            contact_locations, self.radius_um, self.upsampling_um, self.sigma_um, self.margin_um
+            contact_locations, self.radius_um, self.upsampling_um, self.depth_um, self.margin_um, self.decay_power
         )
 
         self.weights_sparsity_mask = self.weights > self.sparsity_threshold
@@ -430,38 +434,41 @@ class LocalizeGridConvolution(PipelineNode):
                 waveforms[idx, :, :][:, :, channel_mask] / (amplitudes[:, np.newaxis, np.newaxis]) * self.prototype
             ).sum(axis=1)
 
-            dot_products = np.zeros((self.weights.shape[0], num_spikes, num_templates), dtype=np.float32)
-            
-            for count in range(self.weights.shape[0]):
-                w = self.weights[count, :, :][channel_mask, :][:, nearest_templates]
-                dot_products[count, :, :] = np.dot(global_products, w)
+            mid_depth = len(self.depth_um) // 2
+            dot_products = np.zeros((num_spikes, num_templates), dtype=np.float32)
+            w = self.weights[mid_depth, :, :][channel_mask, :][:, nearest_templates]
+            dot_products = np.dot(global_products, w)
 
             dot_products = np.maximum(0, dot_products)
             if self.percentile < 100:
-                thresholds = np.percentile(dot_products, self.percentile, axis=(0, 2))
-                dot_products[dot_products < thresholds[np.newaxis, :, np.newaxis]] = 0
+                thresholds = np.percentile(dot_products, self.percentile, axis=(1))
+                dot_products[dot_products < thresholds[:, np.newaxis]] = 0
 
-            
-            scalar_products = np.zeros((num_spikes, num_templates), dtype=np.float32)
-            found_positions = np.zeros((num_spikes, ndim), dtype=np.float32)
-            for count in range(self.weights.shape[0]):
-                scalar_products += dot_products[count, :, :]
-                found_positions[:, :2] += np.dot(
-                    dot_products[count, :, :], self.template_positions[nearest_templates, :]
-                )
+            scalar_products = dot_products.sum(1)
+            found_positions = np.dot(dot_products, self.template_positions[nearest_templates, :])
 
-            found_positions /= scalar_products.sum(1)[:, np.newaxis]
+            found_positions /= scalar_products[:, np.newaxis]
+            found_positions = np.nan_to_num(found_positions)
             peak_locations["x"][idx] = found_positions[:, 0]
             peak_locations["y"][idx] = found_positions[:, 1]
 
             if self.mode == "3d":
-                d = sklearn.metrics.pairwise_distances(self.template_positions, np.nan_to_num(found_positions[:, :2]))
-                best_templates = np.argmin(d, axis=0)
-                for i, t in enumerate(best_templates):
-                    w = self.weights[:, :, t]
-                    dot_products = np.dot(w[:, channel_mask], global_products[i]) / np.sum(w, axis=1)
-                    found_positions[i, 2] = (dot_products * self.sigma_um).sum() / dot_products.sum()
-                peak_locations["z"][idx] = found_positions[:, 2]
+                n_best_templates = 4
+                d = sklearn.metrics.pairwise_distances(self.template_positions, found_positions[:, :2])
+                best_templates = np.argsort(d, axis=0)[:n_best_templates]
+                for i in range(len(idx)):
+                    w = self.weights[:, channel_mask][:, :, best_templates[:, i]]
+                    dot_products = np.zeros((w.shape[0], n_best_templates), dtype=np.float32)
+                    for count in range(w.shape[0]):
+                        dot_products[count] = np.dot(global_products[i], w[count])
+
+                    dot_products = np.maximum(0, dot_products)
+                    if self.percentile < 100:
+                        thresholds = np.percentile(dot_products, self.percentile, axis=0)
+                        dot_products[dot_products < thresholds[np.newaxis, :]] = 0
+                    peak_locations["z"][idx[i]] = (
+                        dot_products * self.depth_um[:, np.newaxis]
+                    ).sum() / dot_products.sum()
 
         return peak_locations
 
