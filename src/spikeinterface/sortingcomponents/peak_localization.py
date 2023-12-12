@@ -352,7 +352,7 @@ class LocalizeGridConvolution(PipelineNode):
         margin_um=50.0,
         prototype=None,
         percentile=5.0,
-        sparsity_threshold=0.05,
+        sparsity_threshold=0.5,
     ):
         PipelineNode.__init__(self, recording, return_output=return_output, parents=parents)
 
@@ -429,7 +429,6 @@ class LocalizeGridConvolution(PipelineNode):
             global_products = (
                 waveforms[idx][:, :, channel_mask] / (amplitudes[:, np.newaxis, np.newaxis]) * self.prototype
             ).sum(axis=1)
-            # global_products /= np.linalg.norm(global_products, axis=0)
 
             dot_products = np.zeros((nb_weights, num_spikes, num_templates), dtype=np.float32)
             for count in range(nb_weights):
