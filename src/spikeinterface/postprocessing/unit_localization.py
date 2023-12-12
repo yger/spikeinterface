@@ -455,11 +455,6 @@ def compute_grid_convolution(
         for count in range(nb_weights):
             w = weights[count][channel_mask, :][:, nearest_templates]
             dot_products[count] = np.dot(global_products, w)
-
-        dot_products = np.zeros((weights.shape[0], num_templates), dtype=np.float32)
-        for count in range(weights.shape[0]):
-            w = weights[count, :, :][channel_mask, :][:, nearest_templates]
-            dot_products[count] = np.dot(global_products, w)
         
         dot_products = np.maximum(0, dot_products)
         if percentile < 100:
