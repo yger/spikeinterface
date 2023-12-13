@@ -423,6 +423,9 @@ def compute_grid_convolution(
     time_axis = np.arange(-nbefore, nafter) * 1000 / fs
     if prototype is None:
         prototype = np.exp(-(time_axis**2) / (2 * (sigma_ms**2)))
+        if peak_sign == "neg":
+            prototype *= -1
+
     prototype = prototype[:, np.newaxis]
 
     template_positions, weights, nearest_template_mask = get_grid_convolution_templates_and_weights(
@@ -441,12 +444,12 @@ def compute_grid_convolution(
     for i, unit_id in enumerate(unit_ids):
         main_chan = peak_channels[unit_id]
         wf = templates[i, :, :]
-        amplitude = wf[waveform_extractor.nbefore, main_chan]
         nearest_templates = nearest_template_mask[main_chan, :]
 
         channel_mask = np.sum(weights_sparsity_mask[:, :, nearest_templates], axis=(0, 2)) > 0
         num_templates = np.sum(nearest_templates)
-        global_products = ((wf[:, channel_mask] / amplitude) * prototype).sum(axis=0)
+        global_products = (wf[:, channel_mask] * prototype).sum(axis=0)
+        global_products /= np.linalg.norm(global_products)
 
         dot_products = np.zeros((nb_weights, num_templates), dtype=np.float32)
         for count in range(nb_weights):
@@ -609,7 +612,7 @@ def get_grid_convolution_templates_and_weights(
         # Kilosort
         # weights[count] = np.exp(-(dist**2) / (2 * (depth**2)))
 
-        weights[count] = np.exp(-np.sqrt(dist**2 + depth**2) / depth)
+        weights[count] = np.exp(-dist / depth)
 
         thresholds = np.percentile(weights[count], 100 * sparsity_threshold, axis=0)
         weights[count][weights[count] < thresholds] = 0
