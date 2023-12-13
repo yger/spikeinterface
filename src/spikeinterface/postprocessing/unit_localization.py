@@ -374,7 +374,6 @@ def compute_grid_convolution(
     radius_um=40.0,
     upsampling_um=5,
     depth_um=np.linspace(1, 50.0, 5),
-    decay_power=1,
     sigma_ms=0.25,
     margin_um=50,
     prototype=None,
@@ -396,8 +395,6 @@ def compute_grid_convolution(
         Upsampling resolution for the grid of templates
     depth_um: np.array, default: np.linspace(5, 100.0, 10)
         Putative depth of the fake templates
-    decay_power: float, default: 1
-        The decay power as function of the distances for the amplitudes
     sigma_ms: float, default: 0.25
         The temporal decay of the fake templates
     margin_um: float, default: 50
@@ -429,7 +426,7 @@ def compute_grid_convolution(
     prototype = prototype[:, np.newaxis]
 
     template_positions, weights, nearest_template_mask = get_grid_convolution_templates_and_weights(
-        contact_locations, radius_um, upsampling_um, depth_um, margin_um, decay_power, sparsity_threshold
+        contact_locations, radius_um, upsampling_um, depth_um, margin_um, sparsity_threshold
     )
 
     # print(template_positions.shape)
@@ -574,7 +571,6 @@ def get_grid_convolution_templates_and_weights(
     upsampling_um=5,
     depth_um=np.linspace(1, 50.0, 5),
     margin_um=50,
-    decay_power=1,
     sparsity_threshold=0.5,
 ):
     import sklearn.metrics
