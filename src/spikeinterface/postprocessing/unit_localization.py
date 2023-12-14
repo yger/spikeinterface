@@ -573,11 +573,7 @@ def get_grid_convolution_templates_and_weights(
     upsampling_um=5,
     depth_um=np.linspace(1, 50.0, 5),
     margin_um=50,
-<<<<<<< HEAD
-    sparsity_threshold=0.5,
-=======
     sparsity_threshold=0.1,
->>>>>>> cf6c0bc6f4e8626fce59e5081bec12a045ffba96
 ):
     import sklearn.metrics
 
