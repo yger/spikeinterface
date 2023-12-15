@@ -18,6 +18,7 @@ from spikeinterface.core.node_pipeline import (
     run_node_pipeline,
 )
 
+from spikeinterface.sortingcomponents.tools import get_prototype_spike
 import time
 import string, random
 import pylab as plt
@@ -44,12 +45,15 @@ class BenchmarkPeakLocalization:
 
     def __del__(self):
         import shutil
-        shutil.rmtree(self.tmp_folder)
+        try:
+            shutil.rmtree(self.tmp_folder)
+        except Exception:
+            pass
 
     def run(self, method, method_kwargs={}, smoothing=None):
 
         if self.waveforms is None:
-            self.waveforms = extract_waveforms(self.recording, self.gt_sorting, self.tmp_folder,
+            self.waveforms = extract_waveforms(self.recording, self.gt_sorting, mode='memory',
                    ms_before=2.5, ms_after=2.5, max_spikes_per_unit=500, return_scaled=False,
                    **self.job_kwargs)
 
@@ -68,7 +72,20 @@ class BenchmarkPeakLocalization:
         elif method == 'monopolar_triangulation':
             self.template_positions = compute_monopolar_triangulation(self.waveforms, **unit_params)
         elif method == 'grid_convolution':
+            from spikeinterface.core.node_pipeline import SpikeRetriever
+            from spikeinterface.core.template_tools import get_template_extremum_channel
+            extremum_channel_inds = get_template_extremum_channel(self.waveforms, peak_sign="neg", outputs="index")
+            spike_retriever = SpikeRetriever(
+                        self.waveforms.recording, self.waveforms.sorting, extremum_channel_inds=extremum_channel_inds
+                    )
+            
+            prototype = get_prototype_spike(self.waveforms.recording, spike_retriever.peaks, 2.5, 2.5)
+            unit_params['prototype'] = prototype
+            t_start = time.time()
             self.template_positions = compute_grid_convolution(self.waveforms, **unit_params)
+
+            prototype = get_prototype_spike(self.waveforms.recording, spike_retriever.peaks, 0.5, 0.5)
+            method_kwargs['prototype'] = prototype
 
         self.spike_positions = compute_spike_locations(self.waveforms, method=method, method_kwargs=method_kwargs, 
                                                        spike_retriver_kwargs={'channel_from_template' : False}, 
@@ -82,6 +99,7 @@ class BenchmarkPeakLocalization:
 
         self.medians_over_templates = np.array([np.nanmedian(self.raw_templates_results[unit_id]) for unit_id in  self.waveforms.sorting.unit_ids])
         self.mads_over_templates = np.array([np.nanmedian(np.abs(self.raw_templates_results[unit_id] - np.nanmedian(self.raw_templates_results[unit_id]))) for unit_id in  self.waveforms.sorting.unit_ids])
+        return time.time() - t_start
 
     def plot_template_errors(self, show_probe=True):
         import spikeinterface.full as si
