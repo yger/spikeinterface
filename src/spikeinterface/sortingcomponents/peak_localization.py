@@ -1,5 +1,6 @@
 """Sorting components: peak localization."""
 import numpy as np
+import warnings
 from spikeinterface.core.job_tools import _shared_job_kwargs_doc, split_job_kwargs, fix_job_kwargs
 
 
@@ -351,7 +352,7 @@ class LocalizeGridConvolution(PipelineNode):
         sigma_ms=0.25,
         margin_um=50.0,
         prototype=None,
-        percentile=25.0,
+        percentile=50.0,
         peak_sign="neg",
         sparsity_threshold=None,
     ):
@@ -435,9 +436,15 @@ class LocalizeGridConvolution(PipelineNode):
                 dot_products[count] = np.dot(global_products, sub_w[count])
 
             dot_products = np.maximum(0, dot_products)
-            if self.percentile < 100:
-                thresholds = np.percentile(dot_products, self.percentile, axis=(0, 2))
+            if self.percentile > 0:
+                mask = dot_products == 0
+                dot_products[mask] = np.nan
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore")
+                    thresholds = np.nanpercentile(dot_products, self.percentile, axis=(0, 2))
+                thresholds = np.nan_to_num(thresholds)
                 dot_products[dot_products < thresholds[np.newaxis, :, np.newaxis]] = 0
+                dot_products[mask] = 0
 
             scalar_products = dot_products.sum(0).sum(1)
             found_positions = np.zeros((num_spikes, 3), dtype=np.float32)
