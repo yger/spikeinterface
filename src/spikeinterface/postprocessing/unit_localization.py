@@ -474,6 +474,7 @@ def compute_grid_convolution(
         scalar_products = dot_products.sum()
         unit_location[i, 2] = np.dot(depth_um, dot_products.sum(1))
         unit_location[i] /= scalar_products
+    unit_location = np.nan_to_num(unit_location)
 
     return unit_location
 
