@@ -373,7 +373,7 @@ def compute_grid_convolution(
     peak_sign="neg",
     radius_um=40.0,
     upsampling_um=5,
-    depth_um=np.linspace(1, 100.0, 10),
+    depth_um=np.linspace(0, 50.0, 5),
     sigma_ms=0.25,
     margin_um=50,
     prototype=None,
@@ -579,7 +579,7 @@ def get_grid_convolution_templates_and_weights(
     contact_locations,
     radius_um=40,
     upsampling_um=5,
-    depth_um=np.linspace(1, 50.0, 5),
+    depth_um=np.linspace(0, 50.0, 5),
     margin_um=50,
     sparsity_threshold=None,
 ):
@@ -621,16 +621,9 @@ def get_convolution_weights(
     weights = np.zeros((len(depth_um), distances.shape[0], distances.shape[1]), dtype=np.float32)
 
     for count, depth in enumerate(depth_um):
-        # Kilosort
-        # weights[count] = np.exp(-(distances**2) / (2 * (depth**2)))
-
-        weights[count] = np.exp(-distances / depth)
-
-        # dist_with_depth = 1 + np.sqrt(distances**2 + depth**2)
-        # weights[count] = 1/(dist_with_depth)**2
-
-        # thresholds = np.percentile(weights[count], 100 * sparsity_threshold, axis=0)
-        # weights[count][weights[count] < thresholds] = 0
+        dist_3d = np.sqrt(distances**2 + depth**2)
+        alpha = 1e-3
+        weights[count] = 1 / (alpha + dist_3d) ** 2
 
 
     # normalize to get normalized values in [0, 1]
@@ -643,7 +636,7 @@ def get_convolution_weights(
     # If sparsity is None or non zero, we are pruning weights that are below the
     # sparsification factor. This will speed up furter computations
     if sparsity_threshold is None:
-        sparsity_threshold = 1 / np.sqrt(distances.shape[0])
+        sparsity_threshold = 0.5 / np.sqrt(distances.shape[0])
     weights[weights < sparsity_threshold] = 0
 
     # re normalize to ensure we have unitary norms

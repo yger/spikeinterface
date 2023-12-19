@@ -348,7 +348,7 @@ class LocalizeGridConvolution(PipelineNode):
         parents=["extract_waveforms"],
         radius_um=40.0,
         upsampling_um=5.0,
-        depth_um=np.linspace(1, 100.0, 10),
+        depth_um=np.linspace(0, 50.0, 5),
         sigma_ms=0.25,
         margin_um=50.0,
         prototype=None,
@@ -453,7 +453,8 @@ class LocalizeGridConvolution(PipelineNode):
                 found_positions[:, :2] += np.dot(dot_products[count], nearest_templates)
 
             found_positions[:, 2] = np.dot(self.depth_um, scalar_products)
-            found_positions /= (scalar_products.sum(0))[:, np.newaxis]
+            scalar_products = (scalar_products.sum(0))[:, np.newaxis]
+            found_positions /= scalar_products
             found_positions = np.nan_to_num(found_positions)
             peak_locations["x"][idx] = found_positions[:, 0]
             peak_locations["y"][idx] = found_positions[:, 1]
