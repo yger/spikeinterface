@@ -78,13 +78,19 @@ class BenchmarkPeakLocalization:
             spike_retriever = SpikeRetriever(
                         self.waveforms.recording, self.waveforms.sorting, extremum_channel_inds=extremum_channel_inds
                     )
-            
-            prototype = get_prototype_spike(self.waveforms.recording, spike_retriever.peaks, 2.5, 2.5)
+            ms_before, ms_after = 2.5, 2.5
+            prototype = get_prototype_spike(self.waveforms.recording, spike_retriever.peaks, ms_before, ms_after)
             unit_params['prototype'] = prototype
             t_start = time.time()
             self.template_positions = compute_grid_convolution(self.waveforms, **unit_params)
+            ms_before, ms_after = 0.5, 0.5
 
-            prototype = get_prototype_spike(self.waveforms.recording, spike_retriever.peaks, 0.5, 0.5)
+            if 'ms_before' in method_kwargs:
+                ms_before = method_kwargs['ms_before']
+            if 'ms_after' in method_kwargs:
+                ms_after = method_kwargs['ms_after']
+
+            prototype = get_prototype_spike(self.waveforms.recording, spike_retriever.peaks, ms_before, ms_after)
             method_kwargs['prototype'] = prototype
 
         self.spike_positions = compute_spike_locations(self.waveforms, method=method, method_kwargs=method_kwargs, 
