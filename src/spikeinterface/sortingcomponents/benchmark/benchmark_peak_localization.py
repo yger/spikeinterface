@@ -71,6 +71,11 @@ class BenchmarkPeakLocalization:
             self.template_positions = compute_center_of_mass(self.waveforms, **unit_params)
         elif method == 'monopolar_triangulation':
             self.template_positions = compute_monopolar_triangulation(self.waveforms, **unit_params)
+        elif method == 'peak_channel':
+            from spikeinterface.core.template_tools import get_template_extremum_channel
+            extremum_channel_inds = get_template_extremum_channel(self.waveforms, peak_sign="neg", outputs="index")
+            positions = self.waveforms.recording.get_channel_locations()
+            self.template_positions = np.array([positions[i] for i in extremum_channel_inds.values()])
         elif method == 'grid_convolution':
             from spikeinterface.core.node_pipeline import SpikeRetriever
             from spikeinterface.core.template_tools import get_template_extremum_channel
@@ -500,6 +505,7 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto', examples=
     plt.rc('font', size=13)
     plt.rc('xtick', labelsize=12) 
     plt.rc('ytick', labelsize=12)
+    axs[0, 0].set_title('')
 
     import spikeinterface.full as si
 
@@ -510,7 +516,6 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto', examples=
     mask = spikes_seg0["unit_index"] == cell_ind
     times = spikes_seg0[mask]['sample_index'] / sorting.get_sampling_frequency()
 
-    print(benchmark.recording)
     # si.plot_traces(benchmark.recording, mode='line', time_range=(times[0]-0.01, times[0] + 0.1), channel_ids=benchmark.recording.channel_ids[:20], ax=axs[0, 1])
     # axs[0, 1].set_ylabel('Neurons')
 
@@ -536,10 +541,9 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto', examples=
     valid_channels = waveforms.sparsity.mask[cell_ind]
     unit_id = waveforms.sorting.unit_ids[cell_ind]
 
-    print(benchmark.recording)
-    si.plot_timeseries(benchmark.recording, mode='line', time_range=(times[0]-0.01, times[0] + 0.1), 
-        channel_ids=benchmark.recording.channel_ids[valid_channels], ax=axs[0, 1])
-    axs[0, 1].set_ylabel('Neurons')
+    si.plot_traces(benchmark.recording, mode='line', time_range=(times[0]-0.01, times[0] + 0.1), 
+        channel_ids=benchmark.recording.channel_ids[valid_channels], ax=axs[1, 0])
+    axs[1, 0].set_ylabel('Neurons')
 
     #si.plot_spikes_on_traces(benchmark.waveforms, unit_ids=[unit_id], time_range=(times[0]-0.01, times[0] + 0.1), 
     #    unit_colors={unit_id : 'r'}, ax=axs[0, 1], 
@@ -549,10 +553,10 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto', examples=
     #visible_channels = waveforms.sparsity.mask[cell_ind]
     #axs[0, 0].scatter(benchmark.gt_positions[visible_channels, 0], benchmark.gt_positions[visible_channels, 1], c='r', alpha=0.25)
     
-    si.plot_unit_templates(waveforms, unit_ids=[unit_id], ax=axs[1, 0], same_axis=True, unit_colors = {unit_id : 'r'})
-    ymin, ymax = axs[1, 0].get_ylim()
-    xmin, xmax = axs[1, 0].get_xlim()
-    axs[1, 0].set_title('Averaged template')
+    si.plot_unit_templates(waveforms, unit_ids=[unit_id], ax=axs[0, 1], same_axis=True, unit_colors = {unit_id : 'r'}, shade_templates=False)
+    ymin, ymax = axs[0, 1].get_ylim()
+    xmin, xmax = axs[0, 1].get_xlim()
+    axs[0, 1].set_title('Averaged template')
     si.plot_unit_waveforms(waveforms, unit_ids=[unit_id], ax=axs[1, 1], same_axis=True, unit_colors = {unit_id : 'r'}, alpha_waveforms=0.1)
     axs[1, 1].set_xlim(xmin, xmax)
     axs[1, 1].set_ylim(ymin, ymax)
@@ -563,38 +567,34 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto', examples=
             axs[i, j].spines['top'].set_visible(False)
             axs[i, j].spines['right'].set_visible(False)
 
-    for i in [1]:
-        for j in [0, 1]:
+    for i in [0, 1]:
+        for j in [1]:
             axs[i, j].spines['left'].set_visible(False)
             axs[i, j].spines['bottom'].set_visible(False)
             axs[i, j].set_xticks([])
             axs[i, j].set_yticks([])
-            axs[i, j].set_title('')
+            #axs[i, j].set_title('')
 
 
     probeinterface.plotting.plot_probe(probe, ax=axs[0, 2])
     
-    benchmark_1 = benchmarks[examples[0]]
-
-    data = benchmark_1.spike_positions[0][unit_id]
-    axs[0, 2].scatter(data['x'], data['y'], c='k', alpha=0.25)
-    axs[0, 2].scatter(benchmark_1.template_positions[cell_ind, 0], benchmark_1.template_positions[cell_ind, 1], c=colors[benchmark_1.title], s=100)
-    axs[0, 2].scatter(benchmark_1.gt_positions[cell_ind, 0], benchmark_1.gt_positions[cell_ind, 1], c='r', s=100)
+    for b in benchmarks:
+        axs[0, 2].scatter(b.template_positions[cell_ind, 0], b.template_positions[cell_ind, 1], c=colors[b.title], s=100)
+    axs[0, 2].scatter(b.gt_positions[cell_ind, 0], b.gt_positions[cell_ind, 1], c='r', s=100)
     axs[0, 2].set_xlim(-50, 50)
     axs[0, 2].set_ylim(-50, 50)
     axs[0, 2].set_xticks([])
     axs[0, 2].set_xlabel('')
-    axs[0, 2].set_title(benchmark_1.title)
+    axs[0, 2].set_title('')
 
     probeinterface.plotting.plot_probe(probe, ax=axs[1, 2])
     
-    benchmark_2 = benchmarks[examples[1]]
-
-    data = benchmark_2.spike_positions[0][unit_id]
-    axs[1, 2].scatter(data['x'], data['y'], c='k', alpha=0.25)
-    axs[1, 2].scatter(benchmark_2.template_positions[cell_ind, 0], benchmark_2.template_positions[cell_ind, 1], c=colors[benchmark_2.title], s=100)
-    axs[1, 2].scatter(benchmark_2.gt_positions[cell_ind, 0], benchmark_2.gt_positions[cell_ind, 1], c='r', s=100)
+    for b in benchmarks:
+        data = b.spike_positions[0][unit_id]
+        axs[1, 2].scatter(data['x'], data['y'], c=colors[b.title], alpha=0.25)
+    #axs[1, 2].scatter(benchmark_2.template_positions[cell_ind, 0], benchmark_2.template_positions[cell_ind, 1], c=colors[benchmark_2.title], s=100)
+    axs[1, 2].scatter(b.gt_positions[cell_ind, 0], b.gt_positions[cell_ind, 1], c='r', s=100)
     axs[1, 2].set_xlim(-50, 50)
     axs[1, 2].set_ylim(-50, 50)
-    axs[1, 2].set_title(benchmark_2.title)
+    axs[1, 2].set_title('')
 
