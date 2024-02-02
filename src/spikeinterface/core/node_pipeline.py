@@ -453,6 +453,8 @@ def run_node_pipeline(
         gather_func = GatherToMemory()
     elif gather_mode == "npy":
         gather_func = GatherToNpy(folder, names, **gather_kwargs)
+    elif gather_mode == "online_clustering":
+        gather_func = OnlineClustering(**gather_kwargs)
     else:
         raise ValueError(f"wrong gather_mode : {gather_mode}")
 
@@ -584,6 +586,39 @@ class GatherToMemory:
         else:
             # list of numpy array
             return np.concatenate(self.outputs)
+
+
+class OnlineClustering:
+    """
+    Gather output of nodes into list and then demultiplex and np.concatenate
+    """
+
+    def __init__(self, **kwargs):
+        self.outputs = []
+        self.tuple_mode = None
+        from river import cluster
+        self.clusterer = cluster.DBSTREAM(
+            clustering_threshold=1.5,
+            fading_factor=0.05,
+            cleanup_interval=4,
+            intersection_factor=0.5,
+            minimum_weight=1
+        )
+
+
+    def __call__(self, res):
+        from river import stream
+        if self.tuple_mode is None:
+            # first loop only
+            self.tuple_mode = isinstance(res, tuple)
+
+        my_stream = [[x,y,z,amp] for (amp, [x,y,z]) in zip(res[0]['amplitude'], res[1])] 
+
+        for x, _ in stream.iter_array(my_stream):
+            self.clusterer.learn_one(x)
+
+    def finalize_buffers(self, squeeze_output=False):
+        return self.clusterer.centers
 
 
 class GatherToNpy:
