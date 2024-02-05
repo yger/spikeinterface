@@ -593,18 +593,18 @@ class OnlineClustering:
     Gather output of nodes into list and then demultiplex and np.concatenate
     """
 
-    def __init__(self, **kwargs):
-        self.outputs = []
-        self.tuple_mode = None
-        from river import cluster
-        self.clusterer = cluster.DBSTREAM(
-            clustering_threshold=1.5,
-            fading_factor=0.05,
-            cleanup_interval=4,
-            intersection_factor=0.5,
-            minimum_weight=1
-        )
+    _default_params = {"clustering_threshold" : 5,
+            "fading_factor" :0.01,
+            "cleanup_interval" : 5,
+            "intersection_factor" : 0.3,
+            "minimum_weight" :1}
 
+    def __init__(self, **kwargs):
+        self.tuple_mode = None
+        from spikeinterface.sortingcomponents.clustering.dbstream import DBSTREAM
+        params = self._default_params.copy()
+        params.update(kwargs)
+        self.clusterer = DBSTREAM(**params)
 
     def __call__(self, res):
         from river import stream
@@ -612,9 +612,9 @@ class OnlineClustering:
             # first loop only
             self.tuple_mode = isinstance(res, tuple)
 
-        my_stream = [[x,y,z,amp] for (amp, [x,y,z]) in zip(res[0]['amplitude'], res[1])] 
-
-        for x, _ in stream.iter_array(my_stream):
+        my_stream = [[x,y,z,amp,w] for (amp, [x,y,z], w) in zip(res[0]['amplitude'], res[2], res[1])] 
+        
+        for (x, _) in stream.iter_array(my_stream, feature_names=['x', 'y', 'z', 'amp', 'w']):
             self.clusterer.learn_one(x)
 
     def finalize_buffers(self, squeeze_output=False):
