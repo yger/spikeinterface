@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 from spikeinterface.core import extract_waveforms
 from spikeinterface.preprocessing import bandpass_filter, common_reference
