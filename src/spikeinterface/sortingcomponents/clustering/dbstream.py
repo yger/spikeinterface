@@ -203,10 +203,10 @@ class DBSTREAM(base.Clusterer):
                 )
 
                 # Update the center (i) with overlapping keys (j)
+                amplitude = self._gaussian_neighborhood(x, self._micro_clusters[i].center)
                 self._micro_clusters[i].center = {
                     j: self._micro_clusters[i].center[j]
-                    + self._gaussian_neighborhood(x, self._micro_clusters[i].center)
-                    * (x[j] - self._micro_clusters[i].center[j])
+                    + amplitude * (x[j] - self._micro_clusters[i].center[j])
                     for j in self._micro_clusters[i].center.keys()
                     if j in x
                 }

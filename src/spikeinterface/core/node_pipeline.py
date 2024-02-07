@@ -593,9 +593,9 @@ class OnlineClustering:
     Gather output of nodes into list and then demultiplex and np.concatenate
     """
 
-    _default_params = {"clustering_threshold" : 5,
+    _default_params = {"clustering_threshold" : 2,
             "fading_factor" :0.01,
-            "cleanup_interval" : 5,
+            "cleanup_interval" : 2,
             "intersection_factor" : 0.3,
             "minimum_weight" :1}
 
@@ -612,13 +612,18 @@ class OnlineClustering:
             # first loop only
             self.tuple_mode = isinstance(res, tuple)
 
-        my_stream = [[x,y,z,amp,w] for (amp, [x,y,z], w) in zip(res[0]['amplitude'], res[2], res[1])] 
+        #my_stream = [[x, y, z, amp, w] for (amp, [x,y,z], w) in zip(res[0]['amplitude'], res[2], res[1])] 
+        my_stream = []
+        for count, data in enumerate(res[2]):
+            my_stream += [list(data) + [res[1][count]]]
+
+        feature_names = ['%d' %i for i in range(10)] + ['w']
         
-        for (x, _) in stream.iter_array(my_stream, feature_names=['x', 'y', 'z', 'amp', 'w']):
+        for (x, _) in stream.iter_array(my_stream, feature_names=feature_names):
             self.clusterer.learn_one(x)
 
     def finalize_buffers(self, squeeze_output=False):
-        return self.clusterer.centers
+        return self.clusterer
 
 
 class GatherToNpy:
