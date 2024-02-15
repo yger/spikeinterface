@@ -393,7 +393,6 @@ class DetectPeakByChannel(PeakDetectorWrapper):
         peak_sign="neg",
         detect_threshold=5,
         exclude_sweep_ms=0.1,
-        second_detect_threshold=None,
         noise_levels=None,
         random_chunk_kwargs={},
     ):
@@ -402,15 +401,11 @@ class DetectPeakByChannel(PeakDetectorWrapper):
         if noise_levels is None:
             noise_levels = get_noise_levels(recording, return_scaled=False, **random_chunk_kwargs)
 
-        if second_detect_threshold is None:
-            second_detect_threshold = detect_threshold
-
         abs_thresholds = noise_levels * detect_threshold
-        second_abs_thresholds = noise_levels * second_detect_threshold
 
         exclude_sweep_size = int(exclude_sweep_ms * recording.get_sampling_frequency() / 1000.0)
 
-        return (peak_sign, abs_thresholds, second_abs_thresholds, exclude_sweep_size)
+        return (peak_sign, abs_thresholds, exclude_sweep_size)
 
     @classmethod
     def get_method_margin(cls, *args):
@@ -418,8 +413,7 @@ class DetectPeakByChannel(PeakDetectorWrapper):
         return exclude_sweep_size
 
     @classmethod
-    def detect_peaks(cls, traces, peak_sign, abs_thresholds, second_abs_thresholds, exclude_sweep_size):
-        print('toto')
+    def detect_peaks(cls, traces, peak_sign, abs_thresholds, exclude_sweep_size):
         traces_center = traces[exclude_sweep_size:-exclude_sweep_size, :]
         length = traces_center.shape[0]
 
@@ -436,18 +430,11 @@ class DetectPeakByChannel(PeakDetectorWrapper):
                 peak_mask_pos = peak_mask.copy()
 
             peak_mask = traces_center < -abs_thresholds[None, :]
-            #peak_mask_2 = traces_center < -second_abs_thresholds[None, :]
             for i in range(exclude_sweep_size):
                 peak_mask &= traces_center < traces[i : i + length, :]
-                #peak_mask_2 &= traces_center < traces[i : i + length, :]
                 peak_mask &= (
                     traces_center <= traces[exclude_sweep_size + i + 1 : exclude_sweep_size + i + 1 + length, :]
                 )
-                #peak_mask_2 &= (
-                #    traces_center <= traces[exclude_sweep_size + i + 1 : exclude_sweep_size + i + 1 + length, :]
-                #)
-
-                #peak_mask &= peak_mask_2
 
             if peak_sign == "both":
                 peak_mask = peak_mask | peak_mask_pos

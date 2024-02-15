@@ -593,18 +593,31 @@ class OnlineClustering:
     Gather output of nodes into list and then demultiplex and np.concatenate
     """
 
-    _default_params = {"clustering_threshold" : 2,
-            "fading_factor" :0.01,
-            "cleanup_interval" : 2,
-            "intersection_factor" : 0.3,
-            "minimum_weight" :1}
+    _default_params = { "dbstream" : {"clustering_threshold" : 2,
+                                        "fading_factor" :0.01,
+                                        "cleanup_interval" : 2,
+                                        "intersection_factor" : 0.3,
+                                        "minimum_weight" :1}, 
+                        "n_features" : 10,
+                        "n_before" : 10,
+                        "noise_levels" : None,
+                        "folder_path" : None,
+                        "n_peaks" : 20000, 
+                        "sparsity" : {}}
 
     def __init__(self, **kwargs):
         self.tuple_mode = None
         from spikeinterface.sortingcomponents.clustering.dbstream import DBSTREAM
         params = self._default_params.copy()
         params.update(kwargs)
-        self.clusterer = DBSTREAM(**params)
+        self.clusterer = DBSTREAM(**params['dbstream'])
+        self.clusterer.recording = params['recording']
+        self.clusterer.noise_levels = params['noise_levels']
+        self.clusterer.n_before = params['n_before']
+        self.n_features = params['n_features']
+        self.folder_path = params['folder_path']
+        self.sparsity = params['sparsity']
+        self.count = 0
 
     def __call__(self, res):
         from river import stream
@@ -612,15 +625,17 @@ class OnlineClustering:
             # first loop only
             self.tuple_mode = isinstance(res, tuple)
 
-        #my_stream = [[x, y, z, amp, w] for (amp, [x,y,z], w) in zip(res[0]['amplitude'], res[2], res[1])] 
         my_stream = []
         for count, data in enumerate(res[2]):
             my_stream += [list(data) + [res[1][count]]]
 
-        feature_names = ['%d' %i for i in range(10)] + ['w']
+        feature_names = ['%d' %i for i in range(self.n_features)] + ['w']
         
         for (x, _) in stream.iter_array(my_stream, feature_names=feature_names):
             self.clusterer.learn_one(x)
+
+        #self.clusterer.get_templates().to_zarr(self.folder_path / f'{self.count}')
+        self.count += 1
 
     def finalize_buffers(self, squeeze_output=False):
         return self.clusterer

@@ -4,8 +4,12 @@ import collections
 import copy
 import math
 from abc import ABCMeta
+import numpy as np
 
 from river import base, utils
+from spikeinterface.core.template import Templates
+from spikeinterface.core.sparsity import compute_sparsity
+#from spikeinterface.sortingcomponents.tools import remove_empty_templates
 
 
 class DBSTREAM(base.Clusterer):
@@ -421,6 +425,27 @@ class DBSTREAM(base.Clusterer):
     @property
     def micro_clusters(self) -> dict[int, DBSTREAMMicroCluster]:
         return self._micro_clusters
+
+    def get_templates(self, **sparsity):
+
+        templates_array = np.array([i['w'] for i in self.centers.values()])
+
+        templates = Templates(
+            templates_array,
+            self.recording.get_sampling_frequency(),
+            self.n_before,
+            None,
+            self.recording.channel_ids,
+            np.array(list(self.centers.keys())),
+            self.recording.get_probe(),
+        )
+
+        sparsity = compute_sparsity(templates, **sparsity)
+        #templates = templates.to_sparse(sparsity)
+        #templates = remove_empty_templates(templates)
+        return templates
+
+
 
 
 class DBSTREAMMicroCluster(metaclass=ABCMeta):
