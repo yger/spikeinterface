@@ -595,7 +595,7 @@ class OnlineClustering:
 
     _default_params = { "dbstream" : {"clustering_threshold" : 2,
                                         "fading_factor" :0.01,
-                                        "cleanup_interval" : 2,
+                                        "cleanup_interval" : 1000,
                                         "intersection_factor" : 0.3,
                                         "minimum_weight" :1}, 
                         "n_features" : 10,
@@ -618,6 +618,9 @@ class OnlineClustering:
         self.folder_path = params['folder_path']
         self.sparsity = params['sparsity']
         self.count = 0
+        sampling_frequency = self.clusterer.recording.get_sampling_frequency()
+        self.clusterer.cleanup_interval = int(self.clusterer.cleanup_interval * sampling_frequency / 1000)
+
 
     def __call__(self, res):
         from river import stream
@@ -626,15 +629,21 @@ class OnlineClustering:
             self.tuple_mode = isinstance(res, tuple)
 
         my_stream = []
-        for count, data in enumerate(res[2]):
-            my_stream += [list(data) + [res[1][count]]]
+        peaks = res[0]
+        waveforms = res[1]
+        projections = res[2]
+
+        for count, data in enumerate(projections):
+            my_stream += [list(data) + [waveforms[count]]]
 
         feature_names = ['%d' %i for i in range(self.n_features)] + ['w']
         
+        count = 0
         for (x, _) in stream.iter_array(my_stream, feature_names=feature_names):
-            self.clusterer.learn_one(x)
+            self.clusterer.learn_one(x, peaks["sample_index"][count])
+            count += 1
 
-        #self.clusterer.get_templates().to_zarr(self.folder_path / f'{self.count}')
+        #self.clusterer.get_templates(self.sparsity).to_zarr(self.folder_path / f'{self.count}')
         self.count += 1
 
     def finalize_buffers(self, squeeze_output=False):

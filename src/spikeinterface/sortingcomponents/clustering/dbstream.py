@@ -161,6 +161,7 @@ class DBSTREAM(base.Clusterer):
         self.s: dict[int, dict[int, float]] = {}
         self.s_t: dict[int, dict[int, float]] = {}
 
+        self.last_cleanup = 0
         self.clustering_is_up_to_date = False
 
     @staticmethod
@@ -182,7 +183,7 @@ class DBSTREAM(base.Clusterer):
         gaussian_neighborhood = math.exp(-(distance * distance) / (2 * (sigma * sigma)))
         return gaussian_neighborhood
 
-    def _update(self, x):
+    def _update(self, x, time_stamp):
         # Algorithm 1 of Michael Hahsler and Matthew Bolanos
         neighbor_clusters = self._find_fixed_radius_nn(x)
 
@@ -249,7 +250,7 @@ class DBSTREAM(base.Clusterer):
                             self._micro_clusters[i].center = current_centers[i]
                             self._micro_clusters[j].center = current_centers[j]
 
-        self._time_stamp += 1
+        self._time_stamp = time_stamp
 
     def _cleanup(self):
         # Algorithm 2 of Michael Hahsler and Matthew Bolanos: Cleanup process to remove
@@ -381,11 +382,13 @@ class DBSTREAM(base.Clusterer):
             self._n_clusters, self._clusters = self._generate_clusters_from_labels(labels)
             self._centers = {i: self._clusters[i].center for i in self._clusters.keys()}
 
-    def learn_one(self, x, sample_weight=None):
-        self._update(x)
+    def learn_one(self, x, time_stamp, sample_weight=None):
+        self._update(x, time_stamp)
 
-        if self._time_stamp % self.cleanup_interval == 0:
+        #if self._time_stamp % self.cleanup_interval == 0:
+        if self._time_stamp // self.cleanup_interval > self.last_cleanup:
             self._cleanup()
+            self.last_cleanup = self._time_stamp // self.cleanup_interval
 
         self.clustering_is_up_to_date = False
 
