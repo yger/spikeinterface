@@ -140,7 +140,7 @@ class DBSTREAM(base.Clusterer):
         self,
         clustering_threshold: float = 1.0,
         fading_factor: float = 0.01,
-        cleanup_interval: float = 2,
+        cleanup_interval: float = 1000,
         intersection_factor: float = 0.3,
         minimum_weight: float = 1.0,
     ):

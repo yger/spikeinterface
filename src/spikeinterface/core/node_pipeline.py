@@ -618,8 +618,7 @@ class OnlineClustering:
         self.folder_path = params['folder_path']
         self.sparsity = params['sparsity']
         self.count = 0
-        sampling_frequency = self.clusterer.recording.get_sampling_frequency()
-        self.clusterer.cleanup_interval = int(self.clusterer.cleanup_interval * sampling_frequency / 1000)
+        self.sampling_frequency = params["recording"].get_sampling_frequency()
 
 
     def __call__(self, res):
@@ -640,7 +639,8 @@ class OnlineClustering:
         
         count = 0
         for (x, _) in stream.iter_array(my_stream, feature_names=feature_names):
-            self.clusterer.learn_one(x, peaks["sample_index"][count])
+            time_in_ms = peaks["sample_index"][count]*1000/self.sampling_frequency
+            self.clusterer.learn_one(x, time_in_ms)
             count += 1
 
         #self.clusterer.get_templates(self.sparsity).to_zarr(self.folder_path / f'{self.count}')
