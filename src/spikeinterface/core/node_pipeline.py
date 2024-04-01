@@ -632,8 +632,6 @@ class OnlineClustering:
                                         "cleanup_interval" : 1000,
                                         "intersection_factor" : 0.3,
                                         "minimum_weight" :1}, 
-                        "n_features" : 10,
-                        "n_before" : 10,
                         "noise_levels" : None,
                         "folder_path" : None,
                         "n_peaks" : 20000, 
@@ -647,8 +645,6 @@ class OnlineClustering:
         self.clusterer = DBSTREAM(**params['dbstream'])
         self.clusterer.recording = params['recording']
         self.clusterer.noise_levels = params['noise_levels']
-        self.clusterer.n_before = params['n_before']
-        self.n_features = params['n_features']
         self.folder_path = params['folder_path']
         self.sparsity = params['sparsity']
         self.count = 0
@@ -665,11 +661,12 @@ class OnlineClustering:
         peaks = res[0]
         waveforms = res[1]
         projections = res[2]
+        n_features = projections.shape[1]
 
         for count, data in enumerate(projections):
             my_stream += [list(data) + [waveforms[count]]]
 
-        feature_names = ['%d' %i for i in range(self.n_features)] + ['w']
+        feature_names = ['%d' %i for i in range(n_features)] + ['w']
         
         count = 0
         for (x, _) in stream.iter_array(my_stream, feature_names=feature_names):
