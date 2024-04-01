@@ -634,8 +634,8 @@ class OnlineClustering:
                                         "minimum_weight" :1}, 
                         "noise_levels" : None,
                         "folder_path" : None,
-                        "n_peaks" : 20000, 
-                        "sparsity" : {}}
+                        "n_peaks" : 20000,
+                        "sparsity" : {"method": "ptp", "threshold": 0.25}}
 
     def __init__(self, **kwargs):
         self.tuple_mode = None
@@ -644,9 +644,9 @@ class OnlineClustering:
         params.update(kwargs)
         self.clusterer = DBSTREAM(**params['dbstream'])
         self.clusterer.recording = params['recording']
-        self.clusterer.noise_levels = params['noise_levels']
         self.folder_path = params['folder_path']
-        self.sparsity = params['sparsity']
+        self.sparsity = params['sparsity'].copy()
+        self.sparsity.update({'noise_levels' : params['noise_levels']})
         self.count = 0
         self.sampling_frequency = params["recording"].get_sampling_frequency()
 
