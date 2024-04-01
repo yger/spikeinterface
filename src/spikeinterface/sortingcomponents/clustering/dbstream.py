@@ -9,7 +9,7 @@ import numpy as np
 from river import base, utils
 from spikeinterface.core.template import Templates
 from spikeinterface.core.sparsity import compute_sparsity
-#from spikeinterface.sortingcomponents.tools import remove_empty_templates
+from spikeinterface.sortingcomponents.tools import remove_empty_templates
 
 
 class DBSTREAM(base.Clusterer):
@@ -444,8 +444,8 @@ class DBSTREAM(base.Clusterer):
         )
 
         sparsity = compute_sparsity(templates, **sparsity)
-        #templates = templates.to_sparse(sparsity)
-        #templates = remove_empty_templates(templates)
+        templates = templates.to_sparse(sparsity)
+        templates = remove_empty_templates(templates)
         return templates
 
 
