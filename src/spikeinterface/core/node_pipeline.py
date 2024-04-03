@@ -645,8 +645,8 @@ class OnlineClustering:
         self.clusterer = DBSTREAM(**params['dbstream'])
         self.clusterer.recording = params['recording']
         self.folder_path = params['folder_path']
-        self.sparsity = params['sparsity'].copy()
-        self.sparsity.update({'noise_levels' : params['noise_levels']})
+        self.clusterer.sparsity = params['sparsity'].copy()
+        self.clusterer.sparsity.update({'noise_levels' : params['noise_levels']})
         self.count = 0
         self.sampling_frequency = params["recording"].get_sampling_frequency()
 
@@ -674,7 +674,7 @@ class OnlineClustering:
             self.clusterer.learn_one(x, time_in_ms)
             count += 1
 
-        #self.clusterer.get_templates(self.sparsity).to_zarr(self.folder_path / f'{self.count}')
+        #self.clusterer.get_templates().to_zarr(self.folder_path / f'{self.count}')
         self.count += 1
 
     def finalize_buffers(self, squeeze_output=False):
