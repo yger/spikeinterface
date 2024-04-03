@@ -429,7 +429,7 @@ class DBSTREAM(base.Clusterer):
     def micro_clusters(self) -> dict[int, DBSTREAMMicroCluster]:
         return self._micro_clusters
 
-    def get_templates(self, n_before=None, **sparsity):
+    def get_templates(self, n_before=None):
 
         templates_array = np.array([i['w'] for i in self.centers.values()])
         if n_before is None:
@@ -445,7 +445,7 @@ class DBSTREAM(base.Clusterer):
             self.recording.get_probe(),
         )
 
-        sparsity = compute_sparsity(templates, **sparsity)
+        sparsity = compute_sparsity(templates, self.sparsity)
         templates = templates.to_sparse(sparsity)
         templates = remove_empty_templates(templates)
         return templates
