@@ -144,15 +144,13 @@ class UnitWaveformsWidget(BaseWidget):
                 assert isinstance(sparsity, ChannelSparsity), "'sparsity' should be a ChannelSparsity object!"
 
         # get templates
-        self.templates_ext = sorting_analyzer.get_extension("templates") or sorting_analyzer.get_extension(
-            "fast_templates"
-        )
-        assert self.templates_ext is not None, "plot_waveforms() need extension 'templates' or 'fast_templates'"
+        self.templates_ext = sorting_analyzer.get_extension("templates")
+        assert self.templates_ext is not None, "plot_waveforms() need extension 'templates'"
         templates = self.templates_ext.get_templates(unit_ids=unit_ids, operator="average")
 
-        if templates_percentile_shading is not None and sorting_analyzer.get_extension("templates") is None:
+        if templates_percentile_shading is not None and not sorting_analyzer.has_extension("waveforms"):
             warn(
-                "templates_percentile_shading can only be used if the 'templates' extension is available. "
+                "templates_percentile_shading can only be used if the 'waveforms' extension is available. "
                 "Settimg templates_percentile_shading to None."
             )
             templates_percentile_shading = None
@@ -165,7 +163,8 @@ class UnitWaveformsWidget(BaseWidget):
         wfs_by_ids = {}
         if plot_waveforms:
             wf_ext = sorting_analyzer.get_extension("waveforms")
-            assert wf_ext is not None, "plot_waveforms() need extension 'waveforms'"
+            if wf_ext is None:
+                raise ValueError("plot_waveforms() needs the extension 'waveforms'")
             for unit_id in unit_ids:
                 unit_index = list(sorting.unit_ids).index(unit_id)
                 if not extra_sparsity:
@@ -556,7 +555,7 @@ def get_waveforms_scales(sorting_analyzer, templates, channel_locations, x_offse
 
     y_offset = channel_locations[:, 1][None, :]
 
-    nbefore = sorting_analyzer.get_extension("waveforms").nbefore
+    nbefore = sorting_analyzer.get_extension("templates").nbefore
     nsamples = templates.shape[1]
 
     xvect = delta_x * (np.arange(nsamples) - nbefore) / nsamples * 0.7

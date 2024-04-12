@@ -276,6 +276,7 @@ class ChannelSparsity:
         """
         from .template_tools import get_template_amplitudes
 
+        print(templates_or_sorting_analyzer)
         mask = np.zeros(
             (templates_or_sorting_analyzer.unit_ids.size, templates_or_sorting_analyzer.channel_ids.size), dtype="bool"
         )
@@ -326,17 +327,16 @@ class ChannelSparsity:
         if isinstance(templates_or_sorting_analyzer, SortingAnalyzer):
             ext = templates_or_sorting_analyzer.get_extension("noise_levels")
             assert ext is not None, "To compute sparsity from snr you need to compute 'noise_levels' first"
-            assert ext.params[
-                "return_scaled"
-            ], "To compute sparsity from snr you need return_scaled=True for extensions"
             noise_levels = ext.data["noise_levels"]
+            return_scaled = templates_or_sorting_analyzer.return_scaled
         elif isinstance(templates_or_sorting_analyzer, Templates):
             assert noise_levels is not None
+            return_scaled = True
 
         mask = np.zeros((unit_ids.size, channel_ids.size), dtype="bool")
 
         peak_values = get_template_amplitudes(
-            templates_or_sorting_analyzer, peak_sign=peak_sign, mode="extremum", return_scaled=True
+            templates_or_sorting_analyzer, peak_sign=peak_sign, mode="extremum", return_scaled=return_scaled
         )
 
         for unit_ind, unit_id in enumerate(unit_ids):
@@ -365,18 +365,17 @@ class ChannelSparsity:
         if isinstance(templates_or_sorting_analyzer, SortingAnalyzer):
             ext = templates_or_sorting_analyzer.get_extension("noise_levels")
             assert ext is not None, "To compute sparsity from snr you need to compute 'noise_levels' first"
-            assert ext.params[
-                "return_scaled"
-            ], "To compute sparsity from snr you need return_scaled=True for extensions"
             noise_levels = ext.data["noise_levels"]
+            return_scaled = templates_or_sorting_analyzer.return_scaled
         elif isinstance(templates_or_sorting_analyzer, Templates):
             assert noise_levels is not None
+            return_scaled = True
 
-        from .template_tools import _get_dense_templates_array
+        from .template_tools import get_dense_templates_array
 
         mask = np.zeros((unit_ids.size, channel_ids.size), dtype="bool")
 
-        templates_array = _get_dense_templates_array(templates_or_sorting_analyzer, return_scaled=True)
+        templates_array = get_dense_templates_array(templates_or_sorting_analyzer, return_scaled=return_scaled)
         templates_ptps = np.ptp(templates_array, axis=1)
 
         for unit_ind, unit_id in enumerate(unit_ids):
@@ -397,7 +396,6 @@ class ChannelSparsity:
         # noise_levels
         ext = sorting_analyzer.get_extension("noise_levels")
         assert ext is not None, "To compute sparsity from ptp you need to compute 'noise_levels' first"
-        assert ext.params["return_scaled"], "To compute sparsity from snr you need return_scaled=True for extensions"
         noise_levels = ext.data["noise_levels"]
 
         # waveforms
