@@ -34,9 +34,9 @@ class MergingBenchmark(Benchmark):
 
     def compute_result(self, **result_params):
         
-        # self.result["no_merging"] = GroundTruthComparison(
-        #     self.gt_sorting, self.sorting, exhaustive_gt=self.exhaustive_gt
-        # )
+        self.result["baseline"] = GroundTruthComparison(
+            self.gt_sorting, self.sorting, exhaustive_gt=self.exhaustive_gt
+        )
 
         self.result["merging"] = GroundTruthComparison(
             self.gt_sorting, self.result["final_sorting"], exhaustive_gt=self.exhaustive_gt
@@ -46,6 +46,7 @@ class MergingBenchmark(Benchmark):
 
     _result_key_saved = [
         ("merging", "pickle"),
+        ("baseline", "pickle"),
     ]
 
 
