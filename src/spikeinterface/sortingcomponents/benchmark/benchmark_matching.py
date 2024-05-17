@@ -141,7 +141,7 @@ class MatchingStudy(BenchmarkStudy):
                     ax = axs[j]
                 comp1 = self.get_result(key1)["gt_comparison"]
                 comp2 = self.get_result(key2)["gt_comparison"]
-                if i <= j:
+                if i < j:
                     for performance, color in zip(performance_names, colors):
                         perf1 = comp1.get_performance()[performance]
                         perf2 = comp2.get_performance()[performance]
@@ -155,15 +155,15 @@ class MatchingStudy(BenchmarkStudy):
 
                     label1 = self.cases[key1]["label"]
                     label2 = self.cases[key2]["label"]
-                    if j == i:
+                    if j == i+1:
                         ax.set_ylabel(f"{label1}")
                     else:
                         ax.set_yticks([])
-                    if i == j:
+                    if i == j-1:
                         ax.set_xlabel(f"{label2}")
                     else:
                         ax.set_xticks([])
-                    if i == num_methods - 1 and j == num_methods - 1:
+                    if i == num_methods - 2 and j == num_methods - 1:
                         patches = []
                         for color, name in zip(colors, performance_names):
                             patches.append(mpatches.Patch(color=color, label=name))
