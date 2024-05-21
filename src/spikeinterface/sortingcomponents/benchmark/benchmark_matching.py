@@ -13,7 +13,9 @@ import matplotlib.patches as mpatches
 import numpy as np
 from spikeinterface.sortingcomponents.benchmark.benchmark_tools import Benchmark, BenchmarkStudy
 from spikeinterface.core.basesorting import minimum_spike_dtype
-
+from spikeinterface.sortingcomponents.tools import remove_empty_templates
+from spikeinterface.core.recording_tools import get_noise_levels
+from spikeinterface.core.sparsity import compute_sparsity
 
 class MatchingBenchmark(Benchmark):
 
@@ -22,6 +24,12 @@ class MatchingBenchmark(Benchmark):
         self.gt_sorting = gt_sorting
         self.method = params["method"]
         self.templates = params["method_kwargs"]["templates"]
+
+        noise_levels = get_noise_levels(recording)
+        sparsity = compute_sparsity(self.templates, noise_levels, method='ptp', threshold=0.25)
+        self.templates = self.templates.to_sparse(sparsity)
+        self.templates = remove_empty_templates(self.templates)
+
         self.method_kwargs = params["method_kwargs"]
         self.result = {}
 
@@ -76,15 +84,15 @@ class MatchingStudy(BenchmarkStudy):
         
         return fig
 
-    def plot_performances_vs_snr(self, case_keys=None, figsize=None):
+    def plot_performances_vs_snr(self, case_keys=None, figsize=None, metrics=["accuracy", "recall", "precision"]):
         if case_keys is None:
             case_keys = list(self.cases.keys())
 
-        fig, axs = plt.subplots(ncols=1, nrows=3, figsize=figsize)
+        fig, axs = plt.subplots(ncols=1, nrows=len(metrics), figsize=figsize, squeeze=False)
 
-        for count, k in enumerate(("accuracy", "recall", "precision")):
+        for count, k in enumerate(metrics):
 
-            ax = axs[count]
+            ax = axs[count, 0]
             for key in case_keys:
                 label = self.cases[key]["label"]
 
@@ -220,13 +228,13 @@ class MatchingStudy(BenchmarkStudy):
 
         plot_study_unit_counts(self, case_keys, figsize=figsize)
 
-    def plot_unit_losses(self, before, after, figsize=None):
+    def plot_unit_losses(self, before, after, metric=["precision"], figsize=None):
 
-        fig, axs = plt.subplots(ncols=1, nrows=3, figsize=figsize)
+        fig, axs = plt.subplots(ncols=1, nrows=len(metric), figsize=figsize, squeeze=False)
 
-        for count, k in enumerate(("accuracy", "recall", "precision")):
+        for count, k in enumerate(metric):
 
-            ax = axs[count]
+            ax = axs[0, count]
 
             label = self.cases[after]["label"]
 
@@ -238,14 +246,19 @@ class MatchingStudy(BenchmarkStudy):
 
             y_before = self.get_result(before)["gt_comparison"].get_performance()[k].values
             y_after = self.get_result(after)["gt_comparison"].get_performance()[k].values
-            if count < 2:
-                ax.set_xticks([], [])
-            elif count == 2:
-                ax.set_xlabel("depth (um)")
-            im = ax.scatter(positions[:, 1], x, c=(y_after - y_before), marker=".", s=50, cmap="copper")
-            fig.colorbar(im, ax=ax)
+            #if count < 2:
+            #ax.set_xticks([], [])
+            #elif count == 2:
+            ax.set_xlabel("depth (um)")
+            im = ax.scatter(positions[:, 1], x, c=(y_after - y_before), cmap="coolwarm")
+            fig.colorbar(im, ax=ax, label=k)
+            im.set_clim(-1, 1)
             ax.set_title(k)
             ax.set_ylabel("snr")
+    
+        #fig.subplots_adjust(right=0.85)
+        #cbar_ax = fig.add_axes([0.9, 0.1, 0.025, 0.75])
+        #cbar = fig.colorbar(im, cax=cbar_ax, label=metric)
 
         # if count == 2:
         #    ax.legend()
