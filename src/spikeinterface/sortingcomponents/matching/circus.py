@@ -103,7 +103,7 @@ class CircusOMPSVDPeeler(BaseTemplateMatchingEngine):
     """
 
     _default_params = {
-        "amplitudes": [0.6, np.inf],
+        "amplitudes": None,
         "stop_criteria": "max_failures",
         "max_failures": 20,
         "omp_min_sps": 0.1,
@@ -111,7 +111,7 @@ class CircusOMPSVDPeeler(BaseTemplateMatchingEngine):
         "templates": None,
         "rank": 5,
         "ignored_ids": [],
-        "vicinity": 3,
+        "vicinity": 0,
     }
 
     @classmethod
