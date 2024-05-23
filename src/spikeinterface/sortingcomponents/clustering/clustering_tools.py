@@ -590,7 +590,7 @@ def detect_mixtures(templates, method_kwargs={}, job_kwargs={}, tmp_folder=None,
 
     keep_searching = True
 
-    DEBUG = True
+    DEBUG = False
     while keep_searching:
 
         keep_searching = False
