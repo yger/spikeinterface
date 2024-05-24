@@ -77,9 +77,8 @@ def get_some_colors(keys, color_engine="auto", map_name="gist_ncar", format="RGB
 
     elif color_engine == "matplotlib":
         # some map have black or white at border so +10
-        if margin is None:
-            margin = max(4, int(N * 0.08))
-        cmap = plt.get_cmap(map_name, N + 2 * margin)
+        margin = max(4, int(N * 0.08))
+        cmap = plt.colormaps[map_name].resampled(N + 2 * margin)
         colors = [cmap(i + margin) for i, key in enumerate(keys)]
 
     elif color_engine == "colorsys":
