@@ -163,7 +163,7 @@ def array_to_image(
     num_channels = data.shape[1]
     spacing = int(num_channels * spatial_zoom[1] * row_spacing)
 
-    cmap = plt.get_cmap(colormap)
+    cmap = plt.colormaps[colormap]
     zoomed_data = zoom(data, spatial_zoom)
     num_timepoints_after_scaling, num_channels_after_scaling = zoomed_data.shape
     num_timepoints_per_row_after_scaling = int(np.min([num_timepoints_per_row, num_timepoints]) * spatial_zoom[0])

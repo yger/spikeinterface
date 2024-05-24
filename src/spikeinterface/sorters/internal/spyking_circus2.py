@@ -113,7 +113,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
         job_kwargs = params["job_kwargs"]
         job_kwargs = fix_job_kwargs(job_kwargs)
-        job_kwargs.update({"verbose": verbose, "progress_bar": verbose})
+        job_kwargs.update({"progress_bar": verbose})
 
         recording = cls.load_recording_from_folder(sorter_output_folder.parent, with_warnings=False)
 
@@ -151,7 +151,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
         ## We need to whiten before the template matching step, to boost the results
         # TODO add , regularize=True chen ready
-        recording_w = whiten(recording_f, mode="local", radius_um=radius_um, dtype="float32")
+        recording_w = whiten(recording_f, mode="local", radius_um=radius_um, dtype="float32", regularize=True)
 
         noise_levels = get_noise_levels(recording_w, return_scaled=False)
 
