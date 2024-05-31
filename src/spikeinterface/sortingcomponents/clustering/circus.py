@@ -21,7 +21,7 @@ from spikeinterface.core.recording_tools import get_noise_levels, get_channel_di
 from spikeinterface.core.job_tools import fix_job_kwargs
 from spikeinterface.sortingcomponents.peak_selection import select_peaks
 from spikeinterface.sortingcomponents.waveforms.temporal_pca import TemporalPCAProjection
-from sklearn.decomposition import TruncatedSVD, PCA
+from sklearn.decomposition import TruncatedSVD
 from spikeinterface.core.template import Templates
 from spikeinterface.core.sparsity import compute_sparsity
 from spikeinterface.sortingcomponents.tools import remove_empty_templates
@@ -31,6 +31,7 @@ from spikeinterface.core.node_pipeline import (
     ExtractSparseWaveforms,
     PeakRetriever,
 )
+from spikeinterface.sortingcomponents.waveforms.waveform_thresholder import WaveformThresholder
 
 from spikeinterface.sortingcomponents.tools import extract_waveform_at_max_channel
 
@@ -127,11 +128,19 @@ class CircusClustering:
             radius_um=radius_um,
         )
 
-        node2 = TemporalPCAProjection(
-            recording, parents=[node0, node1], return_output=True, model_folder_path=model_folder
+        node2 = WaveformThresholder(
+            recording,
+            parents=[node0, node1],
+            return_output=False,
+            noise_levels=params["noise_levels"],
+            sparse=True
         )
 
-        pipeline_nodes = [node0, node1, node2]
+        node3 = TemporalPCAProjection(
+            recording, parents=[node0, node2], return_output=True, model_folder_path=model_folder
+        )
+
+        pipeline_nodes = [node0, node1, node2, node3]
 
         if len(params["recursive_kwargs"]) == 0:
 

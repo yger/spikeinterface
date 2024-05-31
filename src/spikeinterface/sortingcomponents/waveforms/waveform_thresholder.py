@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 import json
 from typing import List, Optional
-import scipy.signal
 import numpy as np
 import operator
 from typing import Literal
+from spikeinterface.core import get_channel_distances
 
 from spikeinterface.core import BaseRecording, get_noise_levels
 from spikeinterface.core.node_pipeline import PipelineNode, WaveformsNode, find_parent_of_type
@@ -51,6 +51,8 @@ class WaveformThresholder(WaveformsNode):
         noise_levels: Optional[np.array] = None,
         random_chunk_kwargs: dict = {},
         operator: callable = operator.le,
+        radius_um: float = 100.0,
+        sparse: bool = False
     ):
         waveform_extractor = find_parent_of_type(parents, WaveformsNode)
         if waveform_extractor is None:
@@ -70,24 +72,44 @@ class WaveformThresholder(WaveformsNode):
         self.threshold = threshold
         self.feature = feature
         self.operator = operator
-
+        self.sparse = sparse
+        self.radius_um = radius_um
         self.noise_levels = noise_levels
+        self.contact_locations = recording.get_channel_locations()
+        self.channel_distance = get_channel_distances(recording)
+        self.neighbours_mask = self.channel_distance <= radius_um
         if self.noise_levels is None:
             self.noise_levels = get_noise_levels(self.recording, **random_chunk_kwargs, return_scaled=False)
 
         self._kwargs.update(
-            dict(feature=feature, threshold=threshold, operator=operator, noise_levels=self.noise_levels)
+            dict(feature=feature, threshold=threshold, operator=operator, noise_levels=self.noise_levels, sparse=self.sparse, radius_um=self.radius_um)
         )
 
     def compute(self, traces, peaks, waveforms):
-        if self.feature == "ptp":
-            wf_data = waveforms.ptp(axis=1) / self.noise_levels
-        elif self.feature == "mean":
-            wf_data = waveforms.mean(axis=1) / self.noise_levels
-        elif self.feature == "energy":
-            wf_data = np.linalg.norm(waveforms, axis=1) / self.noise_levels
-        elif self.feature == "peak_voltage":
-            wf_data = waveforms[:, self.nbefore, :] / self.noise_levels
+
+        if self.sparse:
+            wf_data = np.zeros((waveforms.shape[0], waveforms.shape[2]), dtype=np.float32)
+            for main_chan in np.unique(peaks["channel_index"]):
+                (idx,) = np.nonzero(peaks["channel_index"] == main_chan)
+                (chan_inds,) = np.nonzero(self.neighbours_mask[main_chan])
+                if self.feature == "ptp":
+                    wf_data[idx] = waveforms[idx, :, :len(chan_inds)].ptp(axis=1) / self.noise_levels[chan_inds]
+                elif self.feature == "mean":
+                    wf_data[idx] = waveforms[idx, :, :len(chan_inds)].mean(axis=1) / self.noise_levels[chan_inds]
+                elif self.feature == "energy":
+                    wf_data[idx] = np.linalg.norm(waveforms[idx, :, :len(chan_inds)], axis=1) / self.noise_levels[chan_inds]
+                elif self.feature == "peak_voltage":
+                    wf_data[idx] = waveforms[idx, self.nbefore, :len(chan_inds)] / self.noise_levels[chan_inds]
+                
+        else:
+            if self.feature == "ptp":
+                wf_data = waveforms.ptp(axis=1) / self.noise_levels[chan_inds]
+            elif self.feature == "mean":
+                wf_data = waveforms.mean(axis=1) / self.noise_levels[chan_inds]
+            elif self.feature == "energy":
+                wf_data = np.linalg.norm(waveforms[idx], axis=1) / self.noise_levels[chan_inds]
+            elif self.feature == "peak_voltage":
+                wf_data = waveforms[:, self.nbefore, :] / self.noise_levels[chan_inds]
 
         mask = self.operator(wf_data, self.threshold)
         mask = np.broadcast_to(mask[:, np.newaxis, :], waveforms.shape)
