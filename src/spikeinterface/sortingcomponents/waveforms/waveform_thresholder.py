@@ -93,13 +93,13 @@ class WaveformThresholder(WaveformsNode):
                 (idx,) = np.nonzero(peaks["channel_index"] == main_chan)
                 (chan_inds,) = np.nonzero(self.neighbours_mask[main_chan])
                 if self.feature == "ptp":
-                    wf_data[idx] = waveforms[idx, :, :len(chan_inds)].ptp(axis=1) / self.noise_levels[chan_inds]
+                    wf_data[idx, :len(chan_inds)] = waveforms[idx, :, :len(chan_inds)].ptp(axis=1) / self.noise_levels[chan_inds]
                 elif self.feature == "mean":
-                    wf_data[idx] = waveforms[idx, :, :len(chan_inds)].mean(axis=1) / self.noise_levels[chan_inds]
+                    wf_data[idx, :len(chan_inds)] = waveforms[idx, :, :len(chan_inds)].mean(axis=1) / self.noise_levels[chan_inds]
                 elif self.feature == "energy":
-                    wf_data[idx] = np.linalg.norm(waveforms[idx, :, :len(chan_inds)], axis=1) / self.noise_levels[chan_inds]
+                    wf_data[idx, :len(chan_inds)] = np.linalg.norm(waveforms[idx, :, :len(chan_inds)], axis=1) / self.noise_levels[chan_inds]
                 elif self.feature == "peak_voltage":
-                    wf_data[idx] = waveforms[idx, self.nbefore, :len(chan_inds)] / self.noise_levels[chan_inds]
+                    wf_data[idx, :len(chan_inds)] = waveforms[idx, self.nbefore, :len(chan_inds)] / self.noise_levels[chan_inds]
                 
         else:
             if self.feature == "ptp":
