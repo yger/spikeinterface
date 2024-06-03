@@ -33,6 +33,7 @@ from spikeinterface.core.node_pipeline import (
 )
 from spikeinterface.sortingcomponents.waveforms.waveform_thresholder import WaveformThresholder
 
+
 from spikeinterface.sortingcomponents.tools import extract_waveform_at_max_channel
 
 
@@ -97,6 +98,8 @@ class CircusClustering:
         )
 
         wfs = few_wfs[:, :, 0]
+        from sklearn.decomposition import TruncatedSVD
+
         tsvd = TruncatedSVD(params["n_svd"][0])
         tsvd.fit(wfs)
 
@@ -240,7 +243,7 @@ class CircusClustering:
         if d["rank"] is not None:
             from spikeinterface.sortingcomponents.matching.circus import compress_templates
 
-            _, _, _, templates_array = compress_templates(templates_array, 5)
+            _, _, _, templates_array = compress_templates(templates_array, d["rank"])
 
         templates = Templates(
             templates_array=templates_array,
