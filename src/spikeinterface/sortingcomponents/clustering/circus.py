@@ -135,7 +135,10 @@ class CircusClustering:
             recording,
             parents=[node0, node1],
             return_output=False,
+            feature='energy',
+            threshold= 1.25 * np.sqrt(nbefore+nafter),
             noise_levels=params["noise_levels"],
+            radius_um=radius_um,
             sparse=True
         )
 
