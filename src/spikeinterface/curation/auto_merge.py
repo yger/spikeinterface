@@ -184,7 +184,7 @@ def get_potential_auto_merge(
             steps = ["min_spikes", 
                      "remove_contaminated",
                      "knn",
-                     "cross_contamination",
+                     "correlogram",
                      "check_increase_score"]
 >>>>>>> Stashed changes
 
@@ -291,24 +291,8 @@ def get_potential_auto_merge(
         
         # STEP 6 : [optional] check how the rates overlap in times
         elif step == "knn" in steps:
-            
-            k = 10
-            positions = sorting_analyzer.get_extension('spike_locations').get_data()
-            amplitudes = sorting_analyzer.get_extension('spike_amplitudes').get_data()
-            spikes = sorting_analyzer.sorting.to_spike_vector()
-            spike_times = spikes['sample_index']
-            data = np.vstack((amplitudes, positions['x'], positions['y'])).T
-            from sklearn.neighbors import NearestNeighbors
-            data = (data - data.mean(0))/data.std(0)
-            kdtree = NearestNeighbors(n_neighbors=k, n_jobs=-1)
-            kdtree.fit(data)
-            for unit_ind in range(n):
-                mask = spikes['unit_index'] == unit_ind
-                ind = kdtree.kneighbors(data[mask], return_distance=False)
-                ind = ind.flatten()
-                a, b = np.unique(spikes['unit_index'][ind], return_counts=True)
-                idx = np.argsort(b)[::-1][1:k+1]
-                pair_mask[unit_ind] &= np.isin(np.arange(n), idx)
+
+            pair_mask = get_pairs_via_nntree(sorting_analyzer, k_nn=5)
 
         # STEP 7 : [optional] check if the cross contamination is significant
         elif step == "cross_contamination" in steps:
@@ -348,6 +332,34 @@ def get_potential_auto_merge(
     else:
         return potential_merges
 
+
+
+def get_pairs_via_nntree(sorting_analyzer, k_nn=5, pair_mask=None):
+
+    sorting = sorting_analyzer.sorting
+    unit_ids = sorting.unit_ids
+    n = len(unit_ids)
+
+    if pair_mask is None:
+        pair_mask = np.ones((n, n), dtype="bool")
+
+    unit_positions = sorting_analyzer.get_extension('unit_locations').get_data()
+    spike_positions = sorting_analyzer.get_extension('spike_locations').get_data()
+    spike_amplitudes = sorting_analyzer.get_extension('spike_amplitudes').get_data()
+    spikes = sorting_analyzer.sorting.to_spike_vector()
+    data = np.vstack((spike_amplitudes, spike_positions['x'], spike_positions['y'])).T
+    from sklearn.neighbors import NearestNeighbors
+    data = (data - data.mean(0))/data.std(0)
+    kdtree = NearestNeighbors(n_neighbors=k_nn, n_jobs=-1)
+    kdtree.fit(data)
+    for unit_ind in range(n):
+        mask = spikes['unit_index'] == unit_ind
+        ind = kdtree.kneighbors(data[mask], return_distance=False)
+        ind = ind.flatten()
+        chan_inds, all_counts = np.unique(spikes['unit_index'][ind], return_counts=True)
+        best_indices = np.argsort(all_counts)[::-1][1:]
+        pair_mask[unit_ind] &= np.isin(np.arange(n), chan_inds[best_indices])
+    return pair_mask
 
 def compute_correlogram_diff(sorting, correlograms_smoothed, win_sizes, pair_mask=None):
     """
