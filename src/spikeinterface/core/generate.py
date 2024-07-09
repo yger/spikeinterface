@@ -3,7 +3,6 @@ import math
 import warnings
 import numpy as np
 from typing import Union, Optional, List, Literal
-import warnings
 from math import ceil
 
 from .basesorting import SpikeVectorSortingSegment
@@ -80,6 +79,8 @@ def generate_recording(
             probe = probe.to_3d()
         probe.set_device_channel_indices(np.arange(num_channels))
         recording.set_probe(probe, in_place=True)
+
+    recording.name = "SyntheticRecording"
 
     return recording
 
@@ -1441,7 +1442,6 @@ def generate_templates(
     dtype="float32",
     upsample_factor=None,
     unit_params=None,
-    unit_params_range=None,
     mode="ellipsoid",
 ):
     """
@@ -1498,9 +1498,7 @@ def generate_templates(
             * (num_units, num_samples, num_channels, upsample_factor) if upsample_factor is not None
 
     """
-
     unit_params = unit_params or dict()
-    unit_params_range = unit_params_range or dict()
     rng = np.random.default_rng(seed=seed)
 
     # neuron location must be 3D
@@ -1858,7 +1856,7 @@ class InjectTemplatesRecordingSegment(BaseRecordingSegment):
             wf = template[start_template:end_template]
             if self.amplitude_vector is not None:
                 wf = wf * self.amplitude_vector[i]
-            traces[start_traces:end_traces] += wf
+            traces[start_traces:end_traces] += wf.astype(traces.dtype, copy=False)
 
         return traces.astype(self.dtype, copy=False)
 
@@ -2125,5 +2123,8 @@ def generate_ground_truth_recording(
     recording.set_probe(probe, in_place=True)
     recording.set_channel_gains(1.0)
     recording.set_channel_offsets(0.0)
+
+    recording.name = "GroundTruthRecording"
+    sorting.name = "GroundTruthSorting"
 
     return recording, sorting
