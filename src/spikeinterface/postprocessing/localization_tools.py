@@ -112,10 +112,10 @@ def compute_monopolar_triangulation(
         elif feature == "peak_voltage":
             wf_data = np.abs(wf[nbefore])
 
-        # if enforce_decrease:
-        #    enforce_decrease_shells_data(
-        #        wf_data, best_channels[unit_id], enforce_decrease_radial_parents, in_place=True
-        #    )
+        if enforce_decrease:
+            enforce_decrease_shells_data(
+                wf_data, best_channels[unit_id], enforce_decrease_radial_parents, in_place=True
+            )
 
         unit_location[i] = solve_monopolar_triangulation(wf_data, local_contact_locations, max_distance_um, optimizer)
 
