@@ -139,9 +139,9 @@ def plot_comparison_positions(benchmarks, mode='average', colors=None):
         for count, bench in enumerate(benchmarks):
             colors[bench.title] = f'C{count}'
 
-    plt.rc('font', size=13)
-    plt.rc('xtick', labelsize=12) 
-    plt.rc('ytick', labelsize=12)
+    plt.rc('font', size=14)
+    plt.rc('xtick', labelsize=14) 
+    plt.rc('ytick', labelsize=14)
 
     #fig, axs = plt.subplots(ncols=3, nrows=2, figsize=(15, 10))
     fig = plt.figure(figsize=(15, 10))
@@ -179,7 +179,7 @@ def plot_comparison_positions(benchmarks, mode='average', colors=None):
     for bench in benchmarks:
         errors = np.linalg.norm(bench.template_positions[:, :2] - bench.gt_positions[:,:2], axis=1)
         ax.plot(distances_to_center[zdx], savgol_filter(errors[zdx], smoothing_factor, 3), label=bench.title, c=colors[bench.title])
-
+    ax.set_ylim(0, ymax)
     #ax.set_xlabel('distance to center (um)')
     #ax.set_yticks([])
 
@@ -197,7 +197,7 @@ def plot_comparison_positions(benchmarks, mode='average', colors=None):
 
     #ax.set_xlabel('norms')
     ax.set_xticks([])
-    #ax.set_ylim(ymin, ymax)
+    ax.set_ylim(ymin, ymax)
 
     #ax = axs[1, 0]
     ax = fig.add_subplot(gs[2, 0])
@@ -216,6 +216,7 @@ def plot_comparison_positions(benchmarks, mode='average', colors=None):
     #ax = axs[1, 0]
     ax.set_xticks([])
     ax.set_ylabel('error (um)')
+    ax.set_ylim(0, 40)
     ax = fig.add_subplot(gs[3, 0])
 
     ax.spines['top'].set_visible(False)
@@ -229,6 +230,7 @@ def plot_comparison_positions(benchmarks, mode='average', colors=None):
 
     ax.set_xlabel('snr')
     ax.set_ylabel('mad (um)')
+    ax.set_ylim(0, 15)
     #ymin, ymax = ax.get_ylim()
     #ax.set_ylim(0, ymax)
     #ax.set_yscale('log')
@@ -248,6 +250,7 @@ def plot_comparison_positions(benchmarks, mode='average', colors=None):
         #ax.fill_between(distances_to_center[zdx], ymin, ymax, alpha=0.5, color=colors[bench.title])
 
     #ax = axs[1, 1]
+    ax.set_ylim(0, 40)
     ax.set_xticks([])
     ax = fig.add_subplot(gs[3, 1])
 
@@ -270,6 +273,7 @@ def plot_comparison_positions(benchmarks, mode='average', colors=None):
     #ax.set_ylim(ymin, ymax)
   
     #ax = axs[1, 2]
+    ax.set_ylim(0, 15)
     ax = fig.add_subplot(gs[2:4, 2])
 
     ax.spines['top'].set_visible(False)
@@ -503,9 +507,9 @@ def plot_figure_1(benchmarks, colors, mode='average', cell_ind='auto', examples=
     probeinterface.plotting.plot_probe(probe, ax=axs[0, 0])
     axs[0, 0].scatter(benchmark.gt_positions[:, 0], benchmark.gt_positions[:, 1], c='k', alpha=0.25)
     axs[0, 0].scatter(benchmark.gt_positions[cell_ind, 0], benchmark.gt_positions[cell_ind, 1], c='r')
-    plt.rc('font', size=13)
-    plt.rc('xtick', labelsize=12) 
-    plt.rc('ytick', labelsize=12)
+    plt.rc('font', size=14)
+    plt.rc('xtick', labelsize=14) 
+    plt.rc('ytick', labelsize=14)
     axs[0, 0].set_title('')
 
     import spikeinterface.full as si
