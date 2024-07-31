@@ -98,6 +98,10 @@ def detect_peaks(
     node0 = method_class(recording, **method_kwargs)
     nodes = [node0]
 
+    if node0.shared_structures:
+        method_kwargs.update({'shared_structures' : node0.get_shared_structures()})
+        node0 = method_class(recording, **method_kwargs)
+
     job_name = f"detect peaks using {method}"
     if pipeline_nodes is None:
         squeeze_output = True
@@ -341,6 +345,13 @@ class PeakDetectorWrapper(PeakDetector):
     def get_trace_margin(self):
         return self.get_method_margin(*self.args)
 
+    def get_shared_structures(self):
+        return dict()
+
+    def set_shared_structures(self, shared_structures):
+        for key, value in shared_structures.items():
+            self.__setattr__(key, value)
+
     def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
         peak_sample_ind, peak_chan_ind = self.detect_peaks(traces, *self.args)
         if peak_sample_ind.size == 0 or peak_chan_ind.size == 0:
@@ -362,6 +373,7 @@ class DetectPeakByChannel(PeakDetectorWrapper):
 
     name = "by_channel"
     engine = "numpy"
+    shared_structures = False
     preferred_mp_context = None
     params_doc = """
     peak_sign: "neg" | "pos" | "both", default: "neg"
@@ -444,6 +456,7 @@ class DetectPeakByChannelTorch(PeakDetectorWrapper):
 
     name = "by_channel_torch"
     engine = "torch"
+    shared_structures = False
     preferred_mp_context = "spawn"
     params_doc = """
     peak_sign: "neg" | "pos" | "both", default: "neg"
@@ -512,6 +525,7 @@ class DetectPeakLocallyExclusive(PeakDetectorWrapper):
 
     name = "locally_exclusive"
     engine = "numba"
+    shared_structures = False
     preferred_mp_context = None
     params_doc = (
         DetectPeakByChannel.params_doc
@@ -588,6 +602,7 @@ class DetectPeakMatchedFiltering(PeakDetector):
 
     name = "matched_filtering"
     engine = "numba"
+    shared_structures = True
     preferred_mp_context = None
     params_doc = (
         DetectPeakByChannel.params_doc
@@ -618,6 +633,7 @@ class DetectPeakMatchedFiltering(PeakDetector):
         noise_levels=None,
         random_chunk_kwargs={"num_chunks_per_segment": 5},
         weight_method={},
+        shared_structures=None
     ):
         PeakDetector.__init__(self, recording, return_output=True)
 
@@ -671,16 +687,27 @@ class DetectPeakMatchedFiltering(PeakDetector):
         self.singular = singular
 
         random_data = get_random_data_chunks(recording, return_scaled=False, **random_chunk_kwargs)
-        conv_random_data = self.get_convolved_traces(random_data, temporal, spatial, singular)
+        conv_random_data = self.get_convolved_traces(random_data)
         medians = np.median(conv_random_data, axis=1)
         medians = medians[:, None]
         noise_levels = np.median(np.abs(conv_random_data - medians), axis=1) / 0.6744897501960817
         self.abs_thresholds = noise_levels * detect_threshold
 
         self._dtype = np.dtype(base_peak_dtype + [("z", "float32")])
+        if shared_structures is not None:
+            self.set_shared_structures(shared_structures)
 
     def get_dtype(self):
         return self._dtype
+
+    def get_shared_structures(self):
+        from spikeinterface.core.core_tools import make_shared_array
+        shared_structures = {}
+        for key, data in zip(['temporal', 'singular', 'spatial'], [self.temporal, self.singular, self.spatial]):
+            arr, name = make_shared_array(data.shape, data.dtype)
+            arr[:] = data
+            shared_structures[key] = arr
+        return shared_structures
 
     def get_trace_margin(self):
         return self.exclude_sweep_size + self.conv_margin
@@ -688,7 +715,7 @@ class DetectPeakMatchedFiltering(PeakDetector):
     def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
 
         assert HAVE_NUMBA, "You need to install numba"
-        conv_traces = self.get_convolved_traces(traces, self.temporal, self.spatial, self.singular)
+        conv_traces = self.get_convolved_traces(traces)
         conv_traces /= self.abs_thresholds[:, None]
         conv_traces = conv_traces[:, self.conv_margin : -self.conv_margin]
         traces_center = conv_traces[:, self.exclude_sweep_size : -self.exclude_sweep_size]
@@ -739,15 +766,15 @@ class DetectPeakMatchedFiltering(PeakDetector):
         # return is always a tuple
         return (local_peaks,)
 
-    def get_convolved_traces(self, traces, temporal, spatial, singular):
+    def get_convolved_traces(self, traces):
         import scipy.signal
 
-        num_timesteps, num_templates = len(traces), temporal.shape[1]
+        num_timesteps, num_templates = len(traces), self.temporal.shape[1]
         num_peaks = num_timesteps - self.conv_margin + 1
         scalar_products = np.zeros((num_templates, num_peaks), dtype=np.float32)
-        spatially_filtered_data = np.matmul(spatial, traces.T[np.newaxis, :, :])
-        scaled_filtered_data = spatially_filtered_data * singular
-        objective_by_rank = scipy.signal.oaconvolve(scaled_filtered_data, temporal, axes=2, mode="valid")
+        spatially_filtered_data = np.matmul(self.spatial, traces.T[np.newaxis, :, :])
+        scaled_filtered_data = spatially_filtered_data * self.singular
+        objective_by_rank = scipy.signal.oaconvolve(scaled_filtered_data, self.temporal, axes=2, mode="valid")
         scalar_products += np.sum(objective_by_rank, axis=0)
         return scalar_products
 

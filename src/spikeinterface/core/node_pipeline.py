@@ -103,6 +103,13 @@ class PeakSource(PipelineNode):
     def get_dtype(self):
         return base_peak_dtype
 
+    def get_shared_structures(self):
+        return dict()
+
+    def set_shared_structures(self, shared_structures):
+        for key, value in shared_structures.items():
+            self.__setattr__(key, value)
+
 
 # this is used in sorting components
 class PeakDetector(PeakSource):
