@@ -7,6 +7,15 @@ from typing import List, Tuple, Optional
 from .main import BaseTemplateMatchingEngine
 from spikeinterface.core.template import Templates
 
+try:
+    import torch
+    import torch.nn.functional as F
+
+    HAVE_TORCH = True
+    from torch.nn.functional import conv1d
+except ImportError:
+    HAVE_TORCH = False
+
 
 @dataclass
 class WobbleParameters:
@@ -40,6 +49,8 @@ class WobbleParameters:
         Maximum value for ampltiude scaling of templates.
     scale_amplitudes : bool
         If True, scale amplitudes of templates to match spikes.
+    device : string or torch.device
+        Controls torch device
 
     Notes
     -----
@@ -61,6 +72,7 @@ class WobbleParameters:
     scale_min: float = 0
     scale_max: float = np.inf
     scale_amplitudes: bool = False
+    device: str = None
 
     def __post_init__(self):
         assert self.amplitude_variance >= 0, "amplitude_variance must be a non-negative scalar"
@@ -373,6 +385,8 @@ class WobbleMatch(BaseTemplateMatchingEngine):
 
         # Aggregate useful parameters/variables for handy access in downstream functions
         params = WobbleParameters(**parameters)
+
+        kwargs['device'] = params.device
         template_meta = TemplateMetadata.from_parameters_and_templates(params, templates_array)
         if not templates.are_templates_sparse():
             sparsity = Sparsity.from_parameters_and_templates(params, templates_array)
@@ -387,13 +401,27 @@ class WobbleMatch(BaseTemplateMatchingEngine):
         pairwise_convolution = convolve_templates(
             compressed_templates, params.jitter_factor, params.approx_rank, template_meta.jittered_indices, sparsity
         )
+
         norm_squared = compute_template_norm(sparsity.visible_channels, templates_array)
         template_data = TemplateData(
             compressed_templates=compressed_templates,
             pairwise_convolution=pairwise_convolution,
             norm_squared=norm_squared,
         )
+        
+        spatial = np.moveaxis(spatial, [0, 1, 2], [1, 0, 2])
+        temporal = np.moveaxis(temporal, [0, 1, 2], [1, 2, 0])
+        singular = singular.T[:, :, np.newaxis]
 
+        if HAVE_TORCH and params.device is not None:
+            spatial = torch.as_tensor(spatial, device=kwargs['device'])
+            singular = torch.as_tensor(singular, device=kwargs['device'])
+            temporal = torch.as_tensor(temporal.copy(), device=kwargs['device']).swapaxes(0, 1)
+            temporal = torch.flip(temporal, (2,))
+            template_data.compressed_templates = (temporal, singular, spatial, temporal_jittered)
+        else:
+            template_data.compressed_templates = (temporal, singular, spatial, temporal_jittered)
+    
         # Pack initial data into kwargs
         kwargs["params"] = params
         kwargs["template_meta"] = template_meta
@@ -401,6 +429,7 @@ class WobbleMatch(BaseTemplateMatchingEngine):
         kwargs["template_data"] = template_data
         kwargs["nbefore"] = templates.nbefore
         kwargs["nafter"] = templates.nafter
+
         d.update(kwargs)
         return d
 
@@ -458,12 +487,14 @@ class WobbleMatch(BaseTemplateMatchingEngine):
         params = method_kwargs["params"]
         sparsity = method_kwargs["sparsity"]
         template_data = method_kwargs["template_data"]
+        device = method_kwargs['device']
 
         # Check traces
         assert traces.dtype == np.float32, "traces must be specified as np.float32"
 
         # Compute objective
-        objective = compute_objective(traces, template_data, params.approx_rank)
+
+        objective = compute_objective(traces, template_data, device)
         objective_normalized = 2 * objective - template_data.norm_squared[:, np.newaxis]
 
         # Compute spike train
@@ -833,10 +864,11 @@ def compress_templates(templates, approx_rank):
     temporal, singular, spatial = np.linalg.svd(templates, full_matrices=False)
 
     # Keep only the strongest components
-    temporal = temporal[:, :, :approx_rank]
+    temporal = temporal[:, :, :approx_rank].astype(np.float32)
     temporal = np.flip(temporal, axis=1)
-    singular = singular[:, :approx_rank]
-    spatial = spatial[:, :approx_rank, :]
+    singular = singular[:, :approx_rank].astype(np.float32)
+    spatial = spatial[:, :approx_rank, :].astype(np.float32)
+
     return temporal, singular, spatial
 
 
@@ -874,7 +906,6 @@ def upsample_and_jitter(temporal, jitter_factor, num_samples):
 
     shape_temporal_jittered = (-1, num_samples, approx_rank)
     temporal_jittered = np.reshape(temporal_jittered[:, shifted_index, :], shape_temporal_jittered)
-
     temporal_jittered = np.flip(temporal_jittered, axis=1)
     return temporal_jittered
 
@@ -936,7 +967,7 @@ def convolve_templates(compressed_templates, jitter_factor, approx_rank, jittere
     return pairwise_convolution
 
 
-def compute_objective(traces, template_data, approx_rank):
+def compute_objective(traces, template_data, device=None):
     """Compute objective by convolving templates with voltage traces.
 
     Parameters
@@ -945,31 +976,38 @@ def compute_objective(traces, template_data, approx_rank):
         Voltage traces for a chunk of the recording.
     template_data : TemplateData
         Dataclass object for aggregating template data together.
-    approx_rank : int
-        Rank of the compressed template matrices.
 
     Returns
     -------
     objective : ndarray (template_meta.num_templates, traces.shape[0]+template_meta.num_samples-1)
             Template matching objective for each template.
     """
-    temporal, singular, spatial, temporal_jittered = template_data.compressed_templates
-    num_templates = temporal.shape[0]
-    num_samples = temporal.shape[1]
-    objective_len = get_convolution_len(traces.shape[0], num_samples)
-    conv_shape = (num_templates, objective_len)
-    objective = np.zeros(conv_shape, dtype=np.float32)
-    spatial_filters = np.moveaxis(spatial[:, :approx_rank, :], [0, 1, 2], [1, 0, 2])
-    temporal_filters = np.moveaxis(temporal[:, :, :approx_rank], [0, 1, 2], [1, 2, 0])
-    singular_filters = singular.T[:, :, np.newaxis]
-
-    # Filter using overlap-and-add convolution
-    spatially_filtered_data = np.matmul(spatial_filters, traces.T[np.newaxis, :, :])
-    scaled_filtered_data = spatially_filtered_data * singular_filters
-    from scipy import signal
-
-    objective_by_rank = signal.oaconvolve(scaled_filtered_data, temporal_filters, axes=2, mode="full")
-    objective += np.sum(objective_by_rank, axis=0)
+    temporal, singular, spatial, _ = template_data.compressed_templates
+    if HAVE_TORCH and device is not None:
+        nt = temporal.shape[2] - 1
+        num_channels = traces.shape[1]
+        blank = np.zeros((nt, num_channels), dtype=np.float32)
+        traces = np.vstack((blank, traces, blank))
+        torch_traces = torch.as_tensor(traces.T[None, :, :], device=device)
+        num_templates, num_channels = temporal.shape[0], temporal.shape[1]
+        num_timesteps = torch_traces.shape[2]
+        spatially_filtered_data = torch.matmul(spatial, torch_traces)
+        scaled_filtered_data = (spatially_filtered_data * singular).swapaxes(0, 1)
+        scaled_filtered_data_ = scaled_filtered_data.reshape(1, num_templates*num_channels, num_timesteps)
+        objective = conv1d(scaled_filtered_data_, temporal, groups=num_templates, padding='valid')
+        objective = objective.cpu().numpy()[0, :, :]
+    else:
+        num_channels, num_templates  = temporal.shape[0], temporal.shape[1]
+        num_timesteps = temporal.shape[2]
+        objective_len = get_convolution_len(traces.shape[0], num_timesteps)
+        conv_shape = (num_templates, objective_len)
+        objective = np.zeros(conv_shape, dtype=np.float32)
+        # Filter using overlap-and-add convolution
+        spatially_filtered_data = np.matmul(spatial, traces.T[np.newaxis, :, :])
+        scaled_filtered_data = spatially_filtered_data * singular
+        from scipy import signal
+        objective_by_rank = signal.oaconvolve(scaled_filtered_data, temporal, axes=2, mode="full")
+        objective += np.sum(objective_by_rank, axis=0)
     return objective
 
 
