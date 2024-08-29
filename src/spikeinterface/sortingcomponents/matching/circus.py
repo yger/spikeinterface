@@ -20,7 +20,8 @@ spike_dtype = [
 from .main import BaseTemplateMatchingEngine
 
 
-def compress_templates(templates_array, approx_rank, remove_mean=True, return_new_templates=True):
+def compress_templates(templates_array, approx_rank, remove_mean=True, 
+                       return_new_templates=True, shared_temporal_components=None):
     """Compress templates using singular value decomposition.
 
     Parameters
@@ -29,6 +30,8 @@ def compress_templates(templates_array, approx_rank, remove_mean=True, return_ne
         Spike template waveforms.
     approx_rank : int
         Rank of the compressed template matrices.
+    shared_temporal_components : None or array
+        TO DO
 
     Returns
     -------
@@ -38,17 +41,26 @@ def compress_templates(templates_array, approx_rank, remove_mean=True, return_ne
     if remove_mean:
         templates_array -= templates_array.mean(axis=(1, 2))[:, None, None]
 
-    temporal, singular, spatial = np.linalg.svd(templates_array, full_matrices=False)
-    # Keep only the strongest components
-    temporal = temporal[:, :, :approx_rank]
-    singular = singular[:, :approx_rank]
-    spatial = spatial[:, :approx_rank, :]
+    if shared_temporal_components is not None:
+        shared_temporal_components = np.load(shared_temporal_components)
+        n_components = shared_temporal_components.shape[0]
+        temporal = shared_temporal_components.T[None, :, :]
+        singular = np.ones((1, temporal.shape[2]), dtype=np.float32)
+        spatial = np.zeros((templates_array.shape[0], temporal.shape[2], templates_array.shape[2]), dtype=np.float32)
+        for i in range(templates_array.shape[0]):
+            spatial[i] = np.dot(shared_temporal_components, templates_array[i])
+        spatial /= n_components
+    else:
+        temporal, singular, spatial = np.linalg.svd(templates_array, full_matrices=False)
+        # Keep only the strongest components
+        temporal = temporal[:, :, :approx_rank]
+        singular = singular[:, :approx_rank]
+        spatial = spatial[:, :approx_rank, :]
 
     if return_new_templates:
         templates_array = np.matmul(temporal * singular[:, np.newaxis, :], spatial)
     else:
         templates_array = None
-
     return temporal, singular, spatial, templates_array
 
 
@@ -129,6 +141,7 @@ class CircusOMPSVDPeeler(BaseTemplateMatchingEngine):
         "rank": 5,
         "ignore_inds": [],
         "vicinity": 3,
+        "shared_components" : None
     }
 
     @classmethod
@@ -148,7 +161,7 @@ class CircusOMPSVDPeeler(BaseTemplateMatchingEngine):
 
         templates_array = templates.get_dense_templates().copy()
         # Then we keep only the strongest components
-        d["temporal"], d["singular"], d["spatial"], templates_array = compress_templates(templates_array, d["rank"])
+        d["temporal"], d["singular"], d["spatial"], templates_array = compress_templates(templates_array, d["rank"], shared_temporal_components=d['shared_components'])
 
         d["normed_templates"] = np.zeros(templates_array.shape, dtype=np.float32)
         d["norms"] = np.zeros(num_templates, dtype=np.float32)
@@ -159,7 +172,8 @@ class CircusOMPSVDPeeler(BaseTemplateMatchingEngine):
             d["norms"][count] = np.linalg.norm(template)
             d["normed_templates"][count][:, sparsity[count]] = template / d["norms"][count]
 
-        d["temporal"] /= d["norms"][:, np.newaxis, np.newaxis]
+        d["spatial"] /= d["norms"][:, np.newaxis, np.newaxis]
+
         d["temporal"] = np.flip(d["temporal"], axis=1)
 
         d["overlaps"] = []
@@ -169,7 +183,11 @@ class CircusOMPSVDPeeler(BaseTemplateMatchingEngine):
             overlapping_units = np.where(d["units_overlaps"][i])[0]
 
             # Reconstruct unit template from SVD Matrices
-            data = d["temporal"][i] * d["singular"][i][np.newaxis, :]
+            if d["shared_components"] is None:
+                data = d["temporal"][i] * d["singular"][i][np.newaxis, :]
+            else:
+                data = d["temporal"][0] * d["singular"][0][np.newaxis, :]
+
             template_i = np.matmul(data, d["spatial"][i, :, :])
             template_i = np.flipud(template_i)
 
@@ -181,10 +199,15 @@ class CircusOMPSVDPeeler(BaseTemplateMatchingEngine):
 
                 spatial_filters = d["spatial"][j, :, overlapped_channels]
                 spatially_filtered_template = np.matmul(visible_i, spatial_filters)
-                visible_i = spatially_filtered_template * d["singular"][j]
-
-                for rank in range(visible_i.shape[1]):
-                    unit_overlaps[count, :] += np.convolve(visible_i[:, rank], d["temporal"][j][:, rank], mode="full")
+                if d["shared_components"] is None:
+                    visible_i = spatially_filtered_template * d["singular"][j]
+                    for rank in range(visible_i.shape[1]):
+                        unit_overlaps[count, :] += np.convolve(visible_i[:, rank], d["temporal"][j][:, rank], mode="full")
+                else:
+                    visible_i = spatially_filtered_template * d["singular"]
+                    for rank in range(visible_i.shape[1]):
+                        unit_overlaps[count, :] += np.convolve(visible_i[:, rank], d["temporal"][0][:, rank], mode="full")
+                
 
                 d["max_similarity"][i, j] = np.max(unit_overlaps[count])
 
