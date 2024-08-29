@@ -717,8 +717,8 @@ class DetectPeakMatchedFiltering(PeakDetector):
         conv_traces = conv_traces[:, self.conv_margin : -self.conv_margin]
         traces_center = conv_traces[:, self.exclude_sweep_size : -self.exclude_sweep_size]
 
-        traces_center = traces_center.reshape(self.num_z_factors, self.num_templates, traces_center.shape[1])
-        conv_traces = conv_traces.reshape(self.num_z_factors, self.num_templates, conv_traces.shape[1])
+        traces_center = traces_center.reshape(self.num_z_factors, self.num_channels, traces_center.shape[1])
+        conv_traces = conv_traces.reshape(self.num_z_factors, self.num_channels, conv_traces.shape[1])
         peak_mask = traces_center > 1
 
         peak_mask = _numba_detect_peak_matched_filtering(
