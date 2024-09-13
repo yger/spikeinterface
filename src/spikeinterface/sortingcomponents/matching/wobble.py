@@ -971,11 +971,7 @@ def convolve_templates(compressed_templates, jitter_factor, approx_rank, jittere
     return pairwise_convolution
 
 
-<<<<<<< HEAD
-def compute_objective(traces, template_data, device=None):
-=======
-def compute_objective(traces, template_data, approx_rank) -> np.ndarray:
->>>>>>> numba_similarity
+def compute_objective(traces, template_data, device=None) -> np.ndarray:
     """Compute objective by convolving templates with voltage traces.
 
     Parameters
