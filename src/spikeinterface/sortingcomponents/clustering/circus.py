@@ -101,6 +101,15 @@ class CircusClustering:
         tsvd = TruncatedSVD(params["n_svd"][0])
         tsvd.fit(wfs)
 
+        from sklearn.cluster import KMeans
+        wfs /= np.linalg.norm(wfs, axis=1)[:, None]
+        model = KMeans(n_clusters=10, n_init = 10).fit(wfs)
+        temporal_components = model.cluster_centers_
+        temporal_components = temporal_components / np.linalg.norm(temporal_components[:, None])
+        temporal_components = temporal_components.astype(np.float32)
+        model_folder = tmp_folder / "temporal_components"
+        np.save(model_folder, temporal_components)
+
         model_folder = tmp_folder / "tsvd_model"
 
         model_folder.mkdir(exist_ok=True)
