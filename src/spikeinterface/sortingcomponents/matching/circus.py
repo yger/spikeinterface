@@ -152,6 +152,8 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
         ignore_inds=[],
         vicinity=3,
         precomputed=None,
+        spatial_components=None,
+        temporal_components=None
         ):
 
         BaseTemplateMatching.__init__(self, recording, templates, return_output=True, parents=None)
@@ -162,28 +164,16 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
         self.nafter = templates.nafter
         self.sampling_frequency = recording.get_sampling_frequency()
         self.vicinity = vicinity * self.num_samples
-
         self.amplitudes = amplitudes
         self.stop_criteria = stop_criteria
         self.max_failures = max_failures
         self.omp_min_sps = omp_min_sps
         self.relative_error = relative_error
         self.rank = rank
-
-        self.num_templates = len(templates.unit_ids)
-
-        # if "overlaps" not in d:
-        #     d = cls._prepare_templates(d)
-        # else:
-        #     for key in [
-        #         "norms",
-        #         "temporal",
-        #         "spatial",
-        #         "singular",
-        #         "units_overlaps",
-        #         "unit_overlaps_indices",
-        #     ]:
-        #         assert d[key] is not None, "If templates are provided, %d should also be there" % key
+        self.num_templates = len(self.templates.unit_ids)
+        self.spatial_components = spatial_components
+        self.temporal_components = temporal_components
+        
         if precomputed is None:
             self._prepare_templates()
         else:
@@ -191,7 +181,6 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
                 assert precomputed[key] is not None, "If templates are provided, %d should also be there" % key
                 setattr(self, key, precomputed[key])
 
-        
         self.ignore_inds = np.array(ignore_inds)
 
         self.unit_overlaps_tables = {}
@@ -209,7 +198,10 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
 
         assert self.stop_criteria in ["max_failures", "omp_min_sps", "relative_error"]
 
-        sparsity = self.templates.sparsity.mask
+        if self.templates.sparsity is not None:
+            sparsity = self.templates.sparsity.mask
+        else:
+            sparsity = np.ones((self.num_templates, self.num_channels), dtype=bool)
 
         units_overlaps = np.sum(np.logical_and(sparsity[:, np.newaxis, :], sparsity[np.newaxis, :, :]), axis=2)
         self.units_overlaps = units_overlaps > 0
@@ -218,68 +210,101 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
             self.unit_overlaps_indices[i] = np.flatnonzero(self.units_overlaps[i])
 
         templates_array = self.templates.get_dense_templates().copy()
-        # Then we keep only the strongest components
-        self.temporal, self.singular, self.spatial, templates_array = compress_templates(templates_array, self.rank)
 
-        self.normed_templates = np.zeros(templates_array.shape, dtype=np.float32)
-        self.norms = np.zeros(self.num_templates, dtype=np.float32)
+        if self.temporal_components is None:
 
-        # And get the norms, saving compressed templates for CC matrix
-        for count in range(self.num_templates):
-            template = templates_array[count][:, sparsity[count]]
-            self.norms[count] = np.linalg.norm(template)
-            self.normed_templates[count][:, sparsity[count]] = template / self.norms[count]
+            # Then we keep only the strongest components
+            self.temporal, self.singular, self.spatial, templates_array = compress_templates(templates_array, self.rank)
 
-        self.temporal /= self.norms[:, np.newaxis, np.newaxis]
-        self.temporal = np.flip(self.temporal, axis=1)
+            self.normed_templates = np.zeros(templates_array.shape, dtype=np.float32)
+            self.norms = np.zeros(self.num_templates, dtype=np.float32)
 
-        self.overlaps = []
-        self.max_similarity = np.zeros((self.num_templates, self.num_templates), dtype=np.float32)
-        for i in range(self.num_templates):
-            num_overlaps = np.sum(self.units_overlaps[i])
-            overlapping_units = np.flatnonzero(self.units_overlaps[i])
+            # And get the norms, saving compressed templates for CC matrix
+            for count in range(self.num_templates):
+                template = templates_array[count][:, sparsity[count]]
+                self.norms[count] = np.linalg.norm(template)
+                self.normed_templates[count][:, sparsity[count]] = template / self.norms[count]
 
-            # Reconstruct unit template from SVD Matrices
-            data = self.temporal[i] * self.singular[i][np.newaxis, :]
-            template_i = np.matmul(data, self.spatial[i, :, :])
-            template_i = np.flipud(template_i)
+            self.temporal /= self.norms[:, np.newaxis, np.newaxis]
+            self.temporal = np.flip(self.temporal, axis=1)
 
-            unit_overlaps = np.zeros([num_overlaps, 2 * self.num_samples - 1], dtype=np.float32)
+            self.overlaps = []
+            self.max_similarity = np.zeros((self.num_templates, self.num_templates), dtype=np.float32)
+            for i in range(self.num_templates):
+                num_overlaps = np.sum(self.units_overlaps[i])
+                overlapping_units = np.flatnonzero(self.units_overlaps[i])
 
-            for count, j in enumerate(overlapping_units):
-                overlapped_channels = sparsity[j]
-                visible_i = template_i[:, overlapped_channels]
+                # Reconstruct unit template from SVD Matrices
+                data = self.temporal[i] * self.singular[i][np.newaxis, :]
+                template_i = np.matmul(data, self.spatial[i, :, :])
+                template_i = np.flipud(template_i)
 
-                spatial_filters = self.spatial[j, :, overlapped_channels]
-                spatially_filtered_template = np.matmul(visible_i, spatial_filters)
-                visible_i = spatially_filtered_template * self.singular[j]
+                unit_overlaps = np.zeros([num_overlaps, 2 * self.num_samples - 1], dtype=np.float32)
 
-                for rank in range(visible_i.shape[1]):
-                    unit_overlaps[count, :] += np.convolve(visible_i[:, rank], self.temporal[j][:, rank], mode="full")
+                for count, j in enumerate(overlapping_units):
+                    overlapped_channels = sparsity[j]
+                    visible_i = template_i[:, overlapped_channels]
 
-                self.max_similarity[i, j] = np.max(unit_overlaps[count])
+                    spatial_filters = self.spatial[j, :, overlapped_channels]
+                    spatially_filtered_template = np.matmul(visible_i, spatial_filters)
+                    visible_i = spatially_filtered_template * self.singular[j]
 
-            self.overlaps.append(unit_overlaps)
+                    for rank in range(visible_i.shape[1]):
+                        unit_overlaps[count, :] += np.convolve(visible_i[:, rank], self.temporal[j][:, rank], mode="full")
 
-        if self.amplitudes is None:
-            distances = np.sort(self.max_similarity, axis=1)[:, ::-1]
-            distances = 1 - distances[:, 1] / 2
-            self.amplitudes = np.zeros((self.num_templates, 2))
-            self.amplitudes[:, 0] = distances
-            self.amplitudes[:, 1] = np.inf
+                    self.max_similarity[i, j] = np.max(unit_overlaps[count])
 
-        self.spatial = np.moveaxis(self.spatial, [0, 1, 2], [1, 0, 2])
-        self.temporal = np.moveaxis(self.temporal, [0, 1, 2], [1, 2, 0])
-        self.singular = self.singular.T[:, :, np.newaxis]
+                self.overlaps.append(unit_overlaps)
+
+            if self.amplitudes is None:
+                distances = np.sort(self.max_similarity, axis=1)[:, ::-1]
+                distances = 1 - distances[:, 1] / 2
+                self.amplitudes = np.zeros((self.num_templates, 2))
+                self.amplitudes[:, 0] = distances
+                self.amplitudes[:, 1] = np.inf
+
+            self.spatial = np.moveaxis(self.spatial, [0, 1, 2], [1, 0, 2])
+            self.temporal = np.moveaxis(self.temporal, [0, 1, 2], [1, 2, 0])
+            self.singular = self.singular.T[:, :, np.newaxis]
+
+        else:
+            import scipy
+            self.templates_array = self.templates.get_dense_templates()
+            n_components = len(self.temporal_components)
+            U = np.zeros((self.num_templates, self.num_channels, n_components), dtype=np.float32)
+            for i in range(self.num_templates):
+                U[i] = np.dot(self.spatial_components, self.templates_array[i]).T
+
+            Uex = np.einsum('xyz, zt -> xty', U, self.spatial_components)
+            X = Uex.reshape(-1, self.num_channels).T
+            X = scipy.signal.oaconvolve(X[:, None, :], self.temporal_components[None, :, ::-1], mode='full', axes=2)
+            X = X[:, :, self.num_samples//2:self.num_samples//2+self.num_samples*self.num_templates]
+
+            Xmax = np.abs(X).max(0).max(0).reshape(-1, self.num_samples)
+            imax = np.argmax(Xmax, 1)
+
+            Unew = Uex.copy()
+            for j in range(self.num_samples):
+                ix = imax == j
+                Unew[ix] = np.roll(Unew[ix], self.num_samples//2 - j, -2)
+            Unew = np.einsum('xty, zt -> xzy', Unew, self.spatial_components)
+
+            self.U = Unew
+            self.norms = np.linalg.norm(self.U, axis=(1, 2))
+            self.U /= self.norms[:, np.newaxis, np.newaxis]
+            self.W = self.spatial_components[:, ::-1]
+            WtW = scipy.signal.oaconvolve(self.W[None, :, :], self.W[:, None, ::-1], mode='full', axes=2)
+
+            self.WtW = np.flip(WtW, 2)
+            UtU = np.einsum('ikl, jml -> ijkm',  self.U, self.U)
+            self.overlaps = np.einsum('ijkm, kml -> ijl', UtU, WtW)
+            
 
     def get_extra_outputs(self):
         output = {}
         for key in self._more_output_keys:
             output[key] = getattr(self, key)
         return output
-
-
-
 
     def get_trace_margin(self):
         return self.margin    
@@ -312,22 +337,31 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
 
         # Filter using overlap-and-add convolution
         if len(self.ignore_inds) > 0:
-            not_ignored = ~np.isin(np.arange(self.num_templates), self.ignore_inds)
-            spatially_filtered_data = np.matmul(self.spatial[:, not_ignored, :], traces.T[np.newaxis, :, :])
-            scaled_filtered_data = spatially_filtered_data * self.singular[:, not_ignored, :]
-            objective_by_rank = scipy.signal.oaconvolve(
-                scaled_filtered_data, self.temporal[:, not_ignored, :], axes=2, mode="valid"
-            )
-            scalar_products[not_ignored] += np.sum(objective_by_rank, axis=0)
+            if self.temporal_components is None:
+                not_ignored = ~np.isin(np.arange(self.num_templates), self.ignore_inds)
+                spatially_filtered_data = np.matmul(self.spatial[:, not_ignored, :], traces.T[np.newaxis, :, :])
+                scaled_filtered_data = spatially_filtered_data * self.singular[:, not_ignored, :]
+                objective_by_rank = scipy.signal.oaconvolve(
+                    scaled_filtered_data, self.temporal[:, not_ignored, :], axes=2, mode="valid"
+                )
+                scalar_products[not_ignored] += np.sum(objective_by_rank, axis=0)
+            else:
+                pass
+                #scalar_products = scipy.signal.oaconvolve(traces.T[np.newaxis, :, :], self.W[:, None, :], mode='full', axes=2)
+
             scalar_products[self.ignore_inds] = -np.inf
         else:
-            spatially_filtered_data = np.matmul(self.spatial, traces.T[np.newaxis, :, :])
-            scaled_filtered_data = spatially_filtered_data * self.singular
-            objective_by_rank = scipy.signal.oaconvolve(scaled_filtered_data, self.temporal, axes=2, mode="valid")
-            scalar_products += np.sum(objective_by_rank, axis=0)
+            if self.temporal_components is None:
+                spatially_filtered_data = np.matmul(self.spatial, traces.T[np.newaxis, :, :])
+                scaled_filtered_data = spatially_filtered_data * self.singular
+                objective_by_rank = scipy.signal.oaconvolve(scaled_filtered_data, self.temporal, axes=2, mode="valid")
+                scalar_products += np.sum(objective_by_rank, axis=0)
+            else:
+                scalar_products = scipy.signal.oaconvolve(traces.T[:, None, :], self.W[None, :, :], mode='full', axes=2)
+                scalar_products = np.einsum('ijk, kjl -> il', self.U, scalar_products)
+                scalar_products = scalar_products[:, self.num_samples-1:-(self.num_samples-1)]
 
         num_spikes = 0
-
         spikes = np.empty(scalar_products.size, dtype=spike_dtype)
 
         M = np.zeros((self.num_templates, self.num_templates), dtype=np.float32)
@@ -487,7 +521,6 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
         spikes = spikes[:num_spikes]
         order = np.argsort(spikes["sample_index"])
         spikes = spikes[order]
-        
         return spikes
 
 
