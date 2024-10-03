@@ -150,7 +150,7 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
         relative_error=5e-5,
         rank=5,
         ignore_inds=[],
-        vicinity=3,
+        vicinity=2,
         precomputed=None,
         spatial_components=None,
         temporal_components=None
@@ -188,10 +188,7 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
             self.unit_overlaps_tables[i] = np.zeros(self.num_templates, dtype=int)
             self.unit_overlaps_tables[i][self.unit_overlaps_indices[i]] = np.arange(len(self.unit_overlaps_indices[i]))
 
-        if self.vicinity > 0:
-            self.margin = self.vicinity
-        else:
-            self.margin = 2 * self.num_samples
+        self.margin = 2*self.num_samples
 
 
     def _prepare_templates(self):
@@ -313,12 +310,14 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
         import scipy.spatial
         import scipy
 
+        import time
         (potrs,) = scipy.linalg.get_lapack_funcs(("potrs",), dtype=np.float32)
 
         (nrm2,) = scipy.linalg.get_blas_funcs(("nrm2",), dtype=np.float32)
 
         overlaps_array = self.overlaps
 
+        #t0 = time.time()
         omp_tol = np.finfo(np.float32).eps
         num_samples = self.nafter + self.nbefore
         neighbor_window = num_samples - 1
@@ -361,9 +360,14 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
                 scalar_products = np.einsum('ijk, kjl -> il', self.U, scalar_products)
                 scalar_products = scalar_products[:, self.num_samples-1:-(self.num_samples-1)]
 
+        scalar_products[:, :self.num_samples] = 0
+        scalar_products[:, -self.num_samples:] = 0
+
         num_spikes = 0
         spikes = np.empty(scalar_products.size, dtype=spike_dtype)
 
+        #t1 = time.time()
+        #print("Convolution", t1 - t0)
         M = np.zeros((self.num_templates, self.num_templates), dtype=np.float32)
 
         all_selections = np.empty((2, scalar_products.size), dtype=np.int32)
@@ -391,6 +395,10 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
 
         do_loop = True
 
+        t_triang = 0
+        t_potrs = 0
+        t_modified = 0
+
         while do_loop:
             best_amplitude_ind = scalar_products.argmax()
             best_cluster_ind, peak_index = np.unravel_index(best_amplitude_ind, scalar_products.shape)
@@ -414,6 +422,7 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
                 a, b = myindices[mask], myline[mask]
                 M[num_selection, idx[mask]] = local_overlaps[table[a], b]
 
+                #t0 = time.time()
                 if self.vicinity == 0:
                     scipy.linalg.solve_triangular(
                         M[:num_selection, :num_selection],
@@ -446,9 +455,12 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
                         M[num_selection, num_selection] = np.sqrt(Lkk)
                     else:
                         M[num_selection, num_selection] = 1.0
+                
+                #t_triang += time.time() - t0
             else:
                 M[0, 0] = 1
 
+            #t0 = time.time()
             all_selections[:, num_selection] = [best_cluster_ind, peak_index]
             num_selection += 1
 
@@ -465,27 +477,32 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
                 all_amplitudes[is_in_vicinity], _ = potrs(L, res_sps[is_in_vicinity], lower=True, overwrite_b=False)
                 all_amplitudes[is_in_vicinity] /= self.norms[selection[0][is_in_vicinity]]
 
-            diff_amplitudes = all_amplitudes - final_amplitudes[selection[0], selection[1]]
-            modified = np.where(np.abs(diff_amplitudes) > omp_tol)[0]
-            final_amplitudes[selection[0], selection[1]] = all_amplitudes
+            #t_potrs += time.time() - t0
+
+            t0 = time.time()
+            if self.vicinity == 0:
+                sub_selection = selection
+                diff_amplitudes = all_amplitudes - final_amplitudes[selection[0], selection[1]]
+                modified = np.where(np.abs(diff_amplitudes) > omp_tol)[0]
+                final_amplitudes[selection[0], selection[1]] = all_amplitudes
+            else:
+                sub_selection = selection[:, is_in_vicinity]
+                diff_amplitudes = all_amplitudes[is_in_vicinity] - final_amplitudes[sub_selection[0], sub_selection[1]]
+                modified = np.where(np.abs(diff_amplitudes) > omp_tol)[0]
+                final_amplitudes[sub_selection[0], sub_selection[1]] = all_amplitudes[is_in_vicinity]
 
             for i in modified:
-                tmp_best, tmp_peak = selection[:, i]
+                tmp_best, tmp_peak = sub_selection[:, i]
                 diff_amp = diff_amplitudes[i] * self.norms[tmp_best]
-
                 local_overlaps = overlaps_array[tmp_best]
                 overlapping_templates = self.units_overlaps[tmp_best]
-
-                if not tmp_peak in neighbors.keys():
-                    idx = [max(0, tmp_peak - neighbor_window), min(num_peaks, tmp_peak + num_samples)]
-                    tdx = [neighbor_window + idx[0] - tmp_peak, num_samples + idx[1] - tmp_peak - 1]
-                    neighbors[tmp_peak] = {"idx": idx, "tdx": tdx}
-
-                idx = neighbors[tmp_peak]["idx"]
-                tdx = neighbors[tmp_peak]["tdx"]
-
+                tmp = tmp_peak - neighbor_window
+                idx = [max(0, tmp), min(num_peaks, tmp_peak + num_samples)]
+                tdx = [idx[0] - tmp, idx[1] - tmp]
                 to_add = diff_amp * local_overlaps[:, tdx[0] : tdx[1]]
                 scalar_products[overlapping_templates, idx[0] : idx[1]] -= to_add
+
+            #t_modified += time.time() - t0
 
             # We stop when updates do not modify the chosen spikes anymore
             if self.stop_criteria == "omp_min_sps":
@@ -511,7 +528,7 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
 
         is_valid = (final_amplitudes > min_amplitude) * (final_amplitudes < max_amplitude)
         valid_indices = np.where(is_valid)
-
+        #print("Triang:", t_triang, "POTRS:", t_potrs, "Modif:", t_modified)
         num_spikes = len(valid_indices[0])
         spikes["sample_index"][:num_spikes] = valid_indices[1] + self.nbefore
         spikes["channel_index"][:num_spikes] = 0

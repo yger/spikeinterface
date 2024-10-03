@@ -10,7 +10,6 @@ from .base import BaseTemplateMatching, _base_matching_dtype
 
 try:
     import torch
-    import torch.nn.functional as F
 
     HAVE_TORCH = True
     from torch.nn.functional import conv1d, max_pool2d, max_pool1d
@@ -32,7 +31,7 @@ class KiloSortPeeler(BaseTemplateMatching):
         templates=None,
         temporal_components=None,
         spatial_components=None,
-        Th=100,
+        Th=8,
         max_iter=100,
         random_chunk_kwargs={},
         device='cpu'
@@ -56,12 +55,12 @@ class KiloSortPeeler(BaseTemplateMatching):
             U[i] = np.dot(spatial_components, self.templates_array[i]).T
 
         Uex = np.einsum('xyz, zt -> xty', U, self.spatial_components)
-        if HAVE_TORCH:
+        if HAVE_TORCH and self.device is not None:
             Uex = torch.as_tensor(Uex, device=self.device)
             temporal_components_torch = torch.as_tensor(temporal_components, device=self.device)
             X = Uex.reshape(-1, self.num_channels).T
             X = conv1d(X.unsqueeze(1), temporal_components_torch.unsqueeze(1), padding=self.num_samples//2)
-            X = X[:,:,:self.num_templates*self.num_samples]
+            X = X[:, :, :self.num_templates*self.num_samples]
             Xmax = X.abs().max(0)[0].max(0)[0].reshape(-1, self.num_samples)
             imax = torch.argmax(Xmax, 1)
             Unew_torch = Uex.clone() 
@@ -70,7 +69,7 @@ class KiloSortPeeler(BaseTemplateMatching):
                 Unew_torch[ix] = torch.roll(Unew_torch[ix], self.num_samples//2 - j, -2)
             self.U = torch.einsum('xty, zt -> xzy', Unew_torch, torch.as_tensor(spatial_components, device=self.device))
             self.W = torch.as_tensor(self.spatial_components, device=self.device)
-            WtW = conv1d(self.W.reshape(-1, 1, self.num_samples), self.W.reshape(-1, 1 , 100), padding = self.num_samples) 
+            WtW = conv1d(self.W.reshape(-1, 1, self.num_samples), self.W.reshape(-1, 1 , self.num_samples), padding = self.num_samples) 
             WtW = torch.flip(WtW, [2,])
             UtU = torch.einsum('ikl, jml -> ijkm',  self.U, self.U)
             self.ctc = torch.einsum('ijkm, kml -> ijl', UtU, WtW)
@@ -104,7 +103,7 @@ class KiloSortPeeler(BaseTemplateMatching):
 
     def compute_matching(self, traces, start_frame, end_frame, segment_index):
         
-        if HAVE_TORCH:
+        if HAVE_TORCH and self.device is not None:
             X = torch.as_tensor(traces.T, device=self.device)
             B = conv1d(X.unsqueeze(1), self.W.unsqueeze(1), padding=self.num_samples//2)
             B = torch.einsum('ijk, kjl -> il', self.U, B)
@@ -120,7 +119,7 @@ class KiloSortPeeler(BaseTemplateMatching):
                 Cfmax, imax = torch.max(Cf, 0)
                 Cmax  = max_pool1d(Cfmax.unsqueeze(0).unsqueeze(0), (2*self.num_samples+1), stride = 1, padding = (self.num_samples))
                 
-                cnd1 = Cmax[0,0] > self.Th**2
+                cnd1 = Cmax[0, 0] > self.Th**2
                 cnd2 = torch.abs(Cmax[0,0] - Cfmax) < 1e-9
                 xs = torch.nonzero(cnd1 * cnd2)
 
@@ -134,15 +133,17 @@ class KiloSortPeeler(BaseTemplateMatching):
                 spikes[k:k+nsp]['sample_index'] = iX[:, 0].cpu()
                 spikes[k:k+nsp]['cluster_index'] = iY[:, 0].cpu()
                 amp = (B[iY, iX] / self.nm[iY])
-
-                k += nsp
+                
                 n = 2
                 for j in range(n):
                     B[:, iX[j::n] + self.trange] -= amp[j::n] * self.ctc[:, iY[j::n, 0], :]
 
                 spikes[k:k+nsp]['amplitude'] = amp[:, 0].cpu()
+                k += nsp
 
             spikes = spikes[:k]
+            spikes["channel_index"] = 0
+            spikes["sample_index"] += self.nbefore
             order = np.argsort(spikes["sample_index"])
             spikes = spikes[order]
 
