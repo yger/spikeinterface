@@ -32,7 +32,7 @@ class KiloSortPeeler(BaseTemplateMatching):
         templates=None,
         temporal_components=None,
         spatial_components=None,
-        Th=8,
+        Th=100,
         max_iter=100,
         random_chunk_kwargs={},
         device='cpu'
@@ -136,7 +136,7 @@ class KiloSortPeeler(BaseTemplateMatching):
                 amp = (B[iY, iX] / self.nm[iY])
 
                 k += nsp
-                n = 1
+                n = 2
                 for j in range(n):
                     B[:, iX[j::n] + self.trange] -= amp[j::n] * self.ctc[:, iY[j::n, 0], :]
 
