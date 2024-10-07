@@ -4,6 +4,7 @@ from __future__ import annotations
 
 
 import numpy as np
+from scipy import ndimage
 
 from spikeinterface.core import get_noise_levels
 from spikeinterface.sortingcomponents.peak_detection import DetectPeakByChannel
@@ -376,8 +377,6 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
 
         full_sps = scalar_products.copy()
 
-        neighbors = {}
-
         all_amplitudes = np.zeros(0, dtype=np.float32)
         is_in_vicinity = np.zeros(0, dtype=np.int32)
 
@@ -394,137 +393,138 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
             delta_error = np.inf
 
         do_loop = True
+        is_valid = np.ones(scalar_products.shape, dtype=bool)
 
-        t_triang = 0
-        t_potrs = 0
-        t_modified = 0
+        #while do_loop:
+        for ii in range(100): 
 
-        while do_loop:
-            best_amplitude_ind = scalar_products.argmax()
-            best_cluster_ind, peak_index = np.unravel_index(best_amplitude_ind, scalar_products.shape)
+            best_cluster_inds = np.argmax(scalar_products, axis=0, keepdims=True)
+            products = np.take_along_axis(scalar_products, best_cluster_inds, axis=0)
+            
+            result = ndimage.maximum_filter(products[0], size=self.vicinity, mode='constant', cval=0)
+            cond_1 = products[0]/self.norms[best_cluster_inds[0]] > 0.5
+            cond_2 = np.abs(products[0] - result) < 1e-9
+            to_be_considered = np.where(cond_1*cond_2)[0]
 
-            if num_selection > 0:
-                delta_t = selection[1] - peak_index
-                idx = np.where((delta_t < num_samples) & (delta_t > -num_samples))[0]
-                myline = neighbor_window + delta_t[idx]
-                myindices = selection[0, idx]
+            if len(to_be_considered) == 0:
+                break
 
-                local_overlaps = overlaps_array[best_cluster_ind]
-                overlapping_templates = self.unit_overlaps_indices[best_cluster_ind]
-                table = self.unit_overlaps_tables[best_cluster_ind]
+            for peak_index in to_be_considered:
+                
+                best_cluster_ind = best_cluster_inds[0, peak_index]
 
-                if num_selection == M.shape[0]:
-                    Z = np.zeros((2 * num_selection, 2 * num_selection), dtype=np.float32)
-                    Z[:num_selection, :num_selection] = M
-                    M = Z
+                if num_selection > 0:
+                    delta_t = selection[1] - peak_index
+                    idx = np.where((delta_t < num_samples) & (delta_t > -num_samples))[0]
+                    myline = neighbor_window + delta_t[idx]
+                    myindices = selection[0, idx]
 
-                mask = np.isin(myindices, overlapping_templates)
-                a, b = myindices[mask], myline[mask]
-                M[num_selection, idx[mask]] = local_overlaps[table[a], b]
+                    local_overlaps = overlaps_array[best_cluster_ind]
+                    overlapping_templates = self.unit_overlaps_indices[best_cluster_ind]
+                    table = self.unit_overlaps_tables[best_cluster_ind]
 
-                #t0 = time.time()
-                if self.vicinity == 0:
-                    scipy.linalg.solve_triangular(
-                        M[:num_selection, :num_selection],
-                        M[num_selection, :num_selection],
-                        trans=0,
-                        lower=1,
-                        overwrite_b=True,
-                        check_finite=False,
-                    )
+                    if num_selection == M.shape[0]:
+                        Z = np.zeros((2 * num_selection, 2 * num_selection), dtype=np.float32)
+                        Z[:num_selection, :num_selection] = M
+                        M = Z
 
-                    v = nrm2(M[num_selection, :num_selection]) ** 2
-                    Lkk = 1 - v
-                    if Lkk <= omp_tol:  # selected atoms are dependent
-                        break
-                    M[num_selection, num_selection] = np.sqrt(Lkk)
-                else:
-                    is_in_vicinity = np.where(np.abs(delta_t) < self.vicinity)[0]
+                    mask = np.isin(myindices, overlapping_templates)
+                    a, b = myindices[mask], myline[mask]
+                    M[num_selection, idx[mask]] = local_overlaps[table[a], b]
 
-                    if len(is_in_vicinity) > 0:
-                        L = M[is_in_vicinity, :][:, is_in_vicinity]
-
-                        M[num_selection, is_in_vicinity] = scipy.linalg.solve_triangular(
-                            L, M[num_selection, is_in_vicinity], trans=0, lower=1, overwrite_b=True, check_finite=False
+                    if self.vicinity == 0:
+                        scipy.linalg.solve_triangular(
+                            M[:num_selection, :num_selection],
+                            M[num_selection, :num_selection],
+                            trans=0,
+                            lower=1,
+                            overwrite_b=True,
+                            check_finite=False,
                         )
 
-                        v = nrm2(M[num_selection, is_in_vicinity]) ** 2
+                        v = nrm2(M[num_selection, :num_selection]) ** 2
                         Lkk = 1 - v
                         if Lkk <= omp_tol:  # selected atoms are dependent
                             break
                         M[num_selection, num_selection] = np.sqrt(Lkk)
                     else:
-                        M[num_selection, num_selection] = 1.0
+                        is_in_vicinity = np.where(np.abs(delta_t) < self.vicinity)[0]
+
+                        if len(is_in_vicinity) > 0:
+                            L = M[is_in_vicinity, :][:, is_in_vicinity]
+
+                            M[num_selection, is_in_vicinity] = scipy.linalg.solve_triangular(
+                                L, M[num_selection, is_in_vicinity], trans=0, lower=1, overwrite_b=True, check_finite=False
+                            )
+
+                            v = nrm2(M[num_selection, is_in_vicinity]) ** 2
+                            Lkk = 1 - v
+                            if Lkk <= omp_tol:  # selected atoms are dependent
+                                break
+                            M[num_selection, num_selection] = np.sqrt(Lkk)
+                        else:
+                            M[num_selection, num_selection] = 1.0
+                    
+                else:
+                    M[0, 0] = 1
+
+                all_selections[:, num_selection] = [best_cluster_ind, peak_index]
+                num_selection += 1
+
+                selection = all_selections[:, :num_selection]
+                res_sps = full_sps[selection[0], selection[1]]
+
+                if self.vicinity == 0:
+                    all_amplitudes, _ = potrs(M[:num_selection, :num_selection], res_sps, lower=True, overwrite_b=False)
+                    all_amplitudes /= self.norms[selection[0]]
+                    sub_selection = selection
+                    diff_amplitudes = all_amplitudes - final_amplitudes[selection[0], selection[1]]
+                    modified = np.where(np.abs(diff_amplitudes) > omp_tol)[0]
+                    final_amplitudes[selection[0], selection[1]] = all_amplitudes
+                else:
+                    is_in_vicinity = np.append(is_in_vicinity, num_selection - 1)
+                    all_amplitudes = np.append(all_amplitudes, np.float32(1))
+                    L = M[is_in_vicinity, :][:, is_in_vicinity]
+                    all_amplitudes[is_in_vicinity], _ = potrs(L, res_sps[is_in_vicinity], lower=True, overwrite_b=False)
+                    all_amplitudes[is_in_vicinity] /= self.norms[selection[0][is_in_vicinity]]
+                    sub_selection = selection[:, is_in_vicinity]
+                    diff_amplitudes = all_amplitudes[is_in_vicinity] - final_amplitudes[sub_selection[0], sub_selection[1]]
+                    modified = np.where(np.abs(diff_amplitudes) > omp_tol)[0]
+                    final_amplitudes[sub_selection[0], sub_selection[1]] = all_amplitudes[is_in_vicinity]                    
+
+                for i in modified:
+                    tmp_best, tmp_peak = sub_selection[:, i]
+                    diff_amp = diff_amplitudes[i] * self.norms[tmp_best]
+                    local_overlaps = overlaps_array[tmp_best]
+                    overlapping_templates = self.units_overlaps[tmp_best]
+                    tmp = tmp_peak - neighbor_window
+                    idx = [max(0, tmp), min(num_peaks, tmp_peak + num_samples)]
+                    tdx = [idx[0] - tmp, idx[1] - tmp]
+                    to_add = diff_amp * local_overlaps[:, tdx[0] : tdx[1]]
+                    scalar_products[overlapping_templates, idx[0] : idx[1]] -= to_add
+
                 
-                #t_triang += time.time() - t0
-            else:
-                M[0, 0] = 1
-
-            #t0 = time.time()
-            all_selections[:, num_selection] = [best_cluster_ind, peak_index]
-            num_selection += 1
-
-            selection = all_selections[:, :num_selection]
-            res_sps = full_sps[selection[0], selection[1]]
-
-            if self.vicinity == 0:
-                all_amplitudes, _ = potrs(M[:num_selection, :num_selection], res_sps, lower=True, overwrite_b=False)
-                all_amplitudes /= self.norms[selection[0]]
-            else:
-                is_in_vicinity = np.append(is_in_vicinity, num_selection - 1)
-                all_amplitudes = np.append(all_amplitudes, np.float32(1))
-                L = M[is_in_vicinity, :][:, is_in_vicinity]
-                all_amplitudes[is_in_vicinity], _ = potrs(L, res_sps[is_in_vicinity], lower=True, overwrite_b=False)
-                all_amplitudes[is_in_vicinity] /= self.norms[selection[0][is_in_vicinity]]
-
-            #t_potrs += time.time() - t0
-
-            t0 = time.time()
-            if self.vicinity == 0:
-                sub_selection = selection
-                diff_amplitudes = all_amplitudes - final_amplitudes[selection[0], selection[1]]
-                modified = np.where(np.abs(diff_amplitudes) > omp_tol)[0]
-                final_amplitudes[selection[0], selection[1]] = all_amplitudes
-            else:
-                sub_selection = selection[:, is_in_vicinity]
-                diff_amplitudes = all_amplitudes[is_in_vicinity] - final_amplitudes[sub_selection[0], sub_selection[1]]
-                modified = np.where(np.abs(diff_amplitudes) > omp_tol)[0]
-                final_amplitudes[sub_selection[0], sub_selection[1]] = all_amplitudes[is_in_vicinity]
-
-            for i in modified:
-                tmp_best, tmp_peak = sub_selection[:, i]
-                diff_amp = diff_amplitudes[i] * self.norms[tmp_best]
-                local_overlaps = overlaps_array[tmp_best]
-                overlapping_templates = self.units_overlaps[tmp_best]
-                tmp = tmp_peak - neighbor_window
-                idx = [max(0, tmp), min(num_peaks, tmp_peak + num_samples)]
-                tdx = [idx[0] - tmp, idx[1] - tmp]
-                to_add = diff_amp * local_overlaps[:, tdx[0] : tdx[1]]
-                scalar_products[overlapping_templates, idx[0] : idx[1]] -= to_add
-
-            #t_modified += time.time() - t0
-
-            # We stop when updates do not modify the chosen spikes anymore
-            if self.stop_criteria == "omp_min_sps":
-                is_valid = scalar_products > stop_criteria[:, np.newaxis]
-                do_loop = np.any(is_valid)
-            elif self.stop_criteria == "max_failures":
-                is_valid = (final_amplitudes > min_amplitude) * (final_amplitudes < max_amplitude)
-                new_num_valids = np.sum(is_valid)
-                if (new_num_valids - num_valids) > 0:
-                    nb_failures = self.max_failures
-                else:
-                    nb_failures -= 1
-                num_valids = new_num_valids
-                do_loop = nb_failures > 0
-            elif self.stop_criteria == "relative_error":
-                previous_error = new_error
-                if len(self.ignore_inds) > 0:
-                    new_error = np.linalg.norm(scalar_products[not_ignored])
-                else:
-                    new_error = np.linalg.norm(scalar_products)
-                delta_error = np.abs(new_error / previous_error - 1)
-                do_loop = delta_error > self.relative_error
+                # We stop when updates do not modify the chosen spikes anymore
+                if self.stop_criteria == "omp_min_sps":
+                    is_valid = scalar_products > stop_criteria[:, np.newaxis]
+                    do_loop = np.any(is_valid)
+                elif self.stop_criteria == "max_failures":
+                    is_valid = (final_amplitudes > min_amplitude) * (final_amplitudes < max_amplitude)
+                    new_num_valids = np.sum(is_valid)
+                    if (new_num_valids - num_valids) > 0:
+                        nb_failures = self.max_failures
+                    else:
+                        nb_failures -= 1
+                    num_valids = new_num_valids
+                    do_loop = nb_failures > 0
+                elif self.stop_criteria == "relative_error":
+                    previous_error = new_error
+                    if len(self.ignore_inds) > 0:
+                        new_error = np.linalg.norm(scalar_products[not_ignored])
+                    else:
+                        new_error = np.linalg.norm(scalar_products)
+                    delta_error = np.abs(new_error / previous_error - 1)
+                    do_loop = delta_error > self.relative_error
 
         is_valid = (final_amplitudes > min_amplitude) * (final_amplitudes < max_amplitude)
         valid_indices = np.where(is_valid)

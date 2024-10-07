@@ -95,7 +95,7 @@ class KiloSortPeeler(BaseTemplateMatching):
 
         self.nbefore = self.templates.nbefore
         self.nafter = self.templates.nafter
-        self.margin = max(self.nbefore, self.nafter)
+        self.margin = self.num_samples
         self.nm = (self.U**2).sum(-1).sum(-1)
         
     def get_trace_margin(self):
@@ -112,13 +112,13 @@ class KiloSortPeeler(BaseTemplateMatching):
             k = 0
 
             for t in range(self.max_iter):
+                print(B.mean())
                 Cf = torch.relu(B)**2 /self.nm.unsqueeze(-1)
                 Cf[:, :self.num_samples] = 0
                 Cf[:, -self.num_samples:] = 0
 
                 Cfmax, imax = torch.max(Cf, 0)
                 Cmax  = max_pool1d(Cfmax.unsqueeze(0).unsqueeze(0), (2*self.num_samples+1), stride = 1, padding = (self.num_samples))
-                
                 cnd1 = Cmax[0, 0] > self.Th**2
                 cnd2 = torch.abs(Cmax[0,0] - Cfmax) < 1e-9
                 xs = torch.nonzero(cnd1 * cnd2)
@@ -133,15 +133,13 @@ class KiloSortPeeler(BaseTemplateMatching):
                 spikes[k:k+nsp]['sample_index'] = iX[:, 0].cpu()
                 spikes[k:k+nsp]['cluster_index'] = iY[:, 0].cpu()
                 amp = (B[iY, iX] / self.nm[iY])
-                
-                n = 2
-                for j in range(n):
-                    B[:, iX[j::n] + self.trange] -= amp[j::n] * self.ctc[:, iY[j::n, 0], :]
-
+                B[:, iX + self.trange] -= amp * self.ctc[:, iY[:, 0], :]
                 spikes[k:k+nsp]['amplitude'] = amp[:, 0].cpu()
                 k += nsp
 
             spikes = spikes[:k]
+            #mask = spikes['amplitude'] > 0.75
+            #spikes = spikes[mask]
             spikes["channel_index"] = 0
             spikes["sample_index"] += self.nbefore
             order = np.argsort(spikes["sample_index"])
