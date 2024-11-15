@@ -55,18 +55,17 @@ class SlidingHdbscanClustering:
         "auto_merge_quantile_limit": 0.8,
         "ratio_num_channel_intersect": 0.5,
         # ~ 'auto_trash_misalignment_shift' : 4,
-        "job_kwargs": {"n_jobs": -1, "chunk_memory": "10M", "progress_bar": True},
     }
 
     @classmethod
-    def main_function(cls, recording, peaks, params):
+    def main_function(cls, recording, peaks, params, job_kwargs=dict()):
         assert HAVE_HDBSCAN, "sliding_hdbscan clustering need hdbscan to be installed"
         params = cls._check_params(recording, peaks, params)
         wfs_arrays, sparsity_mask, noise = cls._initialize_folder(recording, peaks, params)
         peak_labels = cls._find_clusters(recording, peaks, wfs_arrays, sparsity_mask, noise, params)
 
         wfs_arrays2, sparsity_mask2 = cls._prepare_clean(
-            recording, peaks, wfs_arrays, sparsity_mask, peak_labels, params
+            recording, peaks, wfs_arrays, sparsity_mask, peak_labels, params, job_kwargs
         )
 
         clean_peak_labels, peak_sample_shifts = cls._clean_cluster(
@@ -145,7 +144,7 @@ class SlidingHdbscanClustering:
             dtype=dtype,
             sparsity_mask=sparsity_mask,
             copy=(d["waveform_mode"] == "shared_memory"),
-            **d["job_kwargs"],
+            **job_kwargs,
         )
 
         # noise
@@ -401,7 +400,7 @@ class SlidingHdbscanClustering:
         return peak_labels
 
     @classmethod
-    def _prepare_clean(cls, recording, peaks, wfs_arrays, sparsity_mask, peak_labels, d):
+    def _prepare_clean(cls, recording, peaks, wfs_arrays, sparsity_mask, peak_labels, d, job_kwargs):
         tmp_folder = d["tmp_folder"]
         if tmp_folder is None:
             wf_folder = None
@@ -465,7 +464,7 @@ class SlidingHdbscanClustering:
             dtype=recording.get_dtype(),
             sparsity_mask=sparsity_mask2,
             copy=(d["waveform_mode"] == "shared_memory"),
-            **d["job_kwargs"],
+            **job_kwargs,
         )
 
         return wfs_arrays2, sparsity_mask2
