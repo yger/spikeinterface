@@ -20,10 +20,10 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
     sorter_name = "spykingcircus2"
 
     _default_params = {
-        "general": {"ms_before": 2, "ms_after": 2, "radius_um": 75},
+        "general": {"ms_before": 2, "ms_after": 2, "radius_um": 50},
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25},
         "filtering": {"freq_min": 150, "freq_max": 7000, "ftype": "bessel", "filter_order": 2},
-        "whitening": {"mode": "local", "regularize": False},
+        "whitening": {"mode": "local", "regularize": False, "radius_um": 100},
         "detection": {"peak_sign": "neg", "detect_threshold": 4},
         "selection": {
             "method": "uniform",
@@ -64,7 +64,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "merging": "A dictionary to specify the final merging param to group cells after template matching (auto_merge_units)",
         "motion_correction": "A dictionary to be provided if motion correction has to be performed (dense probe only)",
         "apply_preprocessing": "Boolean to specify whether circus 2 should preprocess the recording or not. If yes, then high_pass filtering + common\
-                                                    median reference + zscore",
+                                                    median reference + whitening",
         "apply_motion_correction": "Boolean to specify whether circus 2 should apply motion correction to the recording or not",
         "matched_filtering": "Boolean to specify whether circus 2 should detect peaks via matched filtering (slightly slower)",
         "cache_preprocessing": "How to cache the preprocessed recording. Mode can be memory, file, zarr, with extra arguments. In case of memory (default), \
@@ -107,8 +107,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         from spikeinterface.sortingcomponents.clustering import find_cluster_from_peaks
         from spikeinterface.sortingcomponents.matching import find_spikes_from_templates
         from spikeinterface.sortingcomponents.tools import remove_empty_templates
-        from spikeinterface.sortingcomponents.tools import get_prototype_spike, check_probe_for_drift_correction
-        from spikeinterface.sortingcomponents.tools import get_prototype_spike
+        from spikeinterface.sortingcomponents.tools import check_probe_for_drift_correction
 
         job_kwargs = fix_job_kwargs(params["job_kwargs"])
         job_kwargs.update({"progress_bar": verbose})
@@ -119,7 +118,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         num_channels = recording.get_num_channels()
         ms_before = params["general"].get("ms_before", 2)
         ms_after = params["general"].get("ms_after", 2)
-        radius_um = params["general"].get("radius_um", 75)
+        radius_um = params["general"].get("radius_um", 50)
         exclude_sweep_ms = params["detection"].get("exclude_sweep_ms", max(ms_before, ms_after) / 2)
 
         ## First, we are filtering the data
@@ -151,7 +150,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         # TODO add , regularize=True chen ready
         whitening_kwargs = params["whitening"].copy()
         whitening_kwargs["dtype"] = "float32"
-        whitening_kwargs["radius_um"] = radius_um
         if num_channels == 1:
             whitening_kwargs["regularize"] = False
 
@@ -183,12 +181,19 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         max_n_peaks = selection_params["n_peaks_per_channel"] * num_channels
         n_peaks = max(selection_params["min_n_peaks"], max_n_peaks)
 
+        if params["debug"]:
+            clustering_folder = sorter_output_folder / "clustering"
+            clustering_folder.mkdir(parents=True, exist_ok=True)
+            np.save(clustering_folder / "noise_levels.npy", noise_levels)
+
         if params["matched_filtering"]:
             prototype = get_prototype(
                 recording_w, n_peaks=5000, ms_before=ms_before, ms_after=ms_after, **detection_params, **job_kwargs
             )
             detection_params["prototype"] = prototype
             detection_params["ms_before"] = ms_before
+            if params["debug"]:
+                np.save(clustering_folder / "prototype.npy", prototype)
             if skip_peaks:
                 detection_params["skip_after_n_peaks"] = n_peaks
             peaks = detect_peaks(recording_w, "matched_filtering", **detection_params, **job_kwargs)
@@ -250,12 +255,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             unit_ids = np.arange(len(np.unique(labeled_peaks["unit_index"])))
             sorting = NumpySorting(labeled_peaks, sampling_frequency, unit_ids=unit_ids)
 
-            clustering_folder = sorter_output_folder / "clustering"
-            clustering_folder.mkdir(parents=True, exist_ok=True)
-
-            if not params["debug"]:
-                shutil.rmtree(clustering_folder)
-            else:
+            if params["debug"]:
+                np.save(clustering_folder / "peak_labels", peak_labels)
                 np.save(clustering_folder / "labels", labels)
                 np.save(clustering_folder / "peaks", selected_peaks)
 
@@ -332,7 +333,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 sorting.save(folder=curation_folder)
                 # np.save(fitting_folder / "amplitudes", guessed_amplitudes)
 
-            sorting = final_cleaning_circus(recording_w, sorting, templates, **merging_params, **job_kwargs)
+            sorting = final_cleaning_circus(recording_w, sorting, templates, job_kwargs=job_kwargs, **merging_params)
 
             if verbose:
                 print(f"Final merging, keeping {len(sorting.unit_ids)} units")
@@ -362,7 +363,7 @@ def final_cleaning_circus(
     correlograms_kwargs={},
     max_distance_um=50,
     template_diff_thresh=np.arange(0.05, 0.25, 0.05),
-    **job_kwargs,
+    job_kwargs=dict(),
 ):
 
     from spikeinterface.sortingcomponents.tools import create_sorting_analyzer_with_existing_templates
@@ -370,9 +371,9 @@ def final_cleaning_circus(
 
     # First we compute the needed extensions
     analyzer = create_sorting_analyzer_with_existing_templates(sorting, recording, templates)
-    analyzer.compute("unit_locations", method="monopolar_triangulation")
-    analyzer.compute("template_similarity", **similarity_kwargs)
-    analyzer.compute("correlograms", **correlograms_kwargs)
+    analyzer.compute("unit_locations", method="monopolar_triangulation", **job_kwargs)
+    analyzer.compute("template_similarity", **similarity_kwargs, **job_kwargs)
+    analyzer.compute("correlograms", **correlograms_kwargs, **job_kwargs)
 
     presets = ["x_contaminations"] * len(template_diff_thresh)
     steps_params = [

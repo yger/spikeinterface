@@ -14,9 +14,9 @@ except:
     HAVE_HDBSCAN = False
 
 from spikeinterface.core.basesorting import minimum_spike_dtype
-from spikeinterface.core.waveform_tools import estimate_templates
+from spikeinterface.core.waveform_tools import estimate_templates, estimate_templates_with_accumulator
 from .clustering_tools import remove_duplicates_via_matching
-from spikeinterface.core.recording_tools import get_noise_levels, get_channel_distances
+from spikeinterface.core.recording_tools import get_noise_levels
 from spikeinterface.sortingcomponents.waveforms.savgol_denoiser import SavGolDenoiser
 from spikeinterface.sortingcomponents.features_from_peaks import RandomProjectionsFeature
 from spikeinterface.core.template import Templates
@@ -53,6 +53,7 @@ class RandomProjectionClustering:
         "random_seed": 42,
         "noise_levels": None,
         "smoothing_kwargs": {"window_length_ms": 0.25},
+        "noise_threshold": 5,
         "tmp_folder": None,
         "verbose": True,
     }
@@ -129,25 +130,50 @@ class RandomProjectionClustering:
         nbefore = int(params["waveforms"]["ms_before"] * fs / 1000.0)
         nafter = int(params["waveforms"]["ms_after"] * fs / 1000.0)
 
-        templates_array = estimate_templates(
-            recording, spikes, unit_ids, nbefore, nafter, return_scaled=False, job_name=None, **job_kwargs
+        if params["noise_levels"] is None:
+            params["noise_levels"] = get_noise_levels(recording, return_scaled=False, **job_kwargs)
+
+        templates_array, templates_array_std = estimate_templates_with_accumulator(
+            recording,
+            spikes,
+            unit_ids,
+            nbefore,
+            nafter,
+            return_scaled=False,
+            return_std=True,
+            job_name=None,
+            **job_kwargs,
         )
 
+        with np.errstate(divide="ignore", invalid="ignore"):
+            peak_snrs = np.abs(templates_array[:, nbefore, :]) / templates_array_std[:, nbefore, :]
+        mask = ~np.isfinite(peak_snrs)
+        peak_snrs[mask] = 0
+        best_channels = np.argmax(np.abs(templates_array[:, nbefore, :]), axis=1)
+        best_snrs_ratio = (peak_snrs / params["noise_levels"])[np.arange(len(peak_snrs)), best_channels]
+        valid_templates = best_snrs_ratio > params["noise_threshold"]
+
         templates = Templates(
-            templates_array=templates_array,
+            templates_array=templates_array[valid_templates],
             sampling_frequency=fs,
             nbefore=nbefore,
             sparsity_mask=None,
             channel_ids=recording.channel_ids,
-            unit_ids=unit_ids,
+            unit_ids=unit_ids[valid_templates],
             probe=recording.get_probe(),
             is_scaled=False,
         )
-        if params["noise_levels"] is None:
-            params["noise_levels"] = get_noise_levels(recording, return_scaled=False)
-        sparsity = compute_sparsity(templates, params["noise_levels"], **params["sparsity"])
+
+        sparsity = compute_sparsity(templates, noise_levels=params["noise_levels"], **params["sparsity"])
         templates = templates.to_sparse(sparsity)
+        empty_templates = templates.sparsity_mask.sum(axis=1) == 0
         templates = remove_empty_templates(templates)
+
+        mask = np.isin(peak_labels, np.where(empty_templates)[0])
+        peak_labels[mask] = -1
+
+        mask = np.isin(peak_labels, np.where(~valid_templates)[0])
+        peak_labels[mask] = -1
 
         if verbose:
             print("We found %d raw clusters, starting to clean with matching..." % (len(templates.unit_ids)))
