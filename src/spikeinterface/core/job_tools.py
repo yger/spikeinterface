@@ -534,8 +534,7 @@ class ChunkRecordingExecutor:
                     initargs=(self.func, self.init_func, self.init_args, self.max_threads_per_worker, thread_local_data, self.need_worker_index, lock),
                 ) as executor:
 
-
-                    recording_slices2 = [(thread_local_data, ) + args for args in recording_slices]
+                    recording_slices2 = [(thread_local_data, ) + tuple(args) for args in recording_slices]
                     results = executor.map(thread_function_wrapper, recording_slices2)
 
                     for res in results:
