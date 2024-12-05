@@ -157,11 +157,7 @@ def compute_pc_metrics(
         pcs = dense_projections[np.isin(all_labels, neighbor_unit_ids)][:, :, neighbor_channel_indices]
         pcs_flat = pcs.reshape(pcs.shape[0], -1)
 
-<<<<<<< HEAD
         func_args = (pcs_flat, labels, non_nn_metrics, unit_id, unit_ids, qm_params, max_threads_per_worker)
-=======
-        func_args = (pcs_flat, labels, non_nn_metrics, unit_id, unit_ids, metric_params, max_threads_per_process)
->>>>>>> sc2_recording_slices
         items.append(func_args)
 
     if not run_in_parallel and non_nn_metrics:
