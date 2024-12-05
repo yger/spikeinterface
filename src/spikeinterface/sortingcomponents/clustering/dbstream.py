@@ -439,6 +439,7 @@ class DBSTREAM(base.Clusterer):
             templates_array,
             self.recording.get_sampling_frequency(),
             n_before,
+            False,
             None,
             self.recording.channel_ids,
             np.array(list(self.centers.keys())),

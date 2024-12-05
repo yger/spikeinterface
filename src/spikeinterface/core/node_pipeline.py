@@ -735,14 +735,14 @@ class OnlineClustering:
     """
 
     _default_params = { "dbstream" : {"clustering_threshold" : 2,
-                                        "fading_factor" :0.01,
+                                        "fading_factor" : 0.01,
                                         "cleanup_interval" : 1000,
                                         "intersection_factor" : 0.3,
-                                        "minimum_weight" :1}, 
+                                        "minimum_weight" : 1}, 
                         "noise_levels" : None,
                         "folder_path" : None,
                         "n_peaks" : 20000,
-                        "sparsity" : {"method": "ptp", "threshold": 0.25}}
+                        "sparsity" : {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25}}
 
     def __init__(self, **kwargs):
         self.tuple_mode = None
