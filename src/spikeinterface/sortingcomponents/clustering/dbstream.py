@@ -141,7 +141,7 @@ class DBSTREAM(base.Clusterer):
         self,
         clustering_threshold: float = 1.0,
         fading_factor: float = 0.01,
-        cleanup_interval: float = 1000,
+        cleanup_interval: float = 10,
         intersection_factor: float = 0.3,
         minimum_weight: float = 1.0,
     ):
@@ -165,6 +165,7 @@ class DBSTREAM(base.Clusterer):
 
         self.last_cleanup = 0
         self.clustering_is_up_to_date = False
+        self.weight_weak = 2 ** (-self.fading_factor * self.cleanup_interval)
 
     def initialize_sparsity(self, recording, radius_um=75):
         self.recording = recording
@@ -175,7 +176,7 @@ class DBSTREAM(base.Clusterer):
 
     @staticmethod
     def _distance(point_a, point_b):
-        return np.sqrt(np.linalg.norm(point_a - point_b))
+        return np.linalg.norm(point_a - point_b)
 
     def _find_fixed_radius_nn(self, x):
         fixed_radius_nn = {}
@@ -201,11 +202,16 @@ class DBSTREAM(base.Clusterer):
         waveforms_channels = np.array(self.neighbours_mask[peak_channel], dtype=int)        
 
         if len(neighbor_clusters) < 1:
-            # create new micro cluster
-            self._micro_clusters[len(self._micro_clusters)] = DBSTREAMMicroCluster(
-                x=x, waveforms=w, waveforms_channels=waveforms_channels,
-                last_update=self._time_stamp, weight=1,
-            )
+            if len(self._micro_clusters) > 0:
+                self._micro_clusters[max(self._micro_clusters.keys()) + 1] = DBSTREAMMicroCluster(
+                    x=x, waveforms=w, waveforms_channels=waveforms_channels,
+                    last_update=self._time_stamp, weight=1,
+                )
+            else:
+                self._micro_clusters[0] = DBSTREAMMicroCluster(
+                    x=x, waveforms=w, waveforms_channels=waveforms_channels,
+                    last_update=self._time_stamp, weight=1,
+                )
         else:
             # update existing micro clusters
             current_centers = {}
@@ -238,11 +244,11 @@ class DBSTREAM(base.Clusterer):
                             self.s_t[i][j] = self._time_stamp
                         except KeyError:
                             try:
-                                self.s[i][j] = 0
-                                self.s_t[i][j] = 0
+                                self.s[i][j] = 1
+                                self.s_t[i][j] = self._time_stamp
                             except KeyError:
-                                self.s[i] = {j: 0}
-                                self.s_t[i] = {j: 0}
+                                self.s[i] = {j: 1}
+                                self.s_t[i] = {j: self._time_stamp}
 
             # prevent collapsing clusters
             for i in neighbor_clusters.keys():
@@ -264,17 +270,27 @@ class DBSTREAM(base.Clusterer):
     def _cleanup(self):
         # Algorithm 2 of Michael Hahsler and Matthew Bolanos: Cleanup process to remove
         # inactive clusters and shared density entries from memory
-        weight_weak = 2 ** (-self.fading_factor * self.cleanup_interval)
 
         micro_clusters = copy.deepcopy(self._micro_clusters)
         for i, micro_cluster_i in self._micro_clusters.items():
             try:
-                value = 2 ** (self.fading_factor * (self._time_stamp - micro_cluster_i.last_update))
+                value = 2 ** (
+                    -self.fading_factor * (self._time_stamp - micro_cluster_i.last_update)
+                )
             except OverflowError:
                 continue
 
-            if micro_cluster_i.weight * value < weight_weak:
+            if micro_cluster_i.weight * value < self.weight_weak:
                 micro_clusters.pop(i)
+                self.s.pop(i, None)
+                self.s_t.pop(i, None)
+                # Since self.s and self.s_t always have the same keys and are arranged in ascending orders
+                for j in self.s:
+                    if j < i:
+                        self.s[j].pop(i, None)
+                        self.s_t[j].pop(i, None)
+                    else:
+                        break
 
         # Update microclusters
         self._micro_clusters = micro_clusters
@@ -282,11 +298,11 @@ class DBSTREAM(base.Clusterer):
         for i in self.s.keys():
             for j in self.s[i].keys():
                 try:
-                    value = 2 ** (self.fading_factor * (self._time_stamp - self.s_t[i][j]))
+                    value = 2 ** (-self.fading_factor * (self._time_stamp - self.s_t[i][j]))
                 except OverflowError:
                     continue
 
-                if self.s[i][j] * value < self.intersection_factor * weight_weak:
+                if self.s[i][j] * value < self.intersection_factor * self.weight_weak:
                     self.s[i][j] = 0
                     self.s_t[i][j] = 0
 
@@ -296,18 +312,23 @@ class DBSTREAM(base.Clusterer):
         weighted_adjacency_matrix = {}
         for i in list(self.s.keys()):
             for j in list(self.s[i].keys()):
-                if (
-                    self._micro_clusters[i].weight >= self.minimum_weight
-                    and self._micro_clusters[j].weight >= self.minimum_weight
-                ):
-                    value = self.s[i][j] / (
-                        (self._micro_clusters[i].weight + self._micro_clusters[j].weight) / 2
-                    )
-                    if value > self.intersection_factor:
-                        try:
-                            weighted_adjacency_matrix[i][j] = value
-                        except KeyError:
-                            weighted_adjacency_matrix[i] = {j: value}
+                try:
+                    if (
+                        self._micro_clusters[i].weight <= self.minimum_weight
+                        or self._micro_clusters[j].weight <= self.minimum_weight
+                    ):
+                        continue
+                except KeyError:
+                    continue
+
+                value = self.s[i][j] / (
+                    (self._micro_clusters[i].weight + self._micro_clusters[j].weight) / 2
+                )
+                if value > self.intersection_factor:
+                    try:
+                        weighted_adjacency_matrix[i][j] = value
+                    except KeyError:
+                        weighted_adjacency_matrix[i] = {j: value}
 
         return weighted_adjacency_matrix
 
@@ -346,7 +367,7 @@ class DBSTREAM(base.Clusterer):
                         )
                         # add new neighbors to seed set
                         for neighbor_neighbor in neighbor_neighbors:
-                            if labels[neighbor_neighbor] is not None:
+                            if labels[neighbor_neighbor] is None:
                                 seed_set.append(neighbor_neighbor)
 
         return labels
@@ -488,7 +509,7 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
     def merge(self, cluster):
         denominator = self.weight + cluster.weight
         self.center = (self.center * self.weight + cluster.center*cluster.weight)/denominator
-
+        self.weights = denominator
         ### SHOULD HANDLE NON OVERLAPPING SUPPORT
         self.waveforms = (self.waveforms * self.weight + cluster.waveforms*cluster.weight)/denominator
 

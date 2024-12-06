@@ -742,6 +742,7 @@ class OnlineClustering:
                         "folder_path" : None,
                         "n_peaks" : 20000,
                         "recording" : None,
+                        "chunk_size" : 1000,
                         "radius_um": 50}
 
     def __init__(self, **kwargs):
@@ -754,6 +755,7 @@ class OnlineClustering:
         self.clusterer.initialize_sparsity(params['recording'], params['radius_um'])
         self.folder_path = params['folder_path']
         self.count = 0
+        self.chunk_size = params["chunk_size"]
         self.sampling_frequency = params["recording"].get_sampling_frequency()
 
 
@@ -776,8 +778,9 @@ class OnlineClustering:
         
         count = 0
         for (x, _) in stream.iter_array(my_stream, feature_names=feature_names):
-            time_in_ms = peaks["sample_index"][count]*1000/self.sampling_frequency
-            self.clusterer.learn_one(x, time_in_ms, peaks["channel_index"][count])
+            global_frame = peaks["sample_index"][count] + self.count * self.chunk_size
+            time_in_s = global_frame/self.sampling_frequency
+            self.clusterer.learn_one(x, time_in_s, peaks["channel_index"][count])
             count += 1
 
         #self.clusterer.get_templates().to_zarr(self.folder_path / f'{self.count}')
