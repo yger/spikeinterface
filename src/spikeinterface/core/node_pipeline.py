@@ -766,22 +766,23 @@ class OnlineClustering:
             self.tuple_mode = isinstance(res, tuple)
 
         my_stream = []
-        peaks = res[0]
-        waveforms = res[1]
-        projections = res[2]
-        n_features = projections.shape[1]
+        if res is not None:
+            peaks = res[0]
+            waveforms = res[1]
+            projections = res[2]
+            n_features = projections.shape[1]
 
-        for count, data in enumerate(projections):
-            my_stream += [list(data) + [waveforms[count]]]
+            for count, data in enumerate(projections):
+                my_stream += [list(data) + [waveforms[count]]]
 
-        feature_names = ['p_%d' %i for i in range(n_features)] + ['w']
-        
-        count = 0
-        for (x, _) in stream.iter_array(my_stream, feature_names=feature_names):
-            global_frame = peaks["sample_index"][count] + self.count * self.chunk_size
-            time_in_s = global_frame/self.sampling_frequency
-            self.clusterer.learn_one(x, time_in_s, peaks["channel_index"][count])
-            count += 1
+            feature_names = ['p_%d' %i for i in range(n_features)] + ['w']
+            
+            count = 0
+            for (x, _) in stream.iter_array(my_stream, feature_names=feature_names):
+                global_frame = peaks["sample_index"][count] + self.count * self.chunk_size
+                time_in_s = global_frame/self.sampling_frequency
+                self.clusterer.learn_one(x, time_in_s, peaks["channel_index"][count])
+                count += 1
 
         #self.clusterer.get_templates().to_zarr(self.folder_path / f'{self.count}')
         self.count += 1

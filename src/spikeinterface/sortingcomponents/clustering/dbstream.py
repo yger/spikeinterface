@@ -166,6 +166,7 @@ class DBSTREAM(base.Clusterer):
         self.last_cleanup = 0
         self.clustering_is_up_to_date = False
         self.weight_weak = 2 ** (-self.fading_factor * self.cleanup_interval)
+        self.weight_weak *= self.minimum_weight
 
     def initialize_sparsity(self, recording, radius_um=75):
         self.recording = recording
