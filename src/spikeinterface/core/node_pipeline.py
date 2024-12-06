@@ -735,25 +735,24 @@ class OnlineClustering:
     """
 
     _default_params = { "dbstream" : {"clustering_threshold" : 2,
-                                        "fading_factor" : 0.01,
-                                        "cleanup_interval" : 1000,
-                                        "intersection_factor" : 0.3,
-                                        "minimum_weight" : 1}, 
-                        "noise_levels" : None,
+                                      "fading_factor" : 0.01,
+                                      "cleanup_interval" : 1000,
+                                      "intersection_factor" : 0.3,
+                                      "minimum_weight" : 1},
                         "folder_path" : None,
                         "n_peaks" : 20000,
-                        "sparsity" : {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25}}
+                        "recording" : None,
+                        "radius_um": 50}
 
     def __init__(self, **kwargs):
         self.tuple_mode = None
         from spikeinterface.sortingcomponents.clustering.dbstream import DBSTREAM
         params = self._default_params.copy()
         params.update(kwargs)
+        assert params["recording"] is not None, "You should provide the recording to dbstream"
         self.clusterer = DBSTREAM(**params['dbstream'])
-        self.clusterer.recording = params['recording']
+        self.clusterer.initialize_sparsity(params['recording'], params['radius_um'])
         self.folder_path = params['folder_path']
-        self.clusterer.sparsity = params['sparsity'].copy()
-        self.clusterer.sparsity.update({'noise_levels' : params['noise_levels']})
         self.count = 0
         self.sampling_frequency = params["recording"].get_sampling_frequency()
 
@@ -773,12 +772,12 @@ class OnlineClustering:
         for count, data in enumerate(projections):
             my_stream += [list(data) + [waveforms[count]]]
 
-        feature_names = ['%d' %i for i in range(n_features)] + ['w']
+        feature_names = ['p_%d' %i for i in range(n_features)] + ['w']
         
         count = 0
         for (x, _) in stream.iter_array(my_stream, feature_names=feature_names):
             time_in_ms = peaks["sample_index"][count]*1000/self.sampling_frequency
-            self.clusterer.learn_one(x, time_in_ms)
+            self.clusterer.learn_one(x, time_in_ms, peaks["channel_index"][count])
             count += 1
 
         #self.clusterer.get_templates().to_zarr(self.folder_path / f'{self.count}')
