@@ -204,6 +204,7 @@ class Templates:
             channel_ids=self.channel_ids,
             unit_ids=self.unit_ids,
             probe=self.probe,
+            is_scaled=self.is_scaled,
             check_for_consistent_sparsity=self.check_for_consistent_sparsity,
         )
 

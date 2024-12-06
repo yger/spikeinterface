@@ -200,17 +200,19 @@ class DBSTREAM(base.Clusterer):
 
         # Algorithm 1 of Michael Hahsler and Matthew Bolanos
         neighbor_clusters = self._find_fixed_radius_nn(x)
-        waveforms_channels = np.array(self.neighbours_mask[peak_channel], dtype=int)        
+        waveforms_channels = self.neighbours_mask[peak_channel]
+        full_w = np.zeros((w.shape[0], self.recording.get_num_channels()), dtype=np.float32)
+        full_w[:, waveforms_channels] = w[:, :np.sum(waveforms_channels)]
 
         if len(neighbor_clusters) < 1:
             if len(self._micro_clusters) > 0:
                 self._micro_clusters[max(self._micro_clusters.keys()) + 1] = DBSTREAMMicroCluster(
-                    x=x, waveforms=w, waveforms_channels=waveforms_channels,
+                    x=x, waveforms=full_w, waveforms_channels=waveforms_channels,
                     last_update=self._time_stamp, weight=1,
                 )
             else:
                 self._micro_clusters[0] = DBSTREAMMicroCluster(
-                    x=x, waveforms=w, waveforms_channels=waveforms_channels,
+                    x=x, waveforms=full_w, waveforms_channels=waveforms_channels,
                     last_update=self._time_stamp, weight=1,
                 )
         else:
@@ -230,7 +232,7 @@ class DBSTREAM(base.Clusterer):
 
                 # Update the center (i) with overlapping keys (j)
                 amplitude = self._gaussian_neighborhood(x, self._micro_clusters[i].center)
-                self._micro_clusters[i].update(x, w, waveforms_channels, amplitude)
+                self._micro_clusters[i].update(x, full_w, waveforms_channels, amplitude)
                 self._micro_clusters[i].last_update = self._time_stamp
 
                 # update shared density
@@ -476,23 +478,33 @@ class DBSTREAM(base.Clusterer):
         n_samples = self._waveforms[key].shape[0]
 
         templates_array = np.zeros((self._n_clusters, n_samples, self.recording.get_num_channels()), dtype=np.float32)
+        sparsity_mask = np.zeros((self._n_clusters, self.recording.get_num_channels()), dtype=bool)
+
         for count, key in enumerate(self._waveforms.keys()):
-            indices  = np.flatnonzero(self._clusters[key].waveforms_channels)
-            templates_array[count, :, indices] = self._clusters[key].waveforms[:, :len(indices)].T
+            templates_array[count] = self._clusters[key].waveforms
+            sparsity_mask[count] = self._clusters[key].waveforms_channels
 
         if n_before is None:
             n_before = templates_array.shape[1] // 2
 
+        unit_ids = np.array(list(self.centers.keys()))
         templates = Templates(
             templates_array,
-            self.recording.get_sampling_frequency(),
-            n_before,
-            False,
-            None,
-            self.recording.channel_ids,
-            np.array(list(self.centers.keys())),
-            self.recording.get_probe(),
+            sampling_frequency=self.recording.get_sampling_frequency(),
+            nbefore=n_before,
+            is_scaled=False,
+            sparsity_mask=None,
+            channel_ids=self.recording.channel_ids,
+            unit_ids=unit_ids,
+            probe=self.recording.get_probe(),
         )
+
+        from spikeinterface.core.sparsity import ChannelSparsity
+        sparsity = ChannelSparsity(mask=sparsity_mask,
+                unit_ids=unit_ids,
+                channel_ids=self.recording.channel_ids)
+        templates = templates.to_sparse(sparsity)
+        templates = remove_empty_templates(templates)
 
         return templates
 
@@ -511,14 +523,19 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
         denominator = self.weight + cluster.weight
         self.center = (self.center * self.weight + cluster.center*cluster.weight)/denominator
         self.weights = denominator
-        ### SHOULD HANDLE NON OVERLAPPING SUPPORT
         self.waveforms = (self.waveforms * self.weight + cluster.waveforms*cluster.weight)/denominator
+        self.waveforms_channels = self.waveforms_channels | cluster.waveforms_channels
 
     def update(self, x, waveforms, waveforms_channels, amplitude):
         self.center += amplitude*(x - self.center)
-        #self.waveforms_channels += waveforms_channels
-        ### SHOULD HANDLE NON OVERLAPPING SUPPORT
-        self.waveforms += amplitude*(waveforms - self.waveforms)
-
+        inds_1 = np.flatnonzero(self.waveforms_channels)
+        inds_2 = np.flatnonzero(waveforms_channels)
+        inds_1_in_2 = np.in1d(inds_1, inds_2)
+        inds_2_in_1 = np.in1d(inds_2, inds_1)
+        common_indices = inds_1[inds_1_in_2]
+        self.waveforms[common_indices] += amplitude*(waveforms[common_indices] - self.waveforms[common_indices])
+        inds_2_only = inds_2[~inds_2_in_1]
+        self.waveforms[inds_2_only] = waveforms[inds_2_only]
+        self.waveforms_channels = self.waveforms_channels | waveforms_channels
         
         
