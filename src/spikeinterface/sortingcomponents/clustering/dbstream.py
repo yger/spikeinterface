@@ -177,7 +177,7 @@ class DBSTREAM(base.Clusterer):
 
     @staticmethod
     def _distance(point_a, point_b):
-        return np.linalg.norm(point_a - point_b)
+        return np.linalg.norm(point_a - point_b)/np.sqrt(len(point_a))
 
     def _find_fixed_radius_nn(self, x):
         fixed_radius_nn = {}
@@ -503,8 +503,8 @@ class DBSTREAM(base.Clusterer):
         sparsity = ChannelSparsity(mask=sparsity_mask,
                 unit_ids=unit_ids,
                 channel_ids=self.recording.channel_ids)
-        templates = templates.to_sparse(sparsity)
-        templates = remove_empty_templates(templates)
+        # templates = templates.to_sparse(sparsity)
+        # templates = remove_empty_templates(templates)
 
         return templates
 
@@ -520,12 +520,8 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
         self.weight = weight
 
     def _common_indices(self, waveforms_channels):
-        inds_1 = np.flatnonzero(self.waveforms_channels)
-        inds_2 = np.flatnonzero(waveforms_channels)
-        inds_1_in_2 = np.in1d(inds_1, inds_2)
-        inds_2_in_1 = np.in1d(inds_2, inds_1)
-        common_indices = inds_1[inds_1_in_2]
-        inds_2_only = inds_2[~inds_2_in_1]
+        common_indices = self.waveforms_channels * waveforms_channels
+        inds_2_only = waveforms_channels * ~self.waveforms_channels
         return common_indices, inds_2_only
 
     def merge(self, cluster):
@@ -533,15 +529,15 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
         self.center = (self.center * self.weight + cluster.center*cluster.weight)/denominator
         self.weights = denominator
         common_indices, _ = self._common_indices(cluster.waveforms_channels)
-        self.waveforms[common_indices] = (self.waveforms[common_indices] * self.weight 
-                                          + cluster.waveforms[common_indices]*cluster.weight)/denominator
+        self.waveforms[:, common_indices] = (self.waveforms[:, common_indices] * self.weight 
+                                          + cluster.waveforms[:, common_indices]*cluster.weight)/denominator
         self.waveforms_channels = self.waveforms_channels | cluster.waveforms_channels
 
     def update(self, x, waveforms, waveforms_channels, amplitude):
         self.center += amplitude*(x - self.center)
         common_indices, inds_2_only = self._common_indices(waveforms_channels)
-        self.waveforms[common_indices] += amplitude*(waveforms[common_indices] - self.waveforms[common_indices])
-        self.waveforms[inds_2_only] = waveforms[inds_2_only]
+        self.waveforms[:, common_indices] += amplitude*(waveforms[:, common_indices] - self.waveforms[:, common_indices])
+        self.waveforms[:, inds_2_only] = waveforms[:, inds_2_only]
         self.waveforms_channels = self.waveforms_channels | waveforms_channels
         
         
