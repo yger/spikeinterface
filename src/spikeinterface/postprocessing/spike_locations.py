@@ -17,13 +17,13 @@ class ComputeSpikeLocations(AnalyzerExtension):
 
     Parameters
     ----------
-    sorting_analyzer: SortingAnalyzer
+    sorting_analyzer : SortingAnalyzer
         A SortingAnalyzer object
     ms_before : float, default: 0.5
         The left window, before a peak, in milliseconds
     ms_after : float, default: 0.5
         The right window, after a peak, in milliseconds
-    spike_retriver_kwargs: dict
+    spike_retriver_kwargs : dict
         A dictionary to control the behavior for getting the maximum channel for each spike
         This dictionary contains:
 
@@ -90,6 +90,19 @@ class ComputeSpikeLocations(AnalyzerExtension):
 
         spike_mask = np.isin(spikes["unit_index"], unit_inds)
         new_spike_locations = self.data["spike_locations"][spike_mask]
+        return dict(spike_locations=new_spike_locations)
+
+    def _merge_extension_data(
+        self, merge_unit_groups, new_unit_ids, new_sorting_analyzer, keep_mask=None, verbose=False, **job_kwargs
+    ):
+
+        if keep_mask is None:
+            new_spike_locations = self.data["spike_locations"].copy()
+        else:
+            new_spike_locations = self.data["spike_locations"][keep_mask]
+
+        ### In theory here, we should recompute the locations since the peak positions
+        ### in a merged could be different. Should be discussed
         return dict(spike_locations=new_spike_locations)
 
     def _get_pipeline_nodes(self):

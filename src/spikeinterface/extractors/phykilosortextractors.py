@@ -20,7 +20,7 @@ class BasePhyKilosortSortingExtractor(BaseSorting):
         Cluster groups to exclude (e.g. "noise" or ["noise", "mua"]).
     keep_good_only : bool, default: True
         Whether to only keep good units.
-    remove_empty_units : bool, default: True
+    remove_empty_units : bool, default: False
         If True, empty units are removed from the sorting extractor.
     load_all_cluster_properties : bool, default: True
         If True, all cluster properties are loaded from the tsv/csv files.
@@ -153,13 +153,14 @@ class BasePhyKilosortSortingExtractor(BaseSorting):
         self.extra_requirements.append("pandas")
 
         for prop_name in cluster_info.columns:
-            if prop_name in ["chan_grp", "ch_group"]:
+            if prop_name in ["chan_grp", "ch_group", "channel_group"]:
                 self.set_property(key="group", values=cluster_info[prop_name])
             elif prop_name == "cluster_id":
                 self.set_property(key="original_cluster_id", values=cluster_info[prop_name])
             elif prop_name == "group":
                 # rename group property to 'quality'
-                self.set_property(key="quality", values=cluster_info[prop_name])
+                values = cluster_info[prop_name].values.astype("str")
+                self.set_property(key="quality", values=values)
             else:
                 if load_all_cluster_properties:
                     # pandas loads strings with empty values as objects with NaNs

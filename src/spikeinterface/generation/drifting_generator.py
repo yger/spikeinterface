@@ -194,6 +194,8 @@ def generate_displacement_vector(
     motion_list : list of dict
         List of dicts containing individual motion vector parameters.
         len(motion_list) == displacement_vectors.shape[2]
+    seed : None | seed, default: None
+        Random seed for `make_one_displacement_vector`
 
     Returns
     -------
@@ -339,16 +341,15 @@ def generate_drifting_recording(
         Same for both recordings.
     extra_infos:
         If extra_outputs=True, then return also a dict that contain various information like:
+
             * displacement_vectors
             * displacement_sampling_frequency
             * unit_locations
             * displacement_unit_factor
             * unit_displacements
+
         This can be helpfull for motion benchmark.
     """
-
-    rng = np.random.default_rng(seed=seed)
-
     # probe
     if generate_probe_kwargs is None:
         generate_probe_kwargs = _toy_probes[probe_name]

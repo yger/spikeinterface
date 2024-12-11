@@ -5,7 +5,7 @@ import shutil
 import numpy as np
 
 from spikeinterface.core import generate_ground_truth_recording
-from spikeinterface.core import create_sorting_analyzer
+from spikeinterface.core import create_sorting_analyzer, load_sorting_analyzer
 from spikeinterface.core import estimate_sparsity
 
 
@@ -101,7 +101,7 @@ class AnalyzerExtensionCommonTestSuite:
         sorting_analyzer = self.get_sorting_analyzer(
             self.recording, self.sorting, format=format, sparsity=sparsity_, name=extension_class.extension_name
         )
-        sorting_analyzer.compute("random_spikes", max_spikes_per_unit=50, seed=2205)
+        sorting_analyzer.compute("random_spikes", max_spikes_per_unit=20, seed=2205)
 
         for dependency_name in extension_class.depend_on:
             if "|" in dependency_name:
@@ -116,6 +116,8 @@ class AnalyzerExtensionCommonTestSuite:
         with the passed parameters, and check the output is not empty, the extension
         exists and `select_units()` method works.
         """
+        import pandas as pd
+
         if extension_class.need_job_kwargs:
             job_kwargs = dict(n_jobs=2, chunk_duration="1s", progress_bar=True)
         else:
@@ -132,6 +134,31 @@ class AnalyzerExtensionCommonTestSuite:
         some_unit_ids = sorting_analyzer.unit_ids[::2]
         sliced = sorting_analyzer.select_units(some_unit_ids, format="memory")
         assert np.array_equal(sliced.unit_ids, sorting_analyzer.unit_ids[::2])
+
+        some_merges = [sorting_analyzer.unit_ids[:2].tolist()]
+        num_units_after_merge = len(sorting_analyzer.unit_ids) - 1
+        merged = sorting_analyzer.merge_units(some_merges, format="memory", merging_mode="soft", sparsity_overlap=0.0)
+        assert len(merged.unit_ids) == num_units_after_merge
+
+        # test roundtrip
+        if sorting_analyzer.format in ("binary_folder", "zarr"):
+            sorting_analyzer_loaded = load_sorting_analyzer(sorting_analyzer.folder)
+            ext_loaded = sorting_analyzer_loaded.get_extension(extension_class.extension_name)
+            for ext_data_name, ext_data_loaded in ext_loaded.data.items():
+                if isinstance(ext_data_loaded, np.ndarray):
+                    assert np.array_equal(ext.data[ext_data_name], ext_data_loaded)
+                elif isinstance(ext_data_loaded, pd.DataFrame):
+                    # skip nan values
+                    for col in ext_data_loaded.columns:
+                        np.testing.assert_array_almost_equal(
+                            ext.data[ext_data_name][col].dropna().to_numpy(),
+                            ext_data_loaded[col].dropna().to_numpy(),
+                            decimal=5,
+                        )
+                elif isinstance(ext_data_loaded, dict):
+                    assert ext.data[ext_data_name] == ext_data_loaded
+                else:
+                    continue
 
     def run_extension_tests(self, extension_class, params):
         """

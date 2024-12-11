@@ -9,6 +9,8 @@ from spikeinterface.core import get_noise_levels
 
 import numpy as np
 
+from pathlib import Path
+
 
 def test_silence(create_cache_folder):
 
@@ -16,7 +18,7 @@ def test_silence(create_cache_folder):
 
     rec = generate_recording()
 
-    rec0 = silence_periods(rec, list_periods=[[[0, 1000], [5000, 6000]], []], mode="zeros")
+    rec0 = silence_periods(rec, list_periods=[[[0, 1000], [5000, 6000]], []], mode="zeros", seed=2308)
     rec0.save(verbose=False)
     traces_in0 = rec0.get_traces(segment_index=0, start_frame=0, end_frame=1000)
     traces_in1 = rec0.get_traces(segment_index=0, start_frame=5000, end_frame=6000)
@@ -25,7 +27,7 @@ def test_silence(create_cache_folder):
     assert np.all(traces_in1 == 0)
     assert not np.all(traces_out0 == 0)
 
-    rec1 = silence_periods(rec, list_periods=[[[0, 1000], [5000, 6000]], []], mode="noise")
+    rec1 = silence_periods(rec, list_periods=[[[0, 1000], [5000, 6000]], []], mode="noise", seed=2308)
     rec1 = rec1.save(folder=cache_folder / "rec_w_noise", verbose=False, overwrite=True)
     noise_levels = get_noise_levels(rec, return_scaled=False)
     traces_in0 = rec1.get_traces(segment_index=0, start_frame=0, end_frame=1000)
@@ -46,4 +48,5 @@ def test_silence(create_cache_folder):
 
 
 if __name__ == "__main__":
-    test_silence()
+    cache_folder = Path(__file__).resolve().parents[4] / "cache_folder"
+    test_silence(cache_folder)

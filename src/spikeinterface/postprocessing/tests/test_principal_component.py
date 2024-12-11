@@ -18,6 +18,18 @@ class TestPrincipalComponentsExtension(AnalyzerExtensionCommonTestSuite):
     def test_extension(self, params):
         self.run_extension_tests(ComputePrincipalComponents, params=params)
 
+    def test_multi_processing(self):
+        """
+        Test the extension works with multiple processes.
+        """
+        sorting_analyzer = self._prepare_sorting_analyzer(
+            format="memory", sparse=False, extension_class=ComputePrincipalComponents
+        )
+        sorting_analyzer.compute("principal_components", mode="by_channel_local", n_jobs=2)
+        sorting_analyzer.compute(
+            "principal_components", mode="by_channel_local", n_jobs=2, max_threads_per_process=4, mp_context="spawn"
+        )
+
     def test_mode_concatenated(self):
         """
         Replicate the "extension_function_params_list" test outside of
@@ -109,6 +121,14 @@ class TestPrincipalComponentsExtension(AnalyzerExtensionCommonTestSuite):
         assert some_projections.shape[2] == some_channel_ids.size
         assert 1 not in spike_unit_index
 
+        # check correctness
+        channel_indices = sorting_analyzer.recording.ids_to_indices(some_channel_ids)
+        for unit_id in some_unit_ids:
+            unit_index = sorting_analyzer.sorting.id_to_index(unit_id)
+            spike_mask = spike_unit_index == unit_index
+            proj_one_unit = ext.get_projections_one_unit(unit_id, sparse=False)
+            np.testing.assert_array_almost_equal(some_projections[spike_mask], proj_one_unit[:, :, channel_indices])
+
     @pytest.mark.parametrize("sparse", [True, False])
     def test_compute_for_all_spikes(self, sparse):
         """
@@ -167,3 +187,8 @@ class TestPrincipalComponentsExtension(AnalyzerExtensionCommonTestSuite):
         assert new_proj.shape[0] == num_spike
         assert new_proj.shape[1] == n_components
         assert new_proj.shape[2] == ext_pca.data["pca_projection"].shape[2]
+
+
+if __name__ == "__main__":
+    test = TestPrincipalComponentsExtension()
+    test.test_get_projections(sparse=True)

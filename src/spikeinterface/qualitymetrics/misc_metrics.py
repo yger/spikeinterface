@@ -69,7 +69,10 @@ def compute_num_spikes(sorting_analyzer, unit_ids=None, **kwargs):
     return num_spikes
 
 
-def compute_firing_rates(sorting_analyzer, unit_ids=None, **kwargs):
+_default_params["num_spikes"] = {}
+
+
+def compute_firing_rates(sorting_analyzer, unit_ids=None):
     """
     Compute the firing rate across segments.
 
@@ -98,7 +101,10 @@ def compute_firing_rates(sorting_analyzer, unit_ids=None, **kwargs):
     return firing_rates
 
 
-def compute_presence_ratios(sorting_analyzer, bin_duration_s=60.0, mean_fr_ratio_thresh=0.0, unit_ids=None, **kwargs):
+_default_params["firing_rate"] = {}
+
+
+def compute_presence_ratios(sorting_analyzer, bin_duration_s=60.0, mean_fr_ratio_thresh=0.0, unit_ids=None):
     """
     Calculate the presence ratio, the fraction of time the unit is firing above a certain threshold.
 
@@ -117,7 +123,7 @@ def compute_presence_ratios(sorting_analyzer, bin_duration_s=60.0, mean_fr_ratio
 
     Returns
     -------
-    presence_ratio : dict of flaots
+    presence_ratio : dict of floats
         The presence ratio for each unit ID.
 
     Notes
@@ -514,7 +520,7 @@ _default_params["sliding_rp_violation"] = dict(
 )
 
 
-def get_synchrony_counts(spikes, synchrony_sizes, all_unit_ids):
+def _get_synchrony_counts(spikes, synchrony_sizes, all_unit_ids):
     """
     Compute synchrony counts, the number of simultaneous spikes with sizes `synchrony_sizes`.
 
@@ -522,19 +528,19 @@ def get_synchrony_counts(spikes, synchrony_sizes, all_unit_ids):
     ----------
     spikes : np.array
         Structured numpy array with fields ("sample_index", "unit_index", "segment_index").
-    synchrony_sizes : numpy array
-        The synchrony sizes to compute. Should be pre-sorted.
     all_unit_ids : list or None, default: None
         List of unit ids to compute the synchrony metrics. Expecting all units.
+    synchrony_sizes : None or np.array, default: None
+        The synchrony sizes to compute. Should be pre-sorted.
 
     Returns
     -------
-    synchrony_counts : dict
+    synchrony_counts : np.ndarray
         The synchrony counts for the synchrony sizes.
 
     References
     ----------
-    Based on concepts described in [Gruen]_
+    Based on concepts described in [Grün]_
     This code was adapted from `Elephant - Electrophysiology Analysis Toolkit <https://github.com/NeuralEnsemble/elephant/blob/master/elephant/spike_train_synchrony.py#L245>`_
     """
 
@@ -559,71 +565,69 @@ def get_synchrony_counts(spikes, synchrony_sizes, all_unit_ids):
     return synchrony_counts
 
 
-def compute_synchrony_metrics(sorting_analyzer, synchrony_sizes=(2, 4, 8), unit_ids=None):
+def compute_synchrony_metrics(sorting_analyzer, unit_ids=None, synchrony_sizes=None):
     """
     Compute synchrony metrics. Synchrony metrics represent the rate of occurrences of
-    "synchrony_size" spikes at the exact same sample index.
+    spikes at the exact same sample index, with synchrony sizes 2, 4 and 8.
 
     Parameters
     ----------
     sorting_analyzer : SortingAnalyzer
         A SortingAnalyzer object.
-    synchrony_sizes : list or tuple, default: (2, 4, 8)
-        The synchrony sizes to compute.
     unit_ids : list or None, default: None
         List of unit ids to compute the synchrony metrics. If None, all units are used.
+    synchrony_sizes: None, default: None
+        Deprecated argument. Please use private `_get_synchrony_counts` if you need finer control over number of synchronous spikes.
 
     Returns
     -------
     sync_spike_{X} : dict
         The synchrony metric for synchrony size X.
-        Returns are as many as synchrony_sizes.
 
     References
     ----------
-    Based on concepts described in [Gruen]_
+    Based on concepts described in [Grün]_
     This code was adapted from `Elephant - Electrophysiology Analysis Toolkit <https://github.com/NeuralEnsemble/elephant/blob/master/elephant/spike_train_synchrony.py#L245>`_
     """
-    assert min(synchrony_sizes) > 1, "Synchrony sizes must be greater than 1"
-    # Sort the synchrony times so we can slice numpy arrays, instead of using dicts
-    synchrony_sizes_np = np.array(synchrony_sizes, dtype=np.int16)
-    synchrony_sizes_np.sort()
 
-    res = namedtuple("synchrony_metrics", [f"sync_spike_{size}" for size in synchrony_sizes_np])
+    if synchrony_sizes is not None:
+        warning_message = "Custom `synchrony_sizes` is deprecated; the `synchrony_metrics` will be computed using `synchrony_sizes = [2,4,8]`"
+        warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
+
+    synchrony_sizes = np.array([2, 4, 8])
+
+    res = namedtuple("synchrony_metrics", [f"sync_spike_{size}" for size in synchrony_sizes])
 
     sorting = sorting_analyzer.sorting
+
+    if unit_ids is None:
+        unit_ids = sorting.unit_ids
 
     spike_counts = sorting.count_num_spikes_per_unit(outputs="dict")
 
     spikes = sorting.to_spike_vector()
     all_unit_ids = sorting.unit_ids
-    synchrony_counts = get_synchrony_counts(spikes, synchrony_sizes_np, all_unit_ids)
+    synchrony_counts = _get_synchrony_counts(spikes, synchrony_sizes, all_unit_ids)
 
     synchrony_metrics_dict = {}
-    for sync_idx, synchrony_size in enumerate(synchrony_sizes_np):
+    for sync_idx, synchrony_size in enumerate(synchrony_sizes):
         sync_id_metrics_dict = {}
         for i, unit_id in enumerate(all_unit_ids):
+            if unit_id not in unit_ids:
+                continue
             if spike_counts[unit_id] != 0:
                 sync_id_metrics_dict[unit_id] = synchrony_counts[sync_idx][i] / spike_counts[unit_id]
             else:
                 sync_id_metrics_dict[unit_id] = 0
         synchrony_metrics_dict[f"sync_spike_{synchrony_size}"] = sync_id_metrics_dict
 
-    if np.all(unit_ids == None) or (len(unit_ids) == len(all_unit_ids)):
-        return res(**synchrony_metrics_dict)
-    else:
-        reduced_synchrony_metrics_dict = {}
-        for key in synchrony_metrics_dict:
-            reduced_synchrony_metrics_dict[key] = {
-                unit_id: synchrony_metrics_dict[key][unit_id] for unit_id in unit_ids
-            }
-        return res(**reduced_synchrony_metrics_dict)
+    return res(**synchrony_metrics_dict)
 
 
-_default_params["synchrony"] = dict(synchrony_sizes=(2, 4, 8))
+_default_params["synchrony"] = dict()
 
 
-def compute_firing_ranges(sorting_analyzer, bin_size_s=5, percentiles=(5, 95), unit_ids=None, **kwargs):
+def compute_firing_ranges(sorting_analyzer, bin_size_s=5, percentiles=(5, 95), unit_ids=None):
     """
     Calculate firing range, the range between the 5th and 95th percentiles of the firing rates distribution
     computed in non-overlapping time bins.
@@ -1036,6 +1040,7 @@ def compute_drift_metrics(
         spike_locations_by_unit = {}
         for unit_id in unit_ids:
             unit_index = sorting.id_to_index(unit_id)
+            # TODO @alessio this is very slow this sjould be done with spike_vector_to_indices() in code
             spike_mask = spikes["unit_index"] == unit_index
             spike_locations_by_unit[unit_id] = spike_locations[spike_mask]
 
@@ -1074,8 +1079,9 @@ def compute_drift_metrics(
 
     # reference positions are the medians across segments
     reference_positions = np.zeros(len(unit_ids))
-    for unit_ind, unit_id in enumerate(unit_ids):
-        reference_positions[unit_ind] = np.median(spike_locations_by_unit[unit_id][direction])
+    for i, unit_id in enumerate(unit_ids):
+        unit_ind = sorting.id_to_index(unit_id)
+        reference_positions[i] = np.median(spike_locations_by_unit[unit_id][direction])
 
     # now compute median positions and concatenate them over segments
     median_position_segments = None
@@ -1098,7 +1104,8 @@ def compute_drift_metrics(
             spike_locations_in_bin = spike_locations_in_segment[i0:i1][direction]
 
             for i, unit_id in enumerate(unit_ids):
-                mask = spikes_in_bin["unit_index"] == sorting.id_to_index(unit_id)
+                unit_ind = sorting.id_to_index(unit_id)
+                mask = spikes_in_bin["unit_index"] == unit_ind
                 if np.sum(mask) >= min_spikes_per_interval:
                     median_positions[i, bin_index] = np.median(spike_locations_in_bin[mask])
         if median_position_segments is None:
@@ -1108,8 +1115,8 @@ def compute_drift_metrics(
 
     # finally, compute deviations and drifts
     position_diffs = median_position_segments - reference_positions[:, None]
-    for unit_ind, unit_id in enumerate(unit_ids):
-        position_diff = position_diffs[unit_ind]
+    for i, unit_id in enumerate(unit_ids):
+        position_diff = position_diffs[i]
         if np.any(np.isnan(position_diff)):
             # deal with nans: if more than 50% nans --> set to nan
             if np.sum(np.isnan(position_diff)) > min_fraction_valid_intervals * len(position_diff):
@@ -1437,6 +1444,8 @@ def compute_sd_ratio(
     In this case, noise refers to the global voltage trace on the same channel as the best channel of the unit.
     (ideally (not implemented yet), the noise would be computed outside of spikes from the unit itself).
 
+    TODO: Take jitter into account.
+
     Parameters
     ----------
     sorting_analyzer : SortingAnalyzer
@@ -1450,9 +1459,8 @@ def compute_sd_ratio(
         and will make a rough estimation of what that impact is (and remove it).
     unit_ids : list or None, default: None
         The list of unit ids to compute this metric. If None, all units are used.
-    **kwargs:
+    **kwargs : dict, default: {}
         Keyword arguments for computing spike amplitudes and extremum channel.
-    TODO: Take jitter into account.
 
     Returns
     -------
@@ -1549,3 +1557,10 @@ def compute_sd_ratio(
             sd_ratio[unit_id] = unit_std / std_noise
 
     return sd_ratio
+
+
+_default_params["sd_ratio"] = dict(
+    censored_period_ms=4.0,
+    correct_for_drift=True,
+    correct_for_template_itself=True,
+)

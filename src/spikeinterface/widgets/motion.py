@@ -5,7 +5,7 @@ import numpy as np
 from .base import BaseWidget, to_attr
 
 from spikeinterface.core import BaseRecording, SortingAnalyzer
-from spikeinterface.sortingcomponents.motion_utils import Motion
+from spikeinterface.sortingcomponents.motion import Motion
 
 
 class MotionWidget(BaseWidget):
@@ -200,18 +200,11 @@ class DriftRasterMapWidget(BaseWidget):
             if peak_amplitudes is not None:
                 peak_amplitudes = peak_amplitudes[peak_mask]
 
-        if recording is not None:
-            sampling_frequency = recording.sampling_frequency
-            times = recording.get_times(segment_index=segment_index)
-        else:
-            times = None
-
         plot_data = dict(
             peaks=peaks,
             peak_locations=peak_locations,
             peak_amplitudes=peak_amplitudes,
             direction=direction,
-            times=times,
             sampling_frequency=sampling_frequency,
             segment_index=segment_index,
             depth_lim=depth_lim,
@@ -230,7 +223,7 @@ class DriftRasterMapWidget(BaseWidget):
         from matplotlib.colors import Normalize
         from .utils_matplotlib import make_mpl_figure
 
-        from spikeinterface.sortingcomponents.motion_interpolation import correct_motion_on_peaks
+        from spikeinterface.sortingcomponents.motion import correct_motion_on_peaks
 
         dp = to_attr(data_plot)
 
@@ -238,10 +231,10 @@ class DriftRasterMapWidget(BaseWidget):
 
         self.figure, self.axes, self.ax = make_mpl_figure(**backend_kwargs)
 
-        if dp.times is None:
+        if dp.recording is None:
             peak_times = dp.peaks["sample_index"] / dp.sampling_frequency
         else:
-            peak_times = dp.times[dp.peaks["sample_index"]]
+            peak_times = dp.recording.sample_index_to_time(dp.peaks["sample_index"], segment_index=dp.segment_index)
 
         peak_locs = dp.peak_locations[dp.direction]
         if dp.scatter_decimate is not None:
@@ -291,11 +284,9 @@ class MotionInfoWidget(BaseWidget):
     ----------
     motion_info : dict
         The motion info returned by correct_motion() or loaded back with load_motion_info().
+    recording : RecordingExtractor
+        The recording extractor object
     segment_index : int, default: None
-        The segment index to display.
-    recording : RecordingExtractor, default: None
-        The recording extractor object (only used to get "real" times).
-    segment_index : int, default: 0
         The segment index to display.
     sampling_frequency : float, default: None
         The sampling frequency (needed if recording is None).
@@ -320,8 +311,8 @@ class MotionInfoWidget(BaseWidget):
     def __init__(
         self,
         motion_info: dict,
+        recording: BaseRecording,
         segment_index: int | None = None,
-        recording: BaseRecording | None = None,
         depth_lim: tuple[float, float] | None = None,
         motion_lim: tuple[float, float] | None = None,
         color_amplitude: bool = False,
@@ -342,12 +333,12 @@ class MotionInfoWidget(BaseWidget):
                 raise ValueError(
                     "plot drift map : the Motion object is multi-segment you must provide segment_index=XX"
                 )
-
-        times = recording.get_times() if recording is not None else None
+        assert recording.get_num_segments() == len(
+            motion.displacement
+        ), "The number of segments in the recording must be the same as the number of segments in the motion object"
 
         plot_data = dict(
             sampling_frequency=motion_info["parameters"]["sampling_frequency"],
-            times=times,
             segment_index=segment_index,
             depth_lim=depth_lim,
             motion_lim=motion_lim,
@@ -366,7 +357,7 @@ class MotionInfoWidget(BaseWidget):
     def plot_matplotlib(self, data_plot, **backend_kwargs):
         from .utils_matplotlib import make_mpl_figure
 
-        from spikeinterface.sortingcomponents.motion_interpolation import correct_motion_on_peaks
+        from spikeinterface.sortingcomponents.motion import correct_motion_on_peaks
 
         dp = to_attr(data_plot)
 

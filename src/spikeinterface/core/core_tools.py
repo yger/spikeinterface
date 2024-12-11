@@ -75,7 +75,7 @@ class SIJsonEncoder(json.JSONEncoder):
 
     def default(self, obj):
         from spikeinterface.core.base import BaseExtractor
-        from spikeinterface.sortingcomponents.motion_utils import Motion
+        from spikeinterface.sortingcomponents.motion.motion_utils import Motion
 
         # Over-write behaviors for datetime object
         if isinstance(obj, datetime.datetime):
@@ -153,6 +153,13 @@ def check_json(dictionary: dict) -> dict:
     return json.loads(json_string)
 
 
+def clean_zarr_folder_name(folder):
+    folder = Path(folder)
+    if folder.suffix != ".zarr":
+        folder = folder.parent / f"{folder.stem}.zarr"
+    return folder
+
+
 def add_suffix(file_path, possible_suffix):
     file_path = Path(file_path)
     if isinstance(possible_suffix, str):
@@ -194,7 +201,7 @@ def is_dict_extractor(d: dict) -> bool:
 extractor_dict_element = namedtuple(typename="extractor_dict_element", field_names=["value", "name", "access_path"])
 
 
-def extractor_dict_iterator(extractor_dict: dict) -> Generator[extractor_dict_element]:
+def extractor_dict_iterator(extractor_dict: dict) -> Generator[extractor_dict_element, None, None]:
     """
     Iterator for recursive traversal of a dictionary.
     This function explores the dictionary recursively and yields the path to each value along with the value itself.
@@ -250,8 +257,7 @@ def set_value_in_extractor_dict(extractor_dict: dict, access_path: tuple, new_va
 
     Returns
     -------
-    dict
-        The modified dictionary
+    None
     """
 
     current = extractor_dict
@@ -329,7 +335,7 @@ def recursive_path_modifier(d, func, target="path", copy=True) -> dict:
 
 # This is the current definition that an element in a extractor_dict is a path
 # This is shared across a couple of definition so it is here for DNRY
-element_is_path = lambda element: "path" in element.name and isinstance(element.value, (str, Path))
+element_is_path = lambda element: isinstance(element.value, (str, Path)) and "path" in element.name
 
 
 def _get_paths_list(d: dict) -> list[str | Path]:
@@ -432,7 +438,7 @@ def make_paths_relative(input_dict: dict, relative_folder: str | Path) -> dict:
     return output_dict
 
 
-def make_paths_absolute(input_dict, base_folder):
+def make_paths_absolute(input_dict, base_folder) -> dict:
     """
     Recursively transform a dict describing an BaseExtractor to make every path absolute given a base_folder.
 
@@ -625,7 +631,7 @@ def normal_pdf(x, mu: float = 0.0, sigma: float = 1.0):
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-((x - mu) ** 2) / (2 * sigma**2))
 
 
-def retrieve_importing_provenance(a_class):
+def retrieve_importing_provenance(a_class) -> dict:
     """
     Retrieve the import provenance of a class, including its import name (that consists of the class name and the module),
     the top-level module, and the module version.
@@ -684,3 +690,20 @@ def measure_memory_allocation(measure_in_process: bool = True) -> float:
         memory = mem_info.total - mem_info.available
 
     return memory
+
+
+def is_path_remote(path: str | Path) -> bool:
+    """
+    Returns True if the path is a remote path (e.g., s3:// or gcs://).
+
+    Parameters
+    ----------
+    path : str or Path
+        The path to check.
+
+    Returns
+    -------
+    bool
+        Whether the path is a remote path.
+    """
+    return "s3://" in str(path) or "gcs://" in str(path)

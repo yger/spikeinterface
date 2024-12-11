@@ -8,6 +8,7 @@ import numpy as np
 
 from river import base, utils
 from spikeinterface.core.template import Templates
+from spikeinterface.core import get_channel_distances
 from spikeinterface.core.sparsity import compute_sparsity
 from spikeinterface.sortingcomponents.tools import remove_empty_templates
 
@@ -140,7 +141,7 @@ class DBSTREAM(base.Clusterer):
         self,
         clustering_threshold: float = 1.0,
         fading_factor: float = 0.01,
-        cleanup_interval: float = 1000,
+        cleanup_interval: float = 10,
         intersection_factor: float = 0.3,
         minimum_weight: float = 1.0,
     ):
@@ -156,6 +157,7 @@ class DBSTREAM(base.Clusterer):
         self._n_clusters: int = 0
         self._clusters: dict[int, DBSTREAMMicroCluster] = {}
         self._centers: dict = {}
+        self._waveforms: dict = {}
         self._micro_clusters: dict[int, DBSTREAMMicroCluster] = {}
 
         self.s: dict[int, dict[int, float]] = {}
@@ -163,35 +165,56 @@ class DBSTREAM(base.Clusterer):
 
         self.last_cleanup = 0
         self.clustering_is_up_to_date = False
+        self.weight_weak = 2 ** (-self.fading_factor * self.cleanup_interval)
+        self.weight_weak *= self.minimum_weight
+
+    def initialize_sparsity(self, recording, radius_um=75):
+        self.recording = recording
+        self.radius_um = radius_um
+        self.contact_locations = recording.get_channel_locations()
+        self.channel_distance = get_channel_distances(recording)
+        self.neighbours_mask = self.channel_distance <= radius_um
 
     @staticmethod
     def _distance(point_a, point_b):
-        point_a = {k: point_a[k] for k in point_a.keys() - {'w'}}
-        point_b = {k: point_b[k] for k in point_b.keys() - {'w'}}
-        return math.sqrt(utils.math.minkowski_distance(point_a, point_b, 2))
+        return np.linalg.norm(point_a - point_b)/np.sqrt(len(point_a))
 
     def _find_fixed_radius_nn(self, x):
         fixed_radius_nn = {}
         for i in self._micro_clusters.keys():
             if self._distance(self._micro_clusters[i].center, x) < self.clustering_threshold:
                 fixed_radius_nn[i] = self._micro_clusters[i]
-        return fixed_radius_nn
+        return fixed_radius_nn  
 
     def _gaussian_neighborhood(self, point_a, point_b):
         distance = self._distance(point_a, point_b)
         sigma = self.clustering_threshold / 3
-        gaussian_neighborhood = math.exp(-(distance * distance) / (2 * (sigma * sigma)))
+        gaussian_neighborhood = np.exp(-(distance **2) / (2 * (sigma**2)))
         return gaussian_neighborhood
 
-    def _update(self, x, time_stamp):
+    def _update(self, x, time_stamp, peak_channel):
+
+        # First we catch the sparse waveforms and turn data into numpy arrays
+        w = x.pop('w')
+        x = np.array(list(x.values()), dtype=np.float32)
+
         # Algorithm 1 of Michael Hahsler and Matthew Bolanos
         neighbor_clusters = self._find_fixed_radius_nn(x)
+        waveforms_channels = self.neighbours_mask[peak_channel]
+        full_w = np.zeros((w.shape[0], self.recording.get_num_channels()), dtype=np.float32)
+        full_w[:, waveforms_channels] = w[:, :np.sum(waveforms_channels)]
 
         if len(neighbor_clusters) < 1:
-            # create new micro cluster
-            self._micro_clusters[len(self._micro_clusters)] = DBSTREAMMicroCluster(
-                x=x, last_update=self._time_stamp, weight=1
-            )
+            if len(self._micro_clusters) > 0:
+                self._micro_clusters[max(self._micro_clusters.keys()) + 1] = DBSTREAMMicroCluster(
+                    x=x, waveforms=full_w, waveforms_channels=waveforms_channels,
+                    last_update=self._time_stamp, weight=1,
+                )
+            else:
+                self._micro_clusters[0] = DBSTREAMMicroCluster(
+                    x=x, waveforms=full_w, waveforms_channels=waveforms_channels,
+                    last_update=self._time_stamp, weight=1,
+                )
         else:
             # update existing micro clusters
             current_centers = {}
@@ -209,12 +232,7 @@ class DBSTREAM(base.Clusterer):
 
                 # Update the center (i) with overlapping keys (j)
                 amplitude = self._gaussian_neighborhood(x, self._micro_clusters[i].center)
-                self._micro_clusters[i].center = {
-                    j: self._micro_clusters[i].center[j]
-                    + amplitude * (x[j] - self._micro_clusters[i].center[j])
-                    for j in self._micro_clusters[i].center.keys()
-                    if j in x
-                }
+                self._micro_clusters[i].update(x, full_w, waveforms_channels, amplitude)
                 self._micro_clusters[i].last_update = self._time_stamp
 
                 # update shared density
@@ -229,11 +247,11 @@ class DBSTREAM(base.Clusterer):
                             self.s_t[i][j] = self._time_stamp
                         except KeyError:
                             try:
-                                self.s[i][j] = 0
-                                self.s_t[i][j] = 0
+                                self.s[i][j] = 1
+                                self.s_t[i][j] = self._time_stamp
                             except KeyError:
-                                self.s[i] = {j: 0}
-                                self.s_t[i] = {j: 0}
+                                self.s[i] = {j: 1}
+                                self.s_t[i] = {j: self._time_stamp}
 
             # prevent collapsing clusters
             for i in neighbor_clusters.keys():
@@ -255,17 +273,27 @@ class DBSTREAM(base.Clusterer):
     def _cleanup(self):
         # Algorithm 2 of Michael Hahsler and Matthew Bolanos: Cleanup process to remove
         # inactive clusters and shared density entries from memory
-        weight_weak = 2 ** (-self.fading_factor * self.cleanup_interval)
 
         micro_clusters = copy.deepcopy(self._micro_clusters)
         for i, micro_cluster_i in self._micro_clusters.items():
             try:
-                value = 2 ** (self.fading_factor * (self._time_stamp - micro_cluster_i.last_update))
+                value = 2 ** (
+                    -self.fading_factor * (self._time_stamp - micro_cluster_i.last_update)
+                )
             except OverflowError:
                 continue
 
-            if micro_cluster_i.weight * value < weight_weak:
+            if micro_cluster_i.weight * value < self.weight_weak:
                 micro_clusters.pop(i)
+                self.s.pop(i, None)
+                self.s_t.pop(i, None)
+                # Since self.s and self.s_t always have the same keys and are arranged in ascending orders
+                for j in self.s:
+                    if j < i:
+                        self.s[j].pop(i, None)
+                        self.s_t[j].pop(i, None)
+                    else:
+                        break
 
         # Update microclusters
         self._micro_clusters = micro_clusters
@@ -273,11 +301,11 @@ class DBSTREAM(base.Clusterer):
         for i in self.s.keys():
             for j in self.s[i].keys():
                 try:
-                    value = 2 ** (self.fading_factor * (self._time_stamp - self.s_t[i][j]))
+                    value = 2 ** (-self.fading_factor * (self._time_stamp - self.s_t[i][j]))
                 except OverflowError:
                     continue
 
-                if self.s[i][j] * value < self.intersection_factor * weight_weak:
+                if self.s[i][j] * value < self.intersection_factor * self.weight_weak:
                     self.s[i][j] = 0
                     self.s_t[i][j] = 0
 
@@ -287,18 +315,23 @@ class DBSTREAM(base.Clusterer):
         weighted_adjacency_matrix = {}
         for i in list(self.s.keys()):
             for j in list(self.s[i].keys()):
-                if (
-                    self._micro_clusters[i].weight >= self.minimum_weight
-                    and self._micro_clusters[j].weight >= self.minimum_weight
-                ):
-                    value = self.s[i][j] / (
-                        (self._micro_clusters[i].weight + self._micro_clusters[j].weight) / 2
-                    )
-                    if value > self.intersection_factor:
-                        try:
-                            weighted_adjacency_matrix[i][j] = value
-                        except KeyError:
-                            weighted_adjacency_matrix[i] = {j: value}
+                try:
+                    if (
+                        self._micro_clusters[i].weight <= self.minimum_weight
+                        or self._micro_clusters[j].weight <= self.minimum_weight
+                    ):
+                        continue
+                except KeyError:
+                    continue
+
+                value = self.s[i][j] / (
+                    (self._micro_clusters[i].weight + self._micro_clusters[j].weight) / 2
+                )
+                if value > self.intersection_factor:
+                    try:
+                        weighted_adjacency_matrix[i][j] = value
+                    except KeyError:
+                        weighted_adjacency_matrix[i] = {j: value}
 
         return weighted_adjacency_matrix
 
@@ -337,7 +370,7 @@ class DBSTREAM(base.Clusterer):
                         )
                         # add new neighbors to seed set
                         for neighbor_neighbor in neighbor_neighbors:
-                            if labels[neighbor_neighbor] is not None:
+                            if labels[neighbor_neighbor] is None:
                                 seed_set.append(neighbor_neighbor)
 
         return labels
@@ -381,9 +414,10 @@ class DBSTREAM(base.Clusterer):
         if labels:
             self._n_clusters, self._clusters = self._generate_clusters_from_labels(labels)
             self._centers = {i: self._clusters[i].center for i in self._clusters.keys()}
+            self._waveforms = {i: self._clusters[i].waveforms for i in self._clusters.keys()}
 
-    def learn_one(self, x, time_stamp, sample_weight=None):
-        self._update(x, time_stamp)
+    def learn_one(self, x, time_stamp, peak_channel):
+        self._update(x, time_stamp, peak_channel)
 
         #if self._time_stamp % self.cleanup_interval == 0:
         if self._time_stamp // self.cleanup_interval > self.last_cleanup:
@@ -394,10 +428,9 @@ class DBSTREAM(base.Clusterer):
 
         return self
 
-    def predict_one(self, x, sample_weight=None):
+    def predict_one(self, x):
         self._recluster()
-
-        min_distance = math.inf
+        min_distance = np.inf
 
         # default result of all clustering results, regardless of whether there already
         # exists macro-clusters
@@ -421,51 +454,90 @@ class DBSTREAM(base.Clusterer):
         return self._clusters
 
     @property
+    def waveforms(self) -> dict:
+        self._recluster()
+        return self._waveforms
+
+    @property
     def centers(self) -> dict:
         self._recluster()
         return self._centers
+
+    @property
+    def centers_and_waveforms(self) -> tuple:
+        self._recluster()
+        return self._centers, self._waveforms
 
     @property
     def micro_clusters(self) -> dict[int, DBSTREAMMicroCluster]:
         return self._micro_clusters
 
     def get_templates(self, n_before=None):
+        self._recluster()
+        key = list(self._waveforms.keys())[0]
+        n_samples = self._waveforms[key].shape[0]
 
-        templates_array = np.array([i['w'] for i in self.centers.values()])
+        templates_array = np.zeros((self._n_clusters, n_samples, self.recording.get_num_channels()), dtype=np.float32)
+        sparsity_mask = np.zeros((self._n_clusters, self.recording.get_num_channels()), dtype=bool)
+
+        for count, key in enumerate(self._waveforms.keys()):
+            templates_array[count] = self._clusters[key].waveforms
+            sparsity_mask[count] = self._clusters[key].waveforms_channels
+
         if n_before is None:
             n_before = templates_array.shape[1] // 2
 
+        unit_ids = np.array(list(self.centers.keys()))
         templates = Templates(
             templates_array,
-            self.recording.get_sampling_frequency(),
-            n_before,
-            None,
-            self.recording.channel_ids,
-            np.array(list(self.centers.keys())),
-            self.recording.get_probe(),
+            sampling_frequency=self.recording.get_sampling_frequency(),
+            nbefore=n_before,
+            is_scaled=False,
+            sparsity_mask=None,
+            channel_ids=self.recording.channel_ids,
+            unit_ids=unit_ids,
+            probe=self.recording.get_probe(),
         )
 
-        sparsity = compute_sparsity(templates, self.sparsity)
-        templates = templates.to_sparse(sparsity)
-        templates = remove_empty_templates(templates)
+        from spikeinterface.core.sparsity import ChannelSparsity
+        sparsity = ChannelSparsity(mask=sparsity_mask,
+                unit_ids=unit_ids,
+                channel_ids=self.recording.channel_ids)
+        # templates = templates.to_sparse(sparsity)
+        # templates = remove_empty_templates(templates)
+
         return templates
-
-
 
 
 class DBSTREAMMicroCluster(metaclass=ABCMeta):
     """DBStream Micro-cluster class"""
 
-    def __init__(self, x=None, last_update=None, weight=None):
+    def __init__(self, x=None, waveforms=None, waveforms_channels=None, last_update=None, weight=None):
         self.center = x
+        self.waveforms = waveforms
+        self.waveforms_channels = waveforms_channels
         self.last_update = last_update
         self.weight = weight
 
+    def _common_indices(self, waveforms_channels):
+        common_indices = self.waveforms_channels * waveforms_channels
+        inds_2_only = waveforms_channels * ~self.waveforms_channels
+        return common_indices, inds_2_only
+
     def merge(self, cluster):
-        # Using cluster.center.get allows updating clusters with different features
-        self.center = {
-            i: (self.center[i] * self.weight + cluster.center.get(i, 0.0) * cluster.weight)
-            / (self.weight + cluster.weight)
-            for i in self.center.keys()
-        }
-        self.weight += cluster.weight
+        denominator = self.weight + cluster.weight
+        self.center = (self.center * self.weight + cluster.center*cluster.weight)/denominator
+        self.weights = denominator
+        common_indices, _ = self._common_indices(cluster.waveforms_channels)
+        self.waveforms[:, common_indices] = (self.waveforms[:, common_indices] * self.weight 
+                                          + cluster.waveforms[:, common_indices]*cluster.weight)/denominator
+        self.waveforms_channels = self.waveforms_channels | cluster.waveforms_channels
+
+    def update(self, x, waveforms, waveforms_channels, amplitude):
+        self.center += amplitude*(x - self.center)
+        common_indices, inds_2_only = self._common_indices(waveforms_channels)
+        self.waveforms[:, common_indices] += amplitude*(waveforms[:, common_indices] - self.waveforms[:, common_indices])
+        self.waveforms[:, inds_2_only] = waveforms[:, inds_2_only]
+        self.waveforms_channels = self.waveforms_channels | waveforms_channels
+        
+        
