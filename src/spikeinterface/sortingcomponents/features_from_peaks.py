@@ -154,6 +154,8 @@ class RandomProjectionsFeature(PipelineNode):
         parents=None,
         projections=None,
         radius_um=100,
+        ms_before=None,
+        ms_after=None,
         sparse=True,
         noise_threshold=None,
     ):
@@ -165,6 +167,23 @@ class RandomProjectionsFeature(PipelineNode):
         self.contact_locations = recording.get_channel_locations()
         self.channel_distance = get_channel_distances(recording)
         self.neighbours_mask = self.channel_distance <= radius_um
+        self.num_channels = self.recording.get_num_channels()
+        self.ms_before = ms_before
+        self.ms_after = ms_after
+        ref = self.parents[-1].nbefore
+
+        if self.ms_before is not None:
+            self.nbefore = int(self.ms_before * recording.sampling_frequency / 1000)
+        else:
+            self.nbefore = self.parents[-1].nbefore
+        
+        if self.ms_after is not None:
+            self.nafter = int(self.ms_after * recording.sampling_frequency / 1000)
+        else:
+            self.nafter = self.parents[-1].nafter
+
+        self.n_min = max(0, ref - self.nbefore)
+        self.n_max = ref + self.nafter
         self.radius_um = radius_um
         self.sparse = sparse
         self.noise_threshold = noise_threshold
@@ -189,22 +208,24 @@ class RandomProjectionsFeature(PipelineNode):
             (idx,) = np.nonzero(peaks["channel_index"] == main_chan)
             (chan_inds,) = np.nonzero(self.neighbours_mask[main_chan])
             local_projections = self.projections[chan_inds, :]
-            if self.sparse:
-                if self.feature == "ptp":
-                    features = np.ptp(waveforms[idx][:, :, : len(chan_inds)], axis=1)
-                elif self.feature == "energy":
-                    features = np.linalg.norm(waveforms[idx][:, :, : len(chan_inds)], axis=1)
+            data = waveforms[idx]
+            data = data[:, self.n_min:self.n_max]
+
+            if self.sparse:    
+                data = data[:, :, :len(chan_inds)]
             else:
-                if self.feature == "ptp":
-                    features = np.ptp(waveforms[idx][:, :, chan_inds], axis=1)
-                elif self.feature == "energy":
-                    features = np.linalg.norm(waveforms[idx][:, :, chan_inds], axis=1)
+                data = data[:, :, chan_inds]
+            
+            if self.feature == "ptp":
+                features = np.ptp(data, axis=1)
+            elif self.feature == "energy":
+                features = np.linalg.norm(data, axis=1)
 
             if self.noise_threshold is not None:
                 local_map = np.median(features, axis=0) < self.noise_threshold
                 features[features < local_map] = 0
 
-            all_projections[idx] = np.dot(features, local_projections)
+            all_projections[idx] = np.dot(features, local_projections)/self.num_channels
 
         return all_projections
 

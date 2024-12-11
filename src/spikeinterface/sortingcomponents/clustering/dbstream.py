@@ -503,8 +503,8 @@ class DBSTREAM(base.Clusterer):
         sparsity = ChannelSparsity(mask=sparsity_mask,
                 unit_ids=unit_ids,
                 channel_ids=self.recording.channel_ids)
-        # templates = templates.to_sparse(sparsity)
-        # templates = remove_empty_templates(templates)
+        templates = templates.to_sparse(sparsity)
+        templates = remove_empty_templates(templates)
 
         return templates
 
@@ -521,17 +521,17 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
 
     def _common_indices(self, waveforms_channels):
         common_indices = self.waveforms_channels * waveforms_channels
-        inds_2_only = waveforms_channels * ~self.waveforms_channels
+        inds_2_only = ~self.waveforms_channels * waveforms_channels 
         return common_indices, inds_2_only
 
     def merge(self, cluster):
         denominator = self.weight + cluster.weight
         self.center = (self.center * self.weight + cluster.center*cluster.weight)/denominator
-        self.weights = denominator
         common_indices, _ = self._common_indices(cluster.waveforms_channels)
         self.waveforms[:, common_indices] = (self.waveforms[:, common_indices] * self.weight 
                                           + cluster.waveforms[:, common_indices]*cluster.weight)/denominator
         self.waveforms_channels = self.waveforms_channels | cluster.waveforms_channels
+        self.weight = denominator
 
     def update(self, x, waveforms, waveforms_channels, amplitude):
         self.center += amplitude*(x - self.center)
