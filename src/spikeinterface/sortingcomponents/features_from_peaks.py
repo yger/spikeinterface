@@ -167,7 +167,6 @@ class RandomProjectionsFeature(PipelineNode):
         self.contact_locations = recording.get_channel_locations()
         self.channel_distance = get_channel_distances(recording)
         self.neighbours_mask = self.channel_distance <= radius_um
-        self.num_channels = self.recording.get_num_channels()
         self.ms_before = ms_before
         self.ms_after = ms_after
         ref = self.parents[-1].nbefore
@@ -225,7 +224,7 @@ class RandomProjectionsFeature(PipelineNode):
                 local_map = np.median(features, axis=0) < self.noise_threshold
                 features[features < local_map] = 0
 
-            all_projections[idx] = np.dot(features, local_projections)/self.num_channels
+            all_projections[idx] = np.dot(features, local_projections)/len(chan_inds)
 
         return all_projections
 

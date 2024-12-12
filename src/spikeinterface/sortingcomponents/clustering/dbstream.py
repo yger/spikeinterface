@@ -165,8 +165,7 @@ class DBSTREAM(base.Clusterer):
 
         self.last_cleanup = 0
         self.clustering_is_up_to_date = False
-        self.weight_weak = 2 ** (-self.fading_factor * self.cleanup_interval)
-        self.weight_weak *= self.minimum_weight
+        self.weight_weak = 2 ** (-self.fading_factor * self.cleanup_interval) * self.minimum_weight
 
     def initialize_sparsity(self, recording, radius_um=75):
         self.recording = recording
@@ -273,7 +272,6 @@ class DBSTREAM(base.Clusterer):
     def _cleanup(self):
         # Algorithm 2 of Michael Hahsler and Matthew Bolanos: Cleanup process to remove
         # inactive clusters and shared density entries from memory
-
         micro_clusters = copy.deepcopy(self._micro_clusters)
         for i, micro_cluster_i in self._micro_clusters.items():
             try:
@@ -403,9 +401,10 @@ class DBSTREAM(base.Clusterer):
     def _recluster(self):
         # Algorithm 3 of Michael Hahsler and Matthew Bolanos: Reclustering
         # using shared density graph
+        #self._cleanup()
         if self.clustering_is_up_to_date:
             return
-
+        
         weighted_adjacency_list = self._generate_weighted_adjacency_matrix()
 
         labels = self._generate_labels(weighted_adjacency_list)
@@ -473,6 +472,7 @@ class DBSTREAM(base.Clusterer):
         return self._micro_clusters
 
     def get_templates(self, n_before=None):
+        self._cleanup()
         self._recluster()
         key = list(self._waveforms.keys())[0]
         n_samples = self._waveforms[key].shape[0]

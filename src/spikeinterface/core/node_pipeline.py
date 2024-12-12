@@ -783,7 +783,7 @@ class OnlineClustering:
                 time_in_s = global_frame/self.sampling_frequency
                 self.clusterer.learn_one(x, time_in_s, peaks["channel_index"][count])
                 count += 1
-
+        #print(self.clusterer.n_clusters)
         #self.clusterer.get_templates().to_zarr(self.folder_path / f'{self.count}')
         self.count += 1
 
