@@ -36,12 +36,12 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
         "clustering": {"legacy": True},
-        "matching": {"method": "circus-omp-svd"},
+        "matching": {"method": "wobble"},
         "apply_preprocessing": True,
         "matched_filtering": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
         "multi_units_only": False,
-        "job_kwargs": {"n_jobs": 0.5},
+        "job_kwargs": {"n_jobs": 0.8},
         "seed": 42,
         "debug": False,
     }
@@ -124,10 +124,14 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         ## First, we are filtering the data
         filtering_params = params["filtering"].copy()
         if params["apply_preprocessing"]:
+            if verbose:
+                print("Preprocessing the recording (bandpass filtering + CMR + whitening)")
             recording_f = bandpass_filter(recording, **filtering_params, dtype="float32")
             if num_channels > 1:
                 recording_f = common_reference(recording_f)
         else:
+            if verbose:
+                print("Skipping preprocessing (whitening only)")
             recording_f = recording
             recording_f.annotate(is_filtered=True)
 
@@ -150,11 +154,12 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         # TODO add , regularize=True chen ready
         whitening_kwargs = params["whitening"].copy()
         whitening_kwargs["dtype"] = "float32"
+        whitening_kwargs["regularize"] = whitening_kwargs.get("regularize", False)
         if num_channels == 1:
             whitening_kwargs["regularize"] = False
         if whitening_kwargs["regularize"]:
             n_jobs = job_kwargs["n_jobs"]
-            whitening_kwargs["regularize_kwargs"] = {"method": "GraphicalLassoCV", "n_jobs": n_jobs}
+            whitening_kwargs["regularize_kwargs"] = {"method": "LedoitWolf"}
 
         recording_w = whiten(recording_f, **whitening_kwargs)
         noise_levels = get_noise_levels(recording_w, return_scaled=False, **job_kwargs)
