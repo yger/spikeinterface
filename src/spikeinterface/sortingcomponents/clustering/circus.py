@@ -15,7 +15,7 @@ except:
 import random, string
 from spikeinterface.core import get_global_tmp_folder
 from spikeinterface.core.basesorting import minimum_spike_dtype
-from spikeinterface.core.waveform_tools import estimate_templates, estimate_templates_with_accumulator
+from spikeinterface.core.waveform_tools import estimate_templates
 from .clustering_tools import remove_duplicates_via_matching
 from spikeinterface.core.recording_tools import get_noise_levels, get_channel_distances
 from spikeinterface.sortingcomponents.peak_selection import select_peaks
@@ -40,13 +40,7 @@ class CircusClustering:
     """
 
     _default_params = {
-        "hdbscan_kwargs": {
-            "min_cluster_size": 25,
-            "allow_single_cluster": True,
-            # "core_dist_n_jobs": -1,
-            "cluster_selection_method": "eom",
-            # "cluster_selection_epsilon" : 5 ## To be optimized
-        },
+        "hdbscan_kwargs": {"min_cluster_size": 10, "allow_single_cluster": True, "min_samples": 5},
         "cleaning_kwargs": {},
         "waveforms": {"ms_before": 2, "ms_after": 2},
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25},
@@ -56,11 +50,11 @@ class CircusClustering:
             "returns_split_count": True,
         },
         "radius_um": 100,
-        "n_svd": [5, 2],
+        "n_svd": 5,
         "few_waveforms": None,
         "ms_before": 0.5,
         "ms_after": 0.5,
-        "noise_threshold": 5,
+        "noise_threshold": 4,
         "rank": 5,
         "noise_levels": None,
         "tmp_folder": None,
@@ -103,9 +97,13 @@ class CircusClustering:
         # Ensure all waveforms have a positive max
         wfs *= np.sign(wfs[:, nbefore])[:, np.newaxis]
 
+        # Remove outliers
+        valid = np.argmax(np.abs(wfs), axis=1) == nbefore
+        wfs = wfs[valid]
+
         from sklearn.decomposition import TruncatedSVD
 
-        tsvd = TruncatedSVD(params["n_svd"][0])
+        tsvd = TruncatedSVD(params["n_svd"])
         tsvd.fit(wfs)
 
         model_folder = tmp_folder / "tsvd_model"
@@ -159,8 +157,8 @@ class CircusClustering:
                 sub_data = all_pc_data[mask]
                 sub_data = sub_data.reshape(len(sub_data), -1)
 
-                if all_pc_data.shape[1] > params["n_svd"][1]:
-                    tsvd = PCA(params["n_svd"][1], whiten=True)
+                if all_pc_data.shape[1] > params["n_svd"]:
+                    tsvd = PCA(params["n_svd"], whiten=True)
                 else:
                     tsvd = PCA(all_pc_data.shape[1], whiten=True)
 
@@ -200,7 +198,7 @@ class CircusClustering:
             original_labels = peaks["channel_index"]
             from spikeinterface.sortingcomponents.clustering.split import split_clusters
 
-            min_size = params["hdbscan_kwargs"].get("min_cluster_size", 50)
+            min_size = 2 * params["hdbscan_kwargs"].get("min_cluster_size", 10)
 
             peak_labels, _ = split_clusters(
                 original_labels,
@@ -214,8 +212,7 @@ class CircusClustering:
                     waveforms_sparse_mask=sparse_mask,
                     min_size_split=min_size,
                     clusterer_kwargs=d["hdbscan_kwargs"],
-                    n_pca_features=params["n_svd"][1],
-                    scale_n_pca_by_depth=True,
+                    n_pca_features=[2, 4, 6, 8, 10],
                 ),
                 **params["recursive_kwargs"],
                 **job_kwargs,
@@ -239,23 +236,19 @@ class CircusClustering:
         if params["noise_levels"] is None:
             params["noise_levels"] = get_noise_levels(recording, return_scaled=False, **job_kwargs)
 
-        templates_array, templates_array_std = estimate_templates_with_accumulator(
+        templates_array = estimate_templates(
             recording,
             spikes,
             unit_ids,
             nbefore,
             nafter,
             return_scaled=False,
-            return_std=True,
             job_name=None,
             **job_kwargs,
         )
 
-        with np.errstate(divide="ignore", invalid="ignore"):
-            peak_snrs = np.abs(templates_array[:, nbefore, :]) / templates_array_std[:, nbefore, :]
-        mask = ~np.isfinite(peak_snrs)
-        peak_snrs[mask] = 0
         best_channels = np.argmax(np.abs(templates_array[:, nbefore, :]), axis=1)
+        peak_snrs = np.abs(templates_array[:, nbefore, :])
         best_snrs_ratio = (peak_snrs / params["noise_levels"])[np.arange(len(peak_snrs)), best_channels]
         valid_templates = best_snrs_ratio > params["noise_threshold"]
 
