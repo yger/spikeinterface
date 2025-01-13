@@ -40,7 +40,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
         "clustering": {"legacy": True},
-        "matching": {"method": "wobble"},
+        "matching": {"method": "circus-omp-svd"},
         "apply_preprocessing": True,
         "matched_filtering": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
