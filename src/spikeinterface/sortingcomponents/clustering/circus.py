@@ -41,10 +41,11 @@ class CircusClustering:
     """
 
     _default_params = {
-        "hdbscan_kwargs": {"min_cluster_size": 25, 
-                           "allow_single_cluster": True, 
-                           "cluster_selection_epsilon" : 0.5, 
-                           "cluster_selection_method" : "leaf"},
+        "hdbscan_kwargs": {"min_cluster_size": 25,
+                           "cluster_selection_epsilon": 0.5,
+                           "cluser_selection_method": "leaf",
+                           "allow_single_cluster": True,
+                           "min_samples": 5},
         "cleaning_kwargs": {},
         "waveforms": {"ms_before": 2, "ms_after": 2},
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25},
@@ -55,6 +56,7 @@ class CircusClustering:
         },
         "radius_um": 100,
         "n_svd": 5,
+        "few_waveforms": None,
         "ms_before": 0.5,
         "ms_after": 0.5,
         "noise_threshold": 4,
