@@ -87,6 +87,7 @@ def split_clusters(
         if debug_folder is not None:
             if debug_folder.exists():
                 import shutil
+
                 shutil.rmtree(debug_folder)
 
         for label in labels_set:
@@ -134,7 +135,7 @@ def split_clusters(
                             new_sub_folder = sub_folder / f"split_{label}"
                             new_sub_folder.mkdir(parents=True, exist_ok=True)
                         else:
-                            sub_folder = None
+                            new_sub_folder = None
                         if peak_indices.size > 0:
                             # print('Relaunched', label, len(peak_indices), recursion_level)
                             jobs.append(

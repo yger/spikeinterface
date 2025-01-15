@@ -44,7 +44,7 @@ class CircusClustering:
         "hdbscan_kwargs": {
             "min_cluster_size": 25,
             "cluster_selection_epsilon": 0.5,
-            "cluser_selection_method": "leaf",
+            "cluster_selection_method": "leaf",
             "allow_single_cluster": True,
             "min_samples": 5,
         },
@@ -66,6 +66,7 @@ class CircusClustering:
         "noise_levels": None,
         "tmp_folder": None,
         "verbose": True,
+        "debug" : False
     }
 
     @classmethod
@@ -215,6 +216,11 @@ class CircusClustering:
 
             min_size = 2 * params["hdbscan_kwargs"].get("min_cluster_size", 25)
 
+            if params["debug"]:
+                debug_folder = tmp_folder / "split"
+            else:
+                debug_folder = None
+
             peak_labels, _ = split_clusters(
                 original_labels,
                 recording,
@@ -229,7 +235,7 @@ class CircusClustering:
                     clusterer_kwargs=d["hdbscan_kwargs"],
                     n_pca_features=[2, 4, 8, 16]
                 ),
-                debug_folder=Path("split"),
+                debug_folder=debug_folder,
                 **params["recursive_kwargs"],
                 **job_kwargs,
             )
