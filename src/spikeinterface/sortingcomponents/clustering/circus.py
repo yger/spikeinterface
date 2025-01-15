@@ -41,7 +41,10 @@ class CircusClustering:
     """
 
     _default_params = {
-        "hdbscan_kwargs": {"min_cluster_size": 10, "allow_single_cluster": True, "min_samples": 5},
+        "hdbscan_kwargs": {"min_cluster_size": 25, 
+                           "allow_single_cluster": True, 
+                           "cluster_selection_epsilon" : 0.5, 
+                           "cluster_selection_method" : "leaf"},
         "cleaning_kwargs": {},
         "waveforms": {"ms_before": 2, "ms_after": 2},
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25},
@@ -206,7 +209,7 @@ class CircusClustering:
             original_labels = peaks["channel_index"]
             from spikeinterface.sortingcomponents.clustering.split import split_clusters
 
-            min_size = 2 * params["hdbscan_kwargs"].get("min_cluster_size", 10)
+            min_size = 2 * params["hdbscan_kwargs"].get("min_cluster_size", 25)
 
             peak_labels, _ = split_clusters(
                 original_labels,
@@ -222,6 +225,7 @@ class CircusClustering:
                     clusterer_kwargs=d["hdbscan_kwargs"],
                     n_pca_features=[2, 4, 8, 16]
                 ),
+                debug_folder=Path("split"),
                 **params["recursive_kwargs"],
                 **job_kwargs,
             )
