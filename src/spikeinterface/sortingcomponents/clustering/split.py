@@ -242,9 +242,10 @@ class LocalFeatureClustering:
                 # tsvd = TruncatedSVD(n_pca_features)
                 tsvd = PCA(n_pca, whiten=True)
                 final_features = tsvd.fit_transform(flatten_features)
+                del tsvd
             else:
                 final_features = flatten_features
-
+            
             if clusterer == "hdbscan":
                 from hdbscan import HDBSCAN
 
