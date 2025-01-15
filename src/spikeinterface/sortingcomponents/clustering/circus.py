@@ -204,11 +204,11 @@ class CircusClustering:
             np.save(features_folder / "peaks.npy", peaks)
 
             original_labels = peaks["channel_index"]
-            from spikeinterface.sortingcomponents.clustering.split import split_clusters_alternative
+            from spikeinterface.sortingcomponents.clustering.split import split_clusters
 
             min_size = 2 * params["hdbscan_kwargs"].get("min_cluster_size", 10)
 
-            peak_labels, _ = split_clusters_alternative(
+            peak_labels, _ = split_clusters(
                 original_labels,
                 recording,
                 features_folder,
@@ -221,6 +221,8 @@ class CircusClustering:
                     min_size_split=min_size,
                     clusterer_kwargs=d["hdbscan_kwargs"],
                     n_pca_features=[2, 4, 8, 16],
+                    recursive=True,
+                    recursive_depth=3
                 ),
                 **params["recursive_kwargs"],
                 **job_kwargs,
