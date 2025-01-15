@@ -220,9 +220,7 @@ class CircusClustering:
                     waveforms_sparse_mask=sparse_mask,
                     min_size_split=min_size,
                     clusterer_kwargs=d["hdbscan_kwargs"],
-                    n_pca_features=[2, 4, 8, 16],
-                    recursive=True,
-                    recursive_depth=3
+                    n_pca_features=[2, 4, 8, 16]
                 ),
                 **params["recursive_kwargs"],
                 **job_kwargs,
