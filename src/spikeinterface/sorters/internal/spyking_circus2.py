@@ -224,8 +224,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 )
             peaks = detect_peaks(recording_w, "locally_exclusive", **detection_params, **job_kwargs)
 
-        if verbose:
-            print("We found %d peaks in total" % len(peaks))
+        if not skip_peaks and verbose:
+            print("Found %d peaks in total" % len(peaks))
 
         if params["multi_units_only"]:
             sorting = NumpySorting.from_peaks(peaks, sampling_frequency, unit_ids=recording_w.unit_ids)
@@ -238,7 +238,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             selected_peaks = select_peaks(peaks, **selection_params)
 
             if verbose:
-                print("We kept %d peaks for clustering" % len(selected_peaks))
+                print("Kept %d peaks for clustering" % len(selected_peaks))
 
             ## We launch a clustering (using hdbscan) relying on positions and features extracted on
             ## the fly from the snippets
@@ -323,7 +323,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                     np.save(fitting_folder / "spikes", spikes)
 
                 if verbose:
-                    print("We found %d spikes" % len(spikes))
+                    print("Found %d spikes" % len(spikes))
 
                 ## And this is it! We have a spyking circus
                 sorting = np.zeros(spikes.size, dtype=minimum_spike_dtype)
@@ -360,7 +360,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             sorting = final_cleaning_circus(recording_w, sorting, templates, job_kwargs=job_kwargs, **merging_params)
 
             if verbose:
-                print(f"Final merging, keeping {len(sorting.unit_ids)} units")
+                print(f"Kept {len(sorting.unit_ids)} units after final merging")
 
         folder_to_delete = None
         cache_mode = params["cache_preprocessing"].get("mode", "memory")

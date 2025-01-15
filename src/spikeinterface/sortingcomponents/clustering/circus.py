@@ -288,7 +288,7 @@ class CircusClustering:
         peak_labels[mask] = -1
 
         if verbose:
-            print("We found %d raw clusters, starting to clean with matching..." % (len(templates.unit_ids)))
+            print("Found %d raw clusters, starting to clean with matching" % (len(templates.unit_ids)))
 
         cleaning_job_kwargs = job_kwargs.copy()
         cleaning_job_kwargs["progress_bar"] = False
@@ -299,6 +299,6 @@ class CircusClustering:
         )
 
         if verbose:
-            print("We kept %d non-duplicated clusters..." % len(labels))
+            print("Kept %d non-duplicated clusters" % len(labels))
 
         return labels, peak_labels
