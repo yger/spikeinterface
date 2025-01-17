@@ -300,6 +300,9 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 is_scaled=False,
             )
 
+            from spikeinterface.core.template import SharedMemoryTemplates
+            templates = SharedMemoryTemplates.from_templates(templates)
+
             sparsity = compute_sparsity(templates, noise_levels, **params["sparsity"])
             templates = templates.to_sparse(sparsity)
             templates = remove_empty_templates(templates)
@@ -370,7 +373,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         if cache_mode in ["folder", "zarr"] and delete_cache:
             folder_to_delete = recording_w._kwargs["folder_path"]
 
-        del recording_w
+        del recording_w, templates
         if folder_to_delete is not None:
             shutil.rmtree(folder_to_delete)
 
