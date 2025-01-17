@@ -42,7 +42,7 @@ class CircusClustering:
     _default_params = {
         "hdbscan_kwargs": {
             "min_cluster_size": 25,
-            "cluster_selection_epsilon": 0.25,
+            "cluster_selection_epsilon": 0.5,
             "cluster_selection_method": "leaf",
             "allow_single_cluster": True
         },
