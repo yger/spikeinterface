@@ -341,6 +341,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             shutil.rmtree(sorting_folder)
 
         merging_params = params["merging"].copy()
+        if params["debug"]:
+            merging_params["debug_folder"] = sorter_output_folder / "merging"
 
         if len(merging_params) > 0:
             if params["motion_correction"] and motion_folder is not None:
@@ -390,7 +392,8 @@ def final_cleaning_circus(
     apply_merge_kwargs={"sparsity_overlap": 0.1, "censor_ms": 3.0},
     # correlograms_kwargs={},
     max_distance_um=50,
-    template_diff_thresh=np.arange(0.05, 0.25, 0.05),
+    template_diff_thresh=np.arange(0.05, 0.5, 0.05),
+    debug_folder=None,
     **job_kwargs,
 ):
 
@@ -402,6 +405,10 @@ def final_cleaning_circus(
     analyzer.compute("unit_locations", method="monopolar_triangulation")
     analyzer.compute("template_similarity", **similarity_kwargs)
     # analyzer.compute("correlograms", **correlograms_kwargs)
+
+    if debug_folder is not None:
+        analyzer.save_as(format='binary_folder', folder=debug_folder)
+
 
     presets = ["x_contaminations"] * len(template_diff_thresh)
     steps_params = [
