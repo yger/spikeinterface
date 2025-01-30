@@ -42,10 +42,10 @@ class CircusClustering:
 
     _default_params = {
         "hdbscan_kwargs": {
-            "min_cluster_size": 20,
-            "cluster_selection_epsilon": 0.5,
-            "cluster_selection_method": "leaf",
+            "min_cluster_size": 50,
+            "cluster_selection_method": "eom",
             "allow_single_cluster": True,
+            "core_dist_n_jobs": 1,
         },
         "cleaning_kwargs": {},
         "waveforms": {"ms_before": 2, "ms_after": 2},
@@ -55,6 +55,7 @@ class CircusClustering:
             "recursive_depth": 3,
             "returns_split_count": True,
         },
+        "split_kwargs": {"projection_mode": "tsvd", "percentile_variance_explained": 95},
         "radius_um": 100,
         "n_svd": 5,
         "few_waveforms": None,
@@ -213,7 +214,10 @@ class CircusClustering:
             original_labels = peaks["channel_index"]
             from spikeinterface.sortingcomponents.clustering.split import split_clusters
 
-            min_size = 2 * params["hdbscan_kwargs"].get("min_cluster_size", 20)
+            split_kwargs = params["split_kwargs"].copy()
+            split_kwargs["neighbours_mask"] = neighbours_mask
+            split_kwargs["waveforms_sparse_mask"] = sparse_mask
+            split_kwargs["min_size_split"] = 2 * params["hdbscan_kwargs"].get("min_cluster_size", 50)
 
             if params["debug"]:
                 debug_folder = tmp_folder / "split"
@@ -225,15 +229,7 @@ class CircusClustering:
                 recording,
                 features_folder,
                 method="local_feature_clustering",
-                method_kwargs=dict(
-                    clusterer="hdbscan",
-                    feature_name="sparse_tsvd",
-                    neighbours_mask=neighbours_mask,
-                    waveforms_sparse_mask=sparse_mask,
-                    min_size_split=min_size,
-                    clusterer_kwargs=d["hdbscan_kwargs"],
-                    n_pca_features=5,
-                ),
+                method_kwargs=split_kwargs,
                 debug_folder=debug_folder,
                 **params["recursive_kwargs"],
                 **job_kwargs,
@@ -273,11 +269,6 @@ class CircusClustering:
         best_snrs_ratio = (peak_snrs / params["noise_levels"])[np.arange(len(peak_snrs)), best_channels]
         valid_templates = best_snrs_ratio > params["noise_threshold"]
 
-        if d["rank"] is not None:
-            from spikeinterface.sortingcomponents.matching.circus import compress_templates
-
-            _, _, _, templates_array = compress_templates(templates_array, d["rank"])
-
         templates = Templates(
             templates_array=templates_array[valid_templates],
             sampling_frequency=fs,
@@ -288,6 +279,10 @@ class CircusClustering:
             probe=recording.get_probe(),
             is_scaled=False,
         )
+
+        if params["debug"]:
+            templates_folder = tmp_folder / "dense_templates"
+            templates.to_zarr(folder_path=templates_folder)
 
         sparsity = compute_sparsity(templates, noise_levels=params["noise_levels"], **params["sparsity"])
         templates = templates.to_sparse(sparsity)
