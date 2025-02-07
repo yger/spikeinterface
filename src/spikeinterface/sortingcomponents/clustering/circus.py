@@ -213,7 +213,7 @@ class CircusClustering:
             sparse_mask = pipeline_nodes[1].neighbours_mask
             neighbours_mask = get_channel_distances(recording) <= radius_um
 
-            # np.save(features_folder / "sparse_mask.npy", sparse_mask)
+            np.save(features_folder / "sparse_mask.npy", sparse_mask)
             np.save(features_folder / "peaks.npy", peaks)
 
             original_labels = peaks["channel_index"]
