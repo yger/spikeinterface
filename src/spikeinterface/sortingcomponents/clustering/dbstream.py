@@ -165,8 +165,7 @@ class DBSTREAM(base.Clusterer):
 
         self.last_cleanup = 0
         self.clustering_is_up_to_date = False
-        self.weight_weak = 2 ** (-self.fading_factor * self.cleanup_interval)
-        self.weight_weak *= self.minimum_weight
+        self.weight_weak = 2 ** (-self.fading_factor * self.cleanup_interval) * self.minimum_weight
 
     def initialize_sparsity(self, recording, radius_um=75):
         self.recording = recording
@@ -273,7 +272,6 @@ class DBSTREAM(base.Clusterer):
     def _cleanup(self):
         # Algorithm 2 of Michael Hahsler and Matthew Bolanos: Cleanup process to remove
         # inactive clusters and shared density entries from memory
-
         micro_clusters = copy.deepcopy(self._micro_clusters)
         for i, micro_cluster_i in self._micro_clusters.items():
             try:
@@ -403,9 +401,10 @@ class DBSTREAM(base.Clusterer):
     def _recluster(self):
         # Algorithm 3 of Michael Hahsler and Matthew Bolanos: Reclustering
         # using shared density graph
+        #self._cleanup()
         if self.clustering_is_up_to_date:
             return
-
+        
         weighted_adjacency_list = self._generate_weighted_adjacency_matrix()
 
         labels = self._generate_labels(weighted_adjacency_list)
@@ -473,6 +472,7 @@ class DBSTREAM(base.Clusterer):
         return self._micro_clusters
 
     def get_templates(self, n_before=None):
+        self._cleanup()
         self._recluster()
         key = list(self._waveforms.keys())[0]
         n_samples = self._waveforms[key].shape[0]
@@ -503,8 +503,8 @@ class DBSTREAM(base.Clusterer):
         sparsity = ChannelSparsity(mask=sparsity_mask,
                 unit_ids=unit_ids,
                 channel_ids=self.recording.channel_ids)
-        # templates = templates.to_sparse(sparsity)
-        # templates = remove_empty_templates(templates)
+        templates = templates.to_sparse(sparsity)
+        templates = remove_empty_templates(templates)
 
         return templates
 
@@ -521,17 +521,17 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
 
     def _common_indices(self, waveforms_channels):
         common_indices = self.waveforms_channels * waveforms_channels
-        inds_2_only = waveforms_channels * ~self.waveforms_channels
+        inds_2_only = ~self.waveforms_channels * waveforms_channels 
         return common_indices, inds_2_only
 
     def merge(self, cluster):
         denominator = self.weight + cluster.weight
         self.center = (self.center * self.weight + cluster.center*cluster.weight)/denominator
-        self.weights = denominator
         common_indices, _ = self._common_indices(cluster.waveforms_channels)
         self.waveforms[:, common_indices] = (self.waveforms[:, common_indices] * self.weight 
                                           + cluster.waveforms[:, common_indices]*cluster.weight)/denominator
         self.waveforms_channels = self.waveforms_channels | cluster.waveforms_channels
+        self.weight = denominator
 
     def update(self, x, waveforms, waveforms_channels, amplitude):
         self.center += amplitude*(x - self.center)
