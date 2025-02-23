@@ -385,7 +385,6 @@ class ChunkRecordingExecutor:
         func,
         init_func,
         init_args,
-        verbose=False,
         progress_bar=False,
         handle_returns=False,
         gather_func=None,
@@ -405,6 +404,10 @@ class ChunkRecordingExecutor:
         self.init_func = init_func
         self.init_args = init_args
 
+        from .globals import get_global_logger
+
+        logger = get_global_logger()
+
         if pool_engine == "process":
             if mp_context is None:
                 mp_context = recording.get_preferred_mp_context()
@@ -414,10 +417,7 @@ class ChunkRecordingExecutor:
                 warnings.warn('As of Python 3.8 "fork" is no longer considered safe on macOS')
 
         self.mp_context = mp_context
-
-        self.verbose = verbose
         self.progress_bar = progress_bar
-
         self.handle_returns = handle_returns
         self.gather_func = gather_func
 
@@ -431,6 +431,8 @@ class ChunkRecordingExecutor:
             n_jobs=self.n_jobs,
         )
         self.job_name = job_name
+        logger.info(f"{self.job_name} with n_jobs = {self.n_jobs} and chunk_size = {self.chunk_size}")
+
         self.max_threads_per_worker = max_threads_per_worker
 
         self.pool_engine = pool_engine
