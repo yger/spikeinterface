@@ -8,6 +8,15 @@ Release notes
 .. toctree::
   :maxdepth: 1
 
+  releases/0.102.1.rst
+  releases/0.102.0.rst
+  releases/0.101.2.rst
+  releases/0.101.1.rst
+  releases/0.101.0.rst
+  releases/0.100.8.rst
+  releases/0.100.7.rst
+  releases/0.100.6.rst
+  releases/0.100.5.rst
   releases/0.100.4.rst
   releases/0.100.3.rst
   releases/0.100.2.rst
@@ -36,6 +45,79 @@ Release notes
   releases/0.10.0.rst
   releases/0.9.9.rst
   releases/0.9.1.rst
+
+
+Version 0.102.1
+===============
+
+* Minor release with bug fixes
+
+Version 0.102.0
+===============
+
+* Added auto-label functions in curation module (#2918)
+* Refactored and improved auto-merge functions in curation module (#3435, #3601)
+* Added `spikeinterface.load()` function to load any SpikeInterface object (#3613, #3651)
+* Improved handling of time in base recording (#3509, #3623)
+* Multi-segment handling of motion interpolation (#3659)
+* Support for Numpy 2.0 and Zarr<3.0 (#3481,#3598)
+
+Version 0.101.2
+===============
+
+* Minor release with bug fixes
+
+Version 0.101.1
+===============
+
+* Enabled support for consolidated Zarr-backend for `SortingAnalyzer`, including cloud support (#3314, #3318, #3349, #3351)
+* Improved support for Kilosort4 **ONLY VERSIONS >= 4.0.16** (#3339, #3276)
+* Skip recomputation of quality and template metrics if already computed (#3292)
+* Improved `estimate_sparsity` with new `amplitude` method and deprecated `from_ptp` option (#3369)
+* Dropped support for Python<3.9 (#3267)
+
+
+Version 0.101.0
+===============
+
+* Implementation of `SortingAnalyzer` (#2398)
+* Improved auto-merging functions and enable `SortingAnalyzer` to merge units and extensions (#3043, #3154, #3203)
+* Added framework for hybrid recording generation (#2436, #2769, #2857)
+* Refactored motion correction with the `Motion` class and the DREDGE AP and LFP methods (#2915, #3062)
+* Extendeded benchmarking of `sortingcomponents` (#2501, #2518, #2586, #2811, #2959)
+* Added a powerful drift generator module (#2683)
+
+Version 0.101.0rc1
+==================
+
+* Release candidate for version 0.101.0 (15th July 2024)
+
+Version 0.101.0rc0
+==================
+
+* Release candidate for version 0.101.0 (8th June 2024)
+
+Version 0.100.8
+===============
+
+* Minor release with bug fixes
+
+Version 0.100.7
+===============
+
+* Minor release with bug fixes
+
+
+Version 0.100.6
+===============
+
+* Minor release with bug fixes
+
+
+Version 0.100.5
+===============
+
+* Minor release with bug fixes
 
 
 Version 0.100.4

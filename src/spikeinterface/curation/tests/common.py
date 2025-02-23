@@ -1,16 +1,9 @@
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
 
 from spikeinterface.core import generate_ground_truth_recording, create_sorting_analyzer
 from spikeinterface.qualitymetrics import compute_quality_metrics
-
-if hasattr(pytest, "global_test_folder"):
-    cache_folder = pytest.global_test_folder / "curation"
-else:
-    cache_folder = Path("cache_folder") / "curation"
-
 
 job_kwargs = dict(n_jobs=-1)
 
@@ -22,9 +15,14 @@ def make_sorting_analyzer(sparse=True):
         num_channels=4,
         num_units=5,
         generate_sorting_kwargs=dict(firing_rates=20.0, refractory_period_ms=4.0),
-        noise_kwargs=dict(noise_level=5.0, strategy="on_the_fly"),
+        noise_kwargs=dict(noise_levels=5.0, strategy="on_the_fly"),
         seed=2205,
     )
+
+    channel_ids_as_integers = [id for id in range(recording.get_num_channels())]
+    unit_ids_as_integers = [id for id in range(sorting.get_num_units())]
+    recording = recording.rename_channels(new_channel_ids=channel_ids_as_integers)
+    sorting = sorting.rename_units(new_unit_ids=unit_ids_as_integers)
 
     sorting_analyzer = create_sorting_analyzer(sorting=sorting, recording=recording, format="memory", sparse=sparse)
     sorting_analyzer.compute("random_spikes")
