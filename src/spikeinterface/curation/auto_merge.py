@@ -461,25 +461,26 @@ def _auto_merge_units_single_iteration(
     if extra_outputs:
         merge_unit_groups, outs = merge_unit_groups
 
-    if len(merge_unit_groups) > 0:
-        merging_mode = apply_merge_kwargs.get("merging_mode", "soft")
-        sparsity_overlap = apply_merge_kwargs.get("sparsity_overlap", 0.75)
-        mergeable = sorting_analyzer.are_units_mergeable(
-            merge_unit_groups, merging_mode=merging_mode, sparsity_overlap=sparsity_overlap
-        )
-        ## Removes units that can not be merged
-        for merge_unit_group, is_mergeable in mergeable.items():
-            if not is_mergeable:
-                if raise_error:
-                    raise ValueError(
-                        f"Units {merge_unit_group} can not be merged with the current sparsity_threshold. Merging is stopped"
-                    )
-                else:
-                    warnings.warn(
-                        f"Units {merge_unit_group} can not be merged with the current sparsity_threshold. Merging is skipped",
-                    )
-                    merge_unit_groups.remove(list(merge_unit_group))
+    merging_mode = apply_merge_kwargs.get("merging_mode", "soft")
+    sparsity_overlap = apply_merge_kwargs.get("sparsity_overlap", 0.75)
+    mergeable = sorting_analyzer.are_units_mergeable(
+        merge_unit_groups, merging_mode=merging_mode, sparsity_overlap=sparsity_overlap
+    )
 
+    ## Removes units that can not be merged
+    for merge_unit_group, is_mergeable in mergeable.items():
+        if not is_mergeable:
+            if raise_error:
+                raise ValueError(
+                    f"Units {merge_unit_group} can not be merged with the current sparsity_threshold. Merging is stopped"
+                )
+            else:
+                warnings.warn(
+                    f"Units {merge_unit_group} can not be merged with the current sparsity_threshold. Merging is skipped",
+                )
+                merge_unit_groups.remove(list(merge_unit_group))
+
+    if len(merge_unit_groups) > 0:
         merged_analyzer, new_unit_ids = sorting_analyzer.merge_units(
             merge_unit_groups, return_new_unit_ids=True, **apply_merge_kwargs, **job_kwargs
         )
