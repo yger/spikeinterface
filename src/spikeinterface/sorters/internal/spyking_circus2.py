@@ -215,7 +215,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 detection_params["recording_slices"] = get_shuffled_recording_slices(
                     recording_w, seed=params["seed"], **job_kwargs
                 )
-            peaks = detect_peaks(recording_w, "matched_filtering", **detection_params, **job_kwargs)
+            detection_method = "matched_filtering"
         else:
             waveforms = None
             if skip_peaks:
@@ -223,7 +223,30 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 detection_params["recording_slices"] = get_shuffled_recording_slices(
                     recording_w, seed=params["seed"], **job_kwargs
                 )
-            peaks = detect_peaks(recording_w, "locally_exclusive", **detection_params, **job_kwargs)
+            detection_method = "locally_exclusive"
+        
+        from spikeinterface.sortingcomponents.peak_localization import LocalizeGridConvolution
+        from spikeinterface.core.node_pipeline import ExtractSparseWaveforms
+
+        extra_node_1 = ExtractSparseWaveforms(
+            recording_w,
+            return_output=True,
+            ms_before=ms_before,
+            ms_after=ms_after,
+            radius_um=radius_um,
+        )
+            
+        extra_node_2 = LocalizeGridConvolution(recording_w,
+            return_output=True,
+            parents = [extra_node_1],
+            prototype=prototype,
+            peak_sign=peak_sign
+        )
+
+        detection_params["pipeline_nodes"] = [extra_node_1, extra_node_2]
+        results = detect_peaks(recording_w, detection_method, **detection_params, **job_kwargs)
+        peaks = results[0]
+        positions = results[1]
 
         if not skip_peaks and verbose:
             print("Found %d peaks in total" % len(peaks))
