@@ -417,7 +417,7 @@ def _auto_merge_units_single_iteration(
     apply_merge_kwargs: dict = {},
     extra_outputs: bool = False,
     force_copy: bool = True,
-    merging_strategy: str = "warning",
+    raise_error: bool = False,
     **job_kwargs,
 ) -> SortingAnalyzer:
     """
@@ -437,9 +437,8 @@ def _auto_merge_units_single_iteration(
         If True, additional outputs are returned
     force_copy : bool, default: True
         If True, the sorting_analyzer is copied before applying the merges
-    merging_strategy : str, default: "warning"
-        The strategy to use when merging units. Can be "warning" or "strict". If "warning", the merging will
-        stop with a warning if soft merges can not be done. Otherwise, if "strict", an error is thrown
+    raise_error : bool, default: False
+        If True, an error is raised if the merges can not be done. If False, a warning is issued.
 
     Returns
     -------
@@ -464,20 +463,24 @@ def _auto_merge_units_single_iteration(
 
     merged_units = len(merge_unit_groups) > 0
     if merged_units:
-        is_mergeable = sorting_analyzer.is_mergeable(merge_unit_groups, **apply_merge_kwargs)
-        if is_mergeable:
-            merged_analyzer, new_unit_ids = sorting_analyzer.merge_units(
-                merge_unit_groups, return_new_unit_ids=True, **apply_merge_kwargs, **job_kwargs
-            )
-        else:
-            if merging_strategy == "warning":
-                warnings.warn("Some merges can not be done. Merging is stopped", UserWarning)
-                if extra_outputs:
-                    return merged_analyzer, {}, merge_unit_groups, outs
+        mergeable_units = sorting_analyzer.are_units_mergeable(merge_unit_groups, **apply_merge_kwargs)
+        ## Removes units that can not be merged
+        for new_unit_id, merge_group in zip(mergeable_units.keys(), merge_unit_groups):
+            if not mergeable_units[new_unit_id]:
+                if raise_error:
+                    raise ValueError(
+                        f"Units {merge_group} can not be merged with the current sparsity_threshold. Merging is stopped"
+                    )
                 else:
-                    return merged_analyzer
-            elif merging_strategy == "strict":
-                raise ValueError("Some merges can not be done. Merging is stopped")
+                    warnings.warn(
+                        "Units {merge_group} can not be merged with the current sparisty_threshold. Merging is skipped",
+                        UserWarning,
+                    )
+                    merge_unit_groups.remove(merge_group)
+
+        merged_analyzer, new_unit_ids = sorting_analyzer.merge_units(
+            merge_unit_groups, return_new_unit_ids=True, **apply_merge_kwargs, **job_kwargs
+        )
     else:
         merged_analyzer = sorting_analyzer
         new_unit_ids = []
@@ -683,9 +686,12 @@ def auto_merge_units(
     presets: list | None = ["similarity_correlograms"],
     steps_params: dict = None,
     steps: list[str] | None = None,
-    apply_merge_kwargs: dict = {},
     recursive: bool = False,
-    merging_strategy: str = "warning",
+    censor_ms=None,
+    sparsity_threshold=0.75,
+    merging_mode="soft",
+    new_id_strategy="append",
+    raise_error: bool = False,
     extra_outputs: bool = False,
     force_copy: bool = True,
     **job_kwargs,
@@ -708,14 +714,23 @@ def auto_merge_units(
     steps : list or list of list, default None
         The list of steps that should be applied. If list of list is provided, then these lists will be applied
         iteratively. Mutually exclusive with presets
-    apply_merge_kwargs : dict
-        The paramaters that should be used while merging units after each preset/sequences of steps
     recursive : bool, default: False
         If True, then each presets of the list is applied until no further merges can be done, before trying
         the next one
-    merging_strategy : str, default: "warning"
-        The strategy to use when merging units. Can be "warning" or "strict". If "warning", the merging will
-        stop with a warning if soft merges can not be done. Otherwise, if "strict", an error is thrown
+    censor_ms : None or float, default: None
+        When merging units, any spikes violating this refractory period will be discarded.
+    merging_mode : "soft" | "hard", default: "soft"
+        How merges are performed. In the "soft" mode, merges will be approximated, with no smart merging
+        of the extension data.
+    sparsity_overlap : float, default 0.75
+        The percentage of overlap that units should share in order to accept merges. If this criteria is not
+        achieved, soft merging will not be performed.
+    new_id_strategy : "append" | "take_first", default: "append"
+            The strategy that should be used, if `new_unit_ids` is None, to create new unit_ids.
+                * "append" : new_units_ids will be added at the end of max(sorting.unit_ids)
+                * "take_first" : new_unit_ids will be the first unit_id of every list of merges
+    raise_error : bool, default: False
+        If True, an error is raised if the merges can not be done. Otherwise, warning are displayed
     extra_outputs : bool, default: False
         If True, additional list of merges applied at every preset, and dictionary (`outs`) with processed data are returned.
     force_copy : boolean, default: True
@@ -772,6 +787,13 @@ def auto_merge_units(
     if force_copy:
         sorting_analyzer = sorting_analyzer.copy()
 
+    apply_merge_kwargs = {
+        "censor_ms": censor_ms,
+        "sparsity_threshold": sparsity_threshold,
+        "merging_mode": merging_mode,
+        "new_id_strategy": new_id_strategy,
+    }
+
     for to_launch, params in zip(to_be_launched, steps_params):
 
         if launch_mode == "presets":
@@ -789,7 +811,7 @@ def auto_merge_units(
                 compute_merge_kwargs,
                 apply_merge_kwargs=apply_merge_kwargs,
                 extra_outputs=extra_outputs,
-                merging_strategy=merging_strategy,
+                raise_error=raise_error,
                 force_copy=False,
                 **job_kwargs,
             )
