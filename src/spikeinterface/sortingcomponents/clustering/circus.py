@@ -25,6 +25,7 @@ from spikeinterface.core.template import Templates
 from spikeinterface.core.sparsity import compute_sparsity
 from spikeinterface.sortingcomponents.tools import remove_empty_templates
 import pickle, json
+from spikeinterface.sortingcomponents.clustering.peak_svd import extract_peaks_svd
 from spikeinterface.core.node_pipeline import (
     run_node_pipeline,
     ExtractSparseWaveforms,
@@ -80,6 +81,7 @@ class CircusClustering:
         fs = recording.get_sampling_frequency()
         ms_before = params["waveforms"]["ms_before"]
         ms_after = params["waveforms"]["ms_after"]
+        radius_um = params["radius_um"]
         nbefore = int(ms_before * fs / 1000.0)
         nafter = int(ms_after * fs / 1000.0)
         if params["tmp_folder"] is None:
@@ -118,15 +120,16 @@ class CircusClustering:
             wfs *= hanning
 
         from sklearn.decomposition import TruncatedSVD
-
-        tsvd = TruncatedSVD(params["n_svd"])
-        tsvd.fit(wfs)
+        svd_model = TruncatedSVD(params["n_svd"])
+        svd_model.fit(wfs)
+        features_folder = tmp_folder / "tsvd_features"
+        features_folder.mkdir(exist_ok=True)
 
         model_folder = tmp_folder / "tsvd_model"
 
         model_folder.mkdir(exist_ok=True)
         with open(model_folder / "pca_model.pkl", "wb") as f:
-            pickle.dump(tsvd, f)
+            pickle.dump(svd_model, f)
 
         model_params = {
             "ms_before": ms_before,
@@ -161,85 +164,61 @@ class CircusClustering:
             TemporalPCAProjection(recording, parents=parents, return_output=True, model_folder_path=model_folder)
         )
 
-        if len(params["recursive_kwargs"]) == 0:
-            from sklearn.decomposition import PCA
+        # peaks_svd, sparse_mask, svd_model = extract_peaks_svd(recording, 
+        #                                                       peaks, 
+        #                                                       ms_before=ms_before,
+        #                                                       ms_after=ms_after,
+        #                                                       svd_model=None,
+        #                                                       svd_components=5,
+        #                                                       radius_um=radius_um,
+        #                                                       motion_aware=False,
+        #                                                       folder=features_folder,
+        #                                                       **job_kwargs)
 
-            all_pc_data = run_node_pipeline(
-                recording,
-                pipeline_nodes,
-                job_kwargs,
-                job_name="extracting features",
-            )
+        features_folder = tmp_folder / "tsvd_features"
+        features_folder.mkdir(exist_ok=True)
 
-            peak_labels = -1 * np.ones(len(peaks), dtype=int)
-            nb_clusters = 0
-            for c in np.unique(peaks["channel_index"]):
-                mask = peaks["channel_index"] == c
-                sub_data = all_pc_data[mask]
-                sub_data = sub_data.reshape(len(sub_data), -1)
+        _ = run_node_pipeline(
+            recording,
+            pipeline_nodes,
+            job_kwargs,
+            job_name="extracting features",
+            gather_mode="npy",
+            gather_kwargs=dict(exist_ok=True),
+            folder=features_folder,
+            names=["sparse_tsvd"],
+        )
 
-                if all_pc_data.shape[1] > params["n_svd"]:
-                    tsvd = PCA(params["n_svd"], whiten=True)
-                else:
-                    tsvd = PCA(all_pc_data.shape[1], whiten=True)
+        sparse_mask = pipeline_nodes[1].neighbours_mask
+        neighbours_mask = get_channel_distances(recording) <= radius_um
 
-                hdbscan_data = tsvd.fit_transform(sub_data)
-                try:
-                    clustering = hdbscan.hdbscan(hdbscan_data, **d["hdbscan_kwargs"])
-                    local_labels = clustering[0]
-                except Exception:
-                    local_labels = np.zeros(len(hdbscan_data))
-                valid_clusters = local_labels > -1
-                if np.sum(valid_clusters) > 0:
-                    local_labels[valid_clusters] += nb_clusters
-                    peak_labels[mask] = local_labels
-                    nb_clusters += len(np.unique(local_labels[valid_clusters]))
+        np.save(features_folder / "sparse_mask.npy", sparse_mask)
+        np.save(features_folder / "peaks.npy", peaks)
+
+        original_labels = peaks["channel_index"]
+        from spikeinterface.sortingcomponents.clustering.split import split_clusters
+
+        split_kwargs = params["split_kwargs"].copy()
+        split_kwargs["neighbours_mask"] = neighbours_mask
+        split_kwargs["waveforms_sparse_mask"] = sparse_mask
+        split_kwargs["min_size_split"] = 2 * params["hdbscan_kwargs"].get("min_cluster_size", 50)
+        split_kwargs["clusterer_kwargs"] = params["hdbscan_kwargs"]
+
+        if params["debug"]:
+            debug_folder = tmp_folder / "split"
         else:
+            debug_folder = None
 
-            features_folder = tmp_folder / "tsvd_features"
-            features_folder.mkdir(exist_ok=True)
-
-            _ = run_node_pipeline(
-                recording,
-                pipeline_nodes,
-                job_kwargs,
-                job_name="extracting features",
-                gather_mode="npy",
-                gather_kwargs=dict(exist_ok=True),
-                folder=features_folder,
-                names=["sparse_tsvd"],
-            )
-
-            sparse_mask = pipeline_nodes[1].neighbours_mask
-            neighbours_mask = get_channel_distances(recording) <= radius_um
-
-            # np.save(features_folder / "sparse_mask.npy", sparse_mask)
-            np.save(features_folder / "peaks.npy", peaks)
-
-            original_labels = peaks["channel_index"]
-            from spikeinterface.sortingcomponents.clustering.split import split_clusters
-
-            split_kwargs = params["split_kwargs"].copy()
-            split_kwargs["neighbours_mask"] = neighbours_mask
-            split_kwargs["waveforms_sparse_mask"] = sparse_mask
-            split_kwargs["min_size_split"] = 2 * params["hdbscan_kwargs"].get("min_cluster_size", 50)
-            split_kwargs["clusterer_kwargs"] = params["hdbscan_kwargs"]
-
-            if params["debug"]:
-                debug_folder = tmp_folder / "split"
-            else:
-                debug_folder = None
-
-            peak_labels, _ = split_clusters(
-                original_labels,
-                recording,
-                features_folder,
-                method="local_feature_clustering",
-                method_kwargs=split_kwargs,
-                debug_folder=debug_folder,
-                **params["recursive_kwargs"],
-                **job_kwargs,
-            )
+        peak_labels, _ = split_clusters(
+            original_labels,
+            recording,
+            features_folder,
+            method="local_feature_clustering",
+            method_kwargs=split_kwargs,
+            debug_folder=debug_folder,
+            **params["recursive_kwargs"],
+            **job_kwargs,
+        )
 
         non_noise = peak_labels > -1
         labels, inverse = np.unique(peak_labels[non_noise], return_inverse=True)
