@@ -259,7 +259,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             selection_params = params["selection"]
             selection_params["n_peaks"] = n_peaks
             selection_params.update({"noise_levels": noise_levels})
-            selected_peaks = select_peaks(peaks, **selection_params)
+            selected_peaks, peak_indices = select_peaks(peaks, return_indices=True, **selection_params)
+            selected_positions = positions[peak_indices]
 
             if verbose:
                 print("Kept %d peaks for clustering" % len(selected_peaks))
@@ -273,6 +274,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 sparsity_kwargs["peak_sign"] = peak_sign
 
             clustering_params["sparsity"] = sparsity_kwargs
+            clustering_params["peak_locations"] = selected_positions
             clustering_params["radius_um"] = radius_um
             clustering_params["waveforms"]["ms_before"] = ms_before
             clustering_params["waveforms"]["ms_after"] = ms_after

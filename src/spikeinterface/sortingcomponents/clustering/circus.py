@@ -59,6 +59,7 @@ class CircusClustering:
         "split_kwargs": {"projection_mode": "tsvd", "percentile_variance_explained": 95},
         "radius_um": 100,
         "n_svd": 5,
+        "peak_locations": None,
         "few_waveforms": None,
         "ms_before": 0.5,
         "ms_after": 0.5,
