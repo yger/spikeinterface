@@ -67,8 +67,7 @@ class CircusClustering:
         "noise_levels": None,
         "tmp_folder": None,
         "verbose": True,
-        "debug": False,
-        "hanning_filter": True,
+        "debug": False
     }
 
     @classmethod
@@ -113,11 +112,11 @@ class CircusClustering:
         wfs = wfs[valid]
 
         # Perform Hanning filtering
-        if params["hanning_filter"]:
-            hanning_before = np.hanning(2 * nbefore)
-            hanning_after = np.hanning(2 * nafter)
-            hanning = np.concatenate((hanning_before[:nbefore], hanning_after[nafter:]))
-            wfs *= hanning
+        # if params["hanning_filter"]:
+        #     hanning_before = np.hanning(2 * nbefore)
+        #     hanning_after = np.hanning(2 * nafter)
+        #     hanning = np.concatenate((hanning_before[:nbefore], hanning_after[nafter:]))
+        #     wfs *= hanning
 
         from sklearn.decomposition import TruncatedSVD
         svd_model = TruncatedSVD(params["n_svd"])
@@ -125,75 +124,20 @@ class CircusClustering:
         features_folder = tmp_folder / "tsvd_features"
         features_folder.mkdir(exist_ok=True)
 
-        model_folder = tmp_folder / "tsvd_model"
+        peaks_svd, sparse_mask, svd_model = extract_peaks_svd(recording, 
+                                                              peaks, 
+                                                              ms_before=ms_before,
+                                                              ms_after=ms_after,
+                                                              svd_model=svd_model,
+                                                              radius_um=radius_um,
+                                                              folder=features_folder,
+                                                              **job_kwargs)
 
-        model_folder.mkdir(exist_ok=True)
-        with open(model_folder / "pca_model.pkl", "wb") as f:
-            pickle.dump(svd_model, f)
-
-        model_params = {
-            "ms_before": ms_before,
-            "ms_after": ms_after,
-            "sampling_frequency": float(fs),
-        }
-
-        with open(model_folder / "params.json", "w") as f:
-            json.dump(model_params, f)
-
-        # features
-        pipeline_nodes = [PeakRetriever(recording, peaks)]
-
-        radius_um = params["radius_um"]
-        pipeline_nodes.append(
-            ExtractSparseWaveforms(
-                recording,
-                parents=[pipeline_nodes[0]],
-                return_output=False,
-                ms_before=ms_before,
-                ms_after=ms_after,
-                radius_um=radius_um,
-            )
-        )
-
-        parents = [pipeline_nodes[0], pipeline_nodes[1]]
-        if params["hanning_filter"]:
-            pipeline_nodes.append(HanningFilter(recording, parents=parents, return_output=False))
-
-        parents = [pipeline_nodes[0], pipeline_nodes[-1]]
-        pipeline_nodes.append(
-            TemporalPCAProjection(recording, parents=parents, return_output=True, model_folder_path=model_folder)
-        )
-
-        # peaks_svd, sparse_mask, svd_model = extract_peaks_svd(recording, 
-        #                                                       peaks, 
-        #                                                       ms_before=ms_before,
-        #                                                       ms_after=ms_after,
-        #                                                       svd_model=None,
-        #                                                       svd_components=5,
-        #                                                       radius_um=radius_um,
-        #                                                       motion_aware=False,
-        #                                                       folder=features_folder,
-        #                                                       **job_kwargs)
-
-        features_folder = tmp_folder / "tsvd_features"
-        features_folder.mkdir(exist_ok=True)
-
-        _ = run_node_pipeline(
-            recording,
-            pipeline_nodes,
-            job_kwargs,
-            job_name="extracting features",
-            gather_mode="npy",
-            gather_kwargs=dict(exist_ok=True),
-            folder=features_folder,
-            names=["sparse_tsvd"],
-        )
-
-        sparse_mask = pipeline_nodes[1].neighbours_mask
         neighbours_mask = get_channel_distances(recording) <= radius_um
 
-        np.save(features_folder / "sparse_mask.npy", sparse_mask)
-        np.save(features_folder / "peaks.npy", peaks)
+        if params["debug"]:
+            np.save(features_folder / "sparse_mask.npy", sparse_mask)
+            np.save(features_folder / "peaks.npy", peaks)
 
         original_labels = peaks["channel_index"]
         from spikeinterface.sortingcomponents.clustering.split import split_clusters
@@ -212,7 +156,7 @@ class CircusClustering:
         peak_labels, _ = split_clusters(
             original_labels,
             recording,
-            features_folder,
+            {"peaks" : peaks, "sparse_tsvd" : peaks_svd},
             method="local_feature_clustering",
             method_kwargs=split_kwargs,
             debug_folder=debug_folder,
