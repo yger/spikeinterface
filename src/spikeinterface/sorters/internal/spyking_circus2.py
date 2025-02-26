@@ -226,14 +226,13 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             detection_method = "locally_exclusive"
         
         from spikeinterface.sortingcomponents.peak_localization import LocalizeGridConvolution
-        from spikeinterface.core.node_pipeline import ExtractSparseWaveforms
+        from spikeinterface.core.node_pipeline import ExtractDenseWaveforms
 
-        extra_node_1 = ExtractSparseWaveforms(
+        extra_node_1 = ExtractDenseWaveforms(
             recording_w,
-            return_output=True,
+            return_output=False,
             ms_before=ms_before,
             ms_after=ms_after,
-            radius_um=radius_um,
         )
             
         extra_node_2 = LocalizeGridConvolution(recording_w,
@@ -247,6 +246,10 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         results = detect_peaks(recording_w, detection_method, **detection_params, **job_kwargs)
         peaks = results[0]
         positions = results[1]
+
+        if params["debug"]:
+            np.save(clustering_folder / "peaks.npy", peaks)
+            np.save(clustering_folder / "peaks_locations.npy", positions)
 
         if not skip_peaks and verbose:
             print("Found %d peaks in total" % len(peaks))
@@ -313,7 +316,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             if params["debug"]:
                 np.save(clustering_folder / "peak_labels", peak_labels)
                 np.save(clustering_folder / "labels", labels)
-                np.save(clustering_folder / "peaks", selected_peaks)
 
             templates_array = estimate_templates(
                 recording_w, labeled_peaks, unit_ids, nbefore, nafter, return_scaled=False, job_name=None, **job_kwargs

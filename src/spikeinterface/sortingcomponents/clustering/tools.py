@@ -48,7 +48,7 @@ class FeaturesLoader:
             return FeaturesLoader(features_dict_or_folder)
 
 
-def aggregate_sparse_features(peaks, peak_indices, sparse_feature, sparse_mask, target_channels):
+def aggregate_sparse_features(peaks, peak_indices, sparse_feature, sparse_mask, target_channels, complete_only=True):
     """
     Aggregate sparse features that have unaligned channels and realigned then on target_channels.
 
@@ -90,8 +90,9 @@ def aggregate_sparse_features(peaks, peak_indices, sparse_feature, sparse_mask, 
             source_chans = np.flatnonzero(np.in1d(sparse_chans, target_channels))
             aligned_features[peak_inds, :, :] = sparse_feature[peak_indices[peak_inds], :, :][:, :, source_chans]
         else:
-            # some channel are missing, peak are not removde
-            dont_have_channels[peak_inds] = True
+            # some channel are missing, peak are not removed
+            if complete_only:
+                dont_have_channels[peak_inds] = True
 
     return aligned_features, dont_have_channels
 
