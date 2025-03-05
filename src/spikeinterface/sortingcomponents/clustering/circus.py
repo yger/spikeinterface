@@ -24,15 +24,7 @@ from spikeinterface.sortingcomponents.waveforms.hanning_filter import HanningFil
 from spikeinterface.core.template import Templates
 from spikeinterface.core.sparsity import compute_sparsity
 from spikeinterface.sortingcomponents.tools import remove_empty_templates, get_optimal_n_jobs
-import pickle, json
 from spikeinterface.sortingcomponents.clustering.peak_svd import extract_peaks_svd
-from spikeinterface.core.node_pipeline import (
-    run_node_pipeline,
-    ExtractSparseWaveforms,
-    PeakRetriever,
-)
-
-
 from spikeinterface.sortingcomponents.tools import extract_waveform_at_max_channel
 
 
@@ -56,7 +48,9 @@ class CircusClustering:
             "recursive_depth": 3,
             "returns_split_count": True,
         },
-        "split_kwargs": {"projection_mode": "tsvd", "percentile_variance_explained": 95},
+        "split_kwargs": {"projection_mode": "tsvd", 
+                         "percentile_variance_explained": 95,
+                         "normalize_distance" : True},
         "radius_um": 100,
         "n_svd": 5,
         "peak_locations": None,
