@@ -50,7 +50,7 @@ class CircusClustering:
         },
         "split_kwargs": {"projection_mode": "tsvd", 
                          "percentile_variance_explained": 95,
-                         "normalize_distance" : True},
+                         "normalize_distance" : False},
         "radius_um": 100,
         "n_svd": 5,
         "peak_locations": None,
