@@ -62,15 +62,15 @@ class GraphClustering:
             peak_locations=None,
             bin_um=bin_um,
             dim=1,
-            mode="full_connected_bin",
-            #mode="knn",
+            #mode="radius",
+            mode="knn",
             direction="y",
             n_neighbors=n_neighbors,
         )
         from scipy import sparse
         sparse.save_npz("yourmatrix.npz", distances)
-        import sys
-        sys.exit()
+        #import sys
+        #sys.exit()
 
         # print(distances)
         # print(distances.shape)
@@ -122,6 +122,8 @@ class GraphClustering:
         elif clustering_method == "hdbscan":
             from sklearn.cluster import HDBSCAN
             clusterer = HDBSCAN(metric='precomputed', **clustering_kwargs)
+            symmetric = distances + distances.T
+            symmetric[np.arange(symmetric.shape[0]), np.arange(symmetric.shape[0])] = 0
             clusterer.fit(distances + distances.T)
             peak_labels = clusterer.labels_ 
         else:

@@ -15,9 +15,10 @@ def create_graph_from_peak_features(
     peak_locations=None,
     bin_um=20.,
     dim=1,
-    mode="full_connected_bin",
+    mode="full",
     direction="y",
     n_neighbors=20,
+    radius_neighbors=10,
     progress_bar=True,
 ):
     """
@@ -29,8 +30,9 @@ def create_graph_from_peak_features(
     So the original features sparsity must be big enougth to cover local channel (actual bin+neighbour).
 
     2 possible modes:
-      * "full_connected_bin" : compute the distances from all peaks in a bin to all peaks in the same bin + neighbour
+      * "full" : compute the distances from all peaks in a bin to all peaks in the same bin + neighbour
       * "knn" : keep the k neareast neighbour for each peaks in bin + neighbour
+      * "radius" : keep the spikes in bin that are within a given radius in um
     
     Important, peak_locations can be:
       * the peak location from the channel (fast)
@@ -42,7 +44,7 @@ def create_graph_from_peak_features(
 
     import scipy.sparse
     from scipy.spatial.distance import cdist
-    if mode == "knn":
+    if mode in ["knn", "radius"]:
         from sklearn.neighbors import NearestNeighbors
     
 
@@ -92,7 +94,6 @@ def create_graph_from_peak_features(
 
         if target_indices.size == 0:
             continue
-        
 
         local_feats, dont_have_channels = aggregate_sparse_features(peaks, peak_indices,
                                                                  peak_features, sparse_mask, local_chans)
@@ -103,30 +104,31 @@ def create_graph_from_peak_features(
 
         flatten_feat = local_feats.reshape(local_feats.shape[0], -1)
 
-        if mode == "full_connected_bin":
+        if mode == "full":
             local_dists = cdist(flatten_feat[target_mask], flatten_feat)
             data = local_dists.flatten()
             indptr = np.arange(0, local_dists.size + 1, local_dists.shape[1])
             indices = np.concatenate([peak_indices] * target_indices.size )
-            local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size))
+            local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
             local_graphs.append(local_graph)
         elif mode == "knn":
-            nn_tree = NearestNeighbors(n_neighbors=n_neighbors)
+            nn_tree = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=-1)
             nn_tree.fit(flatten_feat)
-            local_sparse_dist = nn_tree.kneighbors_graph(flatten_feat[target_mask], mode='distance')
+            local_sparse_dist = nn_tree.kneighbors_graph(flatten_feat[target_mask], mode='distance').astype(np.float32)
             data = local_sparse_dist.data
             indptr = local_sparse_dist.indptr
             indices = peak_indices[local_sparse_dist.indices]
-            local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size))
+            local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
             local_graphs.append(local_graph)
-        elif mode == "knn":
-            nn_tree = NearestNeighbors(n_neighbors=n_neighbors)
-            nn_tree.fit(flatten_feat)
-            local_sparse_dist = nn_tree.kneighbors_graph(flatten_feat[target_mask], mode='distance')
+        elif mode == "radius":
+            nn_tree = NearestNeighbors(radius=radius_neighbors, n_jobs=-1)
+            nn_tree.fit(local_depths.reshape(-1, 1))
+            neigh_ind = nn_tree.radius_neighbors(local_depths[target_mask].reshape(-1, 1), return_distance=False).astype(np.float32)
+            local_dists = cdist(flatten_feat[target_mask], flatten_feat[neigh_ind])
             data = local_sparse_dist.data
             indptr = local_sparse_dist.indptr
             indices = peak_indices[local_sparse_dist.indices]
-            local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size))
+            local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
             local_graphs.append(local_graph)
 
         else:
@@ -136,21 +138,8 @@ def create_graph_from_peak_features(
     if len(local_graphs) > 0:
         distances = scipy.sparse.vstack(local_graphs)
         row_indices = np.concatenate(row_indices)
-        # print(np.unique(np.diff(row_indices)))
         row_order = np.argsort(row_indices)
-        # print(np.unique(np.diff(row_indices[row_order])))
-
-        # t0 = time.perf_counter()
-        distances = distances[row_order]
-        # t1 = time.perf_counter()
-        # print("row_order", t1 - t0)
-
-        if mode == "knn":
-            # t0 = time.perf_counter()
-            distances = scipy.sparse.csr_matrix(distances)
-            # t1 = time.perf_counter()
-            # print("final csr", t1 - t0)
-        
+        distances = distances[row_order]        
     else:
         distances = scipy.sparse.csr_matrix(([], ([], [])), shape=(peaks.size, peaks.size))
 
