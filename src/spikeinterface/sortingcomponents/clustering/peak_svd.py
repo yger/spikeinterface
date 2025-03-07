@@ -25,7 +25,6 @@ def extract_peaks_svd(
     motion_aware=False,
     motion=None,
     folder=None,
-    sparsity_mask=None,
     **job_kwargs,
 ):
     """

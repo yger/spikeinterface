@@ -17,8 +17,8 @@ class GraphClustering:
     """
 
     _default_params = {
-        "radius_um": 180.,
-        "bin_um": 60.,
+        "radius_um": 100.,
+        "bin_um": 30.,
         "motion": None,
         "seed": None,
         "n_neighbors": 30,
@@ -39,33 +39,28 @@ class GraphClustering:
 
         assert radius_um >= bin_um * 3
 
-        
-
         peaks_svd, sparse_mask, _ = extract_peaks_svd(
             recording, peaks,
             radius_um=radius_um,
             motion_aware=motion_aware,
             motion=None,
         )
-        # print(peaks_svd.shape)
-
-
 
         channel_locations = recording.get_channel_locations()
         channel_depth = channel_locations[:, 1]
         peak_depths = channel_depth[peaks["channel_index"]]
 
         # order peaks by depth
-        order = np.argsort(peak_depths)
-        ordered_peaks = peaks[order]
-        ordered_peaks_svd = peaks_svd[order]
+        #order = np.argsort(peak_depths)
+        #ordered_peaks = peaks[order]
+        #ordered_peaks_svd = peaks_svd[order]
 
         # TODO : try to use real peak location
 
         distances = create_graph_from_peak_features(
             recording,
-            ordered_peaks,
-            ordered_peaks_svd,
+            peaks,
+            peaks_svd,
             sparse_mask,
             peak_locations=None,
             bin_um=bin_um,
@@ -87,7 +82,7 @@ class GraphClustering:
             import networkx as nx
             G = nx.Graph(distances_bool)
             communities = nx.community.louvain_communities(G, seed=seed)
-            peak_labels = np.zeros(ordered_peaks.size, dtype=int)
+            peak_labels = np.zeros(peaks.size, dtype=int)
             peak_labels[:] = -1
             k = 0
             for community in communities:
@@ -132,8 +127,8 @@ class GraphClustering:
         labels_set = labels_set[labels_set >= 0]
 
         # we need to reorder labels
-        reverse_order = np.argsort(order)
-        peak_labels = peak_labels[reverse_order]
+        #reverse_order = np.argsort(order)
+        #peak_labels = peak_labels[reverse_order]
         
         return labels_set, peak_labels
 
