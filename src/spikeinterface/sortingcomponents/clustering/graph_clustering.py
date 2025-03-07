@@ -23,7 +23,7 @@ class GraphClustering:
         "seed": None,
         "n_neighbors": 100,
         "clustering_method": "hdbscan",
-        "clustering_kwargs" : dict(min_samples=1)
+        "clustering_kwargs" : dict()
     }
 
     @classmethod
@@ -63,26 +63,26 @@ class GraphClustering:
             bin_um=bin_um,
             dim=1,
             #mode="radius",
-            mode="knn",
+            mode="full",
             direction="y",
             n_neighbors=n_neighbors,
         )
-        from scipy import sparse
-        sparse.save_npz("yourmatrix.npz", distances)
+        #from scipy import sparse
+        #sparse.save_npz("yourmatrix.npz", distances)
         #import sys
         #sys.exit()
 
         # print(distances)
         # print(distances.shape)
         # print("sparsity: ", distances.indices.size / (distances.shape[0]**2))        
-        if clustering_method != "hdbscan":
-            distances_bool = distances.copy()
-            distances_bool.data[:] = 1
+
+        print("clustering_method", clustering_method)
 
         if clustering_method == "networkx-louvain":
             # using networkx : very slow (possible backend with cude  backend="cugraph",)
             import networkx as nx
-            G = nx.Graph(distances_bool)
+            distances.data[:] = 1
+            G = nx.Graph(distances)
             communities = nx.community.louvain_communities(G, seed=seed, **clustering_kwargs)
             peak_labels = np.zeros(peaks.size, dtype=int)
             peak_labels[:] = -1
@@ -95,14 +95,16 @@ class GraphClustering:
         
         elif clustering_method == "sknetwork-louvain":
             from sknetwork.clustering import Louvain
+            distances.data[:] = 1
             classifier = Louvain(**clustering_kwargs)
-            peak_labels = classifier.fit_predict(distances_bool)
+            peak_labels = classifier.fit_predict(distances)
             _remove_small_cluster(peak_labels, min_size=1)
 
         elif clustering_method == "sknetwork-leiden":
             from sknetwork.clustering import Leiden
+            distances.data[:] = 1
             classifier = Leiden(**clustering_kwargs)
-            peak_labels = classifier.fit_predict(distances_bool)
+            peak_labels = classifier.fit_predict(distances)
             _remove_small_cluster(peak_labels, min_size=1)
 
         elif clustering_method == "leidenalg":

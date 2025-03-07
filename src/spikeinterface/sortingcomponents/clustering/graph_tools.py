@@ -106,7 +106,7 @@ def create_graph_from_peak_features(
 
         if mode == "full":
             local_dists = cdist(flatten_feat[target_mask], flatten_feat)
-            data = local_dists.flatten()
+            data = local_dists.flatten().astype("float32")
             indptr = np.arange(0, local_dists.size + 1, local_dists.shape[1])
             indices = np.concatenate([peak_indices] * target_indices.size )
             local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
@@ -114,8 +114,8 @@ def create_graph_from_peak_features(
         elif mode == "knn":
             nn_tree = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=-1)
             nn_tree.fit(flatten_feat)
-            local_sparse_dist = nn_tree.kneighbors_graph(flatten_feat[target_mask], mode='distance').astype(np.float32)
-            data = local_sparse_dist.data
+            local_sparse_dist = nn_tree.kneighbors_graph(flatten_feat[target_mask], mode='distance')
+            data = local_sparse_dist.data.astype("float32")
             indptr = local_sparse_dist.indptr
             indices = peak_indices[local_sparse_dist.indices]
             local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
@@ -141,6 +141,6 @@ def create_graph_from_peak_features(
         row_order = np.argsort(row_indices)
         distances = distances[row_order]        
     else:
-        distances = scipy.sparse.csr_matrix(([], ([], [])), shape=(peaks.size, peaks.size))
-        
+        distances = scipy.sparse.csr_matrix(([], ([], [])), shape=(peaks.size, peaks.size), dtype="float32")
+
     return distances
