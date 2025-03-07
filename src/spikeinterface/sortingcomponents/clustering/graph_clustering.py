@@ -22,7 +22,8 @@ class GraphClustering:
         "motion": None,
         "seed": None,
         "n_neighbors": 30,
-        "clustering_method": "networkx-louvain",
+        "clustering_method": "hdbscan",
+        "clustering_kwargs" : dict()
     }
 
     @classmethod
@@ -34,6 +35,7 @@ class GraphClustering:
         seed = params["seed"]
         n_neighbors = params["n_neighbors"]
         clustering_method = params["clustering_method"]
+        clustering_kwargs = params["clustering_kwargs"]
 
         motion_aware = motion is not None
 
@@ -50,11 +52,6 @@ class GraphClustering:
         channel_depth = channel_locations[:, 1]
         peak_depths = channel_depth[peaks["channel_index"]]
 
-        # order peaks by depth
-        #order = np.argsort(peak_depths)
-        #ordered_peaks = peaks[order]
-        #ordered_peaks_svd = peaks_svd[order]
-
         # TODO : try to use real peak location
 
         distances = create_graph_from_peak_features(
@@ -65,23 +62,28 @@ class GraphClustering:
             peak_locations=None,
             bin_um=bin_um,
             dim=1,
-            # mode="full_connected_bin",
-            mode="knn",
+            mode="full_connected_bin",
+            #mode="knn",
             direction="y",
             n_neighbors=n_neighbors,
         )
+        from scipy import sparse
+        sparse.save_npz("yourmatrix.npz", distances)
+        import sys
+        sys.exit()
+
         # print(distances)
         # print(distances.shape)
         # print("sparsity: ", distances.indices.size / (distances.shape[0]**2))        
-
-        distances_bool = distances.copy()
-        distances_bool.data[:] = 1
+        if clustering_method != "hdbscan":
+            distances_bool = distances.copy()
+            distances_bool.data[:] = 1
 
         if clustering_method == "networkx-louvain":
             # using networkx : very slow (possible backend with cude  backend="cugraph",)
             import networkx as nx
             G = nx.Graph(distances_bool)
-            communities = nx.community.louvain_communities(G, seed=seed)
+            communities = nx.community.louvain_communities(G, seed=seed, **clustering_kwargs)
             peak_labels = np.zeros(peaks.size, dtype=int)
             peak_labels[:] = -1
             k = 0
@@ -93,13 +95,13 @@ class GraphClustering:
         
         elif clustering_method == "sknetwork-louvain":
             from sknetwork.clustering import Louvain
-            classifier = Louvain()
+            classifier = Louvain(**clustering_kwargs)
             peak_labels = classifier.fit_predict(distances_bool)
             _remove_small_cluster(peak_labels, min_size=1)
 
         elif clustering_method == "sknetwork-leiden":
             from sknetwork.clustering import Leiden
-            classifier = Leiden()
+            classifier = Leiden(**clustering_kwargs)
             peak_labels = classifier.fit_predict(distances_bool)
             _remove_small_cluster(peak_labels, min_size=1)
 
@@ -111,15 +113,17 @@ class GraphClustering:
             peak_labels = np.array(clusters.membership)
             _remove_small_cluster(peak_labels, min_size=1)
 
-        elif "igraph-label-propagation":
+        elif clustering_method == "igraph-label-propagation":
             import igraph
-
             graph = igraph.Graph.Weighted_Adjacency(distances.tocoo(), mode='directed',)
-
             clusters = graph.community_label_propagation()
             peak_labels = np.array(clusters.membership)
             _remove_small_cluster(peak_labels, min_size=1)
-
+        elif clustering_method == "hdbscan":
+            from sklearn.cluster import HDBSCAN
+            clusterer = HDBSCAN(metric='precomputed', **clustering_kwargs)
+            clusterer.fit(distances + distances.T)
+            peak_labels = clusterer.labels_ 
         else:
             raise ValueError("GraphClustering : wrong clustering_method")
 
