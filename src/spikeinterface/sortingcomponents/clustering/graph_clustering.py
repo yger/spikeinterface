@@ -21,9 +21,9 @@ class GraphClustering:
         "bin_um": 30.,
         "motion": None,
         "seed": None,
-        "n_neighbors": 30,
+        "n_neighbors": 100,
         "clustering_method": "hdbscan",
-        "clustering_kwargs" : dict()
+        "clustering_kwargs" : dict(min_samples=1)
     }
 
     @classmethod
@@ -121,10 +121,11 @@ class GraphClustering:
             _remove_small_cluster(peak_labels, min_size=1)
         elif clustering_method == "hdbscan":
             from sklearn.cluster import HDBSCAN
-            clusterer = HDBSCAN(metric='precomputed', **clustering_kwargs)
+            clusterer = HDBSCAN(metric='precomputed', 
+                                metric_params={'max_distance' : np.inf},
+                                **clustering_kwargs)
             symmetric = distances + distances.T
-            symmetric[np.arange(symmetric.shape[0]), np.arange(symmetric.shape[0])] = 0
-            clusterer.fit(distances + distances.T)
+            clusterer.fit(symmetric)
             peak_labels = clusterer.labels_ 
         else:
             raise ValueError("GraphClustering : wrong clustering_method")

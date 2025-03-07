@@ -120,16 +120,16 @@ def create_graph_from_peak_features(
             indices = peak_indices[local_sparse_dist.indices]
             local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
             local_graphs.append(local_graph)
-        elif mode == "radius":
-            nn_tree = NearestNeighbors(radius=radius_neighbors, n_jobs=-1)
-            nn_tree.fit(local_depths.reshape(-1, 1))
-            neigh_ind = nn_tree.radius_neighbors(local_depths[target_mask].reshape(-1, 1), return_distance=False).astype(np.float32)
-            local_dists = cdist(flatten_feat[target_mask], flatten_feat[neigh_ind])
-            data = local_sparse_dist.data
-            indptr = local_sparse_dist.indptr
-            indices = peak_indices[local_sparse_dist.indices]
-            local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
-            local_graphs.append(local_graph)
+        # elif mode == "radius":
+        #     nn_tree = NearestNeighbors(radius=radius_neighbors, n_jobs=-1)
+        #     nn_tree.fit(local_depths.reshape(-1, 1))
+        #     neigh_ind = nn_tree.radius_neighbors(local_depths[target_mask].reshape(-1, 1), return_distance=False).astype(np.float32)
+        #     local_dists = cdist(flatten_feat[target_mask], flatten_feat[neigh_ind])
+        #     data = local_sparse_dist.data
+        #     indptr = local_sparse_dist.indptr
+        #     indices = peak_indices[local_sparse_dist.indices]
+        #     local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
+        #     local_graphs.append(local_graph)
 
         else:
             raise ValueError("create_graph_from_peak_features() wrong mode")
@@ -142,5 +142,5 @@ def create_graph_from_peak_features(
         distances = distances[row_order]        
     else:
         distances = scipy.sparse.csr_matrix(([], ([], [])), shape=(peaks.size, peaks.size))
-
+        
     return distances
