@@ -17,12 +17,12 @@ class GraphClustering:
     """
 
     _default_params = {
-        "radius_um": 120.,
-        "bin_um": 40.,
+        "radius_um": 100.,
+        "bin_um": 30.,
         "motion": None,
         "seed": None,
-        "n_neighbors": 10,
-        "clustering_method": "networkx-louvain",
+        "n_neighbors": 25,
+        "clustering_method": "leidenalg",
         "clustering_kwargs" : dict()
     }
 
@@ -65,11 +65,7 @@ class GraphClustering:
             direction="y",
             n_neighbors=n_neighbors,
         )
-        from scipy import sparse
-        sparse.save_npz("yourmatrix.npz", distances)
-        #import sys
-        #sys.exit()
-
+        
         print("clustering_method", clustering_method)
 
         if clustering_method == "networkx-louvain":
@@ -127,12 +123,7 @@ class GraphClustering:
             raise ValueError("GraphClustering : wrong clustering_method")
 
         labels_set = np.unique(peak_labels)
-        labels_set = labels_set[labels_set >= 0]
-
-        # we need to reorder labels
-        #reverse_order = np.argsort(order)
-        #peak_labels = peak_labels[reverse_order]
-        
+        labels_set = labels_set[labels_set >= 0]        
         return labels_set, peak_labels
 
 
