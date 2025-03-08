@@ -77,7 +77,6 @@ def create_graph_from_peak_features(
         
         # limits for peaks
         l0, l1 = bins[b], bins[b+1]
-        mask = (peak_depths> l0) & (peak_depths<= l1)
 
         # limits for features
         b0, b1 = l0 - bin_um, l1 + bin_um
@@ -100,6 +99,7 @@ def create_graph_from_peak_features(
 
         if np.sum(dont_have_channels) > 0:
             print("dont_have_channels", np.sum(dont_have_channels), "for n=", peak_indices.size, "bin", b0, b1)
+        
         dont_have_channels_target = dont_have_channels[target_mask]
 
         flatten_feat = local_feats.reshape(local_feats.shape[0], -1)
@@ -114,7 +114,7 @@ def create_graph_from_peak_features(
         elif mode == "knn":
             nn_tree = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=-1)
             nn_tree.fit(flatten_feat)
-            local_sparse_dist = nn_tree.kneighbors_graph(flatten_feat[target_mask], mode='distance')
+            local_sparse_dist  = nn_tree.kneighbors_graph(flatten_feat[target_mask], mode='distance')
             data = local_sparse_dist.data.astype("float32")
             indptr = local_sparse_dist.indptr
             indices = peak_indices[local_sparse_dist.indices]
@@ -139,7 +139,9 @@ def create_graph_from_peak_features(
         distances = scipy.sparse.vstack(local_graphs)
         row_indices = np.concatenate(row_indices)
         row_order = np.argsort(row_indices)
-        distances = distances[row_order]        
+        distances = distances[row_order]
+        ## Needed because otherwise the diagonal is not present...
+        distances[np.arange(peaks.size), np.arange(peaks.size)] = 0      
     else:
         distances = scipy.sparse.csr_matrix(([], ([], [])), shape=(peaks.size, peaks.size), dtype="float32")
 

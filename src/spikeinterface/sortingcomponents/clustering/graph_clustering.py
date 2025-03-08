@@ -17,12 +17,12 @@ class GraphClustering:
     """
 
     _default_params = {
-        "radius_um": 100.,
-        "bin_um": 30.,
+        "radius_um": 120.,
+        "bin_um": 40.,
         "motion": None,
         "seed": None,
-        "n_neighbors": 100,
-        "clustering_method": "hdbscan",
+        "n_neighbors": 10,
+        "clustering_method": "networkx-louvain",
         "clustering_kwargs" : dict()
     }
 
@@ -52,8 +52,6 @@ class GraphClustering:
         channel_depth = channel_locations[:, 1]
         peak_depths = channel_depth[peaks["channel_index"]]
 
-        # TODO : try to use real peak location
-
         distances = create_graph_from_peak_features(
             recording,
             peaks,
@@ -63,18 +61,14 @@ class GraphClustering:
             bin_um=bin_um,
             dim=1,
             #mode="radius",
-            mode="full",
+            mode="knn",
             direction="y",
             n_neighbors=n_neighbors,
         )
-        #from scipy import sparse
-        #sparse.save_npz("yourmatrix.npz", distances)
+        from scipy import sparse
+        sparse.save_npz("yourmatrix.npz", distances)
         #import sys
         #sys.exit()
-
-        # print(distances)
-        # print(distances.shape)
-        # print("sparsity: ", distances.indices.size / (distances.shape[0]**2))        
 
         print("clustering_method", clustering_method)
 
