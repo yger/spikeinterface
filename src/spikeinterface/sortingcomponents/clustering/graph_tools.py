@@ -44,7 +44,7 @@ def create_graph_from_peak_features(
 
     import scipy.sparse
     from scipy.spatial.distance import cdist
-    if mode in ["knn", "radius"]:
+    if mode in ["knn", "knn-svd"]:
         from sklearn.neighbors import NearestNeighbors
     
 
@@ -120,16 +120,25 @@ def create_graph_from_peak_features(
             indices = peak_indices[local_sparse_dist.indices]
             local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
             local_graphs.append(local_graph)
-        # elif mode == "radius":
-        #     nn_tree = NearestNeighbors(radius=radius_neighbors, n_jobs=-1)
-        #     nn_tree.fit(local_depths.reshape(-1, 1))
-        #     neigh_ind = nn_tree.radius_neighbors(local_depths[target_mask].reshape(-1, 1), return_distance=False).astype(np.float32)
-        #     local_dists = cdist(flatten_feat[target_mask], flatten_feat[neigh_ind])
-        #     data = local_sparse_dist.data
-        #     indptr = local_sparse_dist.indptr
-        #     indices = peak_indices[local_sparse_dist.indices]
-        #     local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
-        #     local_graphs.append(local_graph)
+        elif mode == "knn-svd":
+            from sklearn.decomposition import TruncatedSVD
+            tsvd = TruncatedSVD(5)
+            final_features = tsvd.fit_transform(flatten_feat)
+            nn_tree = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=-1)
+            nn_tree.fit(final_features)
+            local_sparse_dist = nn_tree.kneighbors_graph(final_features[target_mask], mode='distance')
+            data = local_sparse_dist.data.astype("float32")
+            indptr = local_sparse_dist.indptr
+            for i in range(local_sparse_dist.shape[0]):
+                a, b = indptr[i], indptr[i+1]
+                src = flatten_feat[target_mask][i]
+                tgt = flatten_feat[local_sparse_dist.indices[a:b]]
+                data[a:b] = cdist(src.reshape(1,-1), tgt)
+                norm = (np.linalg.norm(src) + np.linalg.norm(tgt, axis=1))
+                data[a:b] /= norm
+            indices = peak_indices[local_sparse_dist.indices]
+            local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
+            local_graphs.append(local_graph)
 
         else:
             raise ValueError("create_graph_from_peak_features() wrong mode")

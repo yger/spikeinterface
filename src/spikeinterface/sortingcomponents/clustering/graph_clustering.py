@@ -21,9 +21,10 @@ class GraphClustering:
         "bin_um": 30.,
         "motion": None,
         "seed": None,
-        "n_neighbors": 25,
-        "clustering_method": "leidenalg",
-        "clustering_kwargs" : dict()
+        "n_neighbors": 20,
+        "clustering_method": "hdbscan",
+        "clustering_kwargs" : dict(min_samples=1, n_jobs=-1, min_cluster_size=10),
+        "peak_locations" : None
     }
 
     @classmethod
@@ -34,6 +35,7 @@ class GraphClustering:
         motion = params["motion"]
         seed = params["seed"]
         n_neighbors = params["n_neighbors"]
+        peak_locations = params["peak_locations"]
         clustering_method = params["clustering_method"]
         clustering_kwargs = params["clustering_kwargs"]
 
@@ -48,9 +50,12 @@ class GraphClustering:
             motion=None,
         )
 
-        channel_locations = recording.get_channel_locations()
-        channel_depth = channel_locations[:, 1]
-        peak_depths = channel_depth[peaks["channel_index"]]
+        if peak_locations is None:
+            channel_locations = recording.get_channel_locations()
+            channel_depth = channel_locations[:, 1]
+            peak_depths = channel_depth[peaks["channel_index"]]
+        else:
+            peak_depths = peak_locations[:, 1]
 
         distances = create_graph_from_peak_features(
             recording,
@@ -61,10 +66,13 @@ class GraphClustering:
             bin_um=bin_um,
             dim=1,
             #mode="radius",
-            mode="knn",
+            mode="knn-svd",
             direction="y",
             n_neighbors=n_neighbors,
         )
+
+        # import scipy.sparse
+        # scipy.sparse.save_npz('test', distances)
         
         print("clustering_method", clustering_method)
 
