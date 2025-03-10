@@ -116,7 +116,7 @@ class GraphClustering:
             clusterer = HDBSCAN(metric='precomputed', 
                                 metric_params={'max_distance' : np.inf},
                                 **clustering_kwargs)
-            symmetric = distances + distances.T
+            symmetric = distances.maximum(distances.T)
             clusterer.fit(symmetric)
             peak_labels = clusterer.labels_ 
         else:
