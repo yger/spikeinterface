@@ -149,8 +149,6 @@ def create_graph_from_peak_features(
         row_indices = np.concatenate(row_indices)
         row_order = np.argsort(row_indices)
         distances = distances[row_order]
-        ## Needed because otherwise the diagonal is not present...
-        distances[np.arange(peaks.size), np.arange(peaks.size)] = 0      
     else:
         distances = scipy.sparse.csr_matrix(([], ([], [])), shape=(peaks.size, peaks.size), dtype="float32")
 
