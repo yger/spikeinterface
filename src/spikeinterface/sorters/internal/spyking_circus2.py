@@ -38,16 +38,14 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                       "method_kwargs" : dict(
                             n_peaks_per_channel=5000,
                             min_n_peaks=100000,
-                            select_per_channel=False,
-                            seed=42)
+                            select_per_channel=False)
                         },
         "apply_motion_correction": True,
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
-        "clustering": {"method": "graph_clustering", "method_kwargs" : dict()},
+        "clustering": {"method": "circus", "method_kwargs" : dict()},
         "matching": {"method": "circus-omp-svd", "method_kwargs" : dict()},
         "apply_preprocessing": True,
-        "matched_filtering": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
         "chunk_preprocessing": {"memory_limit": 0.01},
         "multi_units_only": False,
@@ -62,26 +60,22 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "general": "A dictionary to describe how templates should be computed. User can define ms_before and ms_after (in ms) \
                                         and also the radius_um used to be considered during clustering",
         "sparsity": "A dictionary to be passed to all the calls to sparsify the templates",
-        "filtering": "A dictionary for the high_pass filter to be used during preprocessing",
-        "whitening": "A dictionary for the whitening option to be used during preprocessing",
-        "detection": "A dictionary for the peak detection node (locally_exclusive)",
-        "selection": "A dictionary for the peak selection node. Default is to use smart_sampling_amplitudes, with a minimum of 20000 peaks\
-                                         and 5000 peaks per electrode on average.",
-        "clustering": "A dictionary to be provided to the clustering method. By default, random_projections is used, but if legacy is set to\
-                            True, one other clustering called circus will be used, similar to the one used in Spyking Circus 1",
-        "matching": "A dictionary to specify the matching engine used to recover spikes. The method default is circus-omp-svd, but other engines\
-                                          can be used",
+        "filtering": "A dictionary for the high_pass filter used during preprocessing",
+        "whitening": "A dictionary for the whitening used during preprocessing",
+        "detection": "A dictionary for the peak detection component. Default is matched filtering",
+        "selection": "A dictionary for the peak selection component. Default is to use uniform",
+        "clustering": "A dictionary for the clustering component. Default, graph_clustering is used",
+        "matching": "A dictionary for the matching component. Default circus-omp-svd. Use None to avoid matching",
         "merging": "A dictionary to specify the final merging param to group cells after template matching (auto_merge_units)",
         "motion_correction": "A dictionary to be provided if motion correction has to be performed (dense probe only)",
         "apply_preprocessing": "Boolean to specify whether circus 2 should preprocess the recording or not. If yes, then high_pass filtering + common\
-                                                    median reference + whitening",
+                    median reference + whitening",
         "apply_motion_correction": "Boolean to specify whether circus 2 should apply motion correction to the recording or not",
-        "matched_filtering": "Boolean to specify whether circus 2 should detect peaks via matched filtering (slightly slower)",
         "cache_preprocessing": "How to cache the preprocessed recording. Mode can be memory, file, zarr, with extra arguments. In case of memory (default), \
-                         memory_limit will control how much RAM can be used. In case of folder or zarr, delete_cache controls if cache is cleaned after sorting",
+                    memory_limit will control how much RAM can be used. In case of folder or zarr, delete_cache controls if cache is cleaned after sorting",
         "chunk_preprocessing": "How much RAM (approximately) should be devoted to load all data chunks (given n_jobs).\
-                memory_limit will control how much RAM can be used as a fraction of available memory. Otherwise, use total_memory to fix a hard limit, with\
-                a string syntax  (e.g. '1G', '500M')",
+                    memory_limit will control how much RAM can be used as a fraction of available memory. Otherwise, use total_memory to fix a hard limit, with\
+                    a string syntax  (e.g. '1G', '500M')",
         "multi_units_only": "Boolean to get only multi units activity (i.e. one template per electrode)",
         "job_kwargs": "A dictionary to specify how many jobs and which parameters they should used",
         "seed": "An int to control how chunks are shuffled while detecting peaks",
@@ -119,8 +113,9 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         from spikeinterface.sortingcomponents.peak_selection import select_peaks
         from spikeinterface.sortingcomponents.clustering import find_cluster_from_peaks
         from spikeinterface.sortingcomponents.matching import find_spikes_from_templates
-        from spikeinterface.sortingcomponents.tools import remove_empty_templates
+        from spikeinterface.sortingcomponents.clustering.tools import get_templates_from_clusters
         from spikeinterface.sortingcomponents.tools import check_probe_for_drift_correction
+        from spikeinterface.sortingcomponents.tools import remove_empty_templates
 
         job_kwargs = fix_job_kwargs(params["job_kwargs"])
         job_kwargs.update({"progress_bar": verbose})
@@ -133,11 +128,9 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         ms_after = params["general"].get("ms_after", 2)
         radius_um = params["general"].get("radius_um", 75)
         peak_sign = params["detection"].get("peak_sign", "neg")
+        debug = params["debug"]
+        seed = params["seed"]
         exclude_sweep_ms = params["detection"].get("exclude_sweep_ms", max(ms_before, ms_after))
-
-        fs = recording.get_sampling_frequency()
-        nbefore = int(ms_before * fs / 1000.0)
-        nafter = int(ms_after * fs / 1000.0)
 
         ## First, we are filtering the data
         filtering_params = params["filtering"].copy()
@@ -202,8 +195,10 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         skip_peaks = not params["multi_units_only"] and selection_method == "uniform"
         max_n_peaks = n_peaks_per_channel * num_channels
         n_peaks = max(min_n_peaks, max_n_peaks)
+        selection_params["n_peaks"] = n_peaks
+        selection_params["noise_levels"] = noise_levels
 
-        if params["debug"]:
+        if debug:
             clustering_folder = sorter_output_folder / "clustering"
             clustering_folder.mkdir(parents=True, exist_ok=True)
             np.save(clustering_folder / "noise_levels.npy", noise_levels)
@@ -214,19 +209,19 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 n_peaks=10000,
                 ms_before=ms_before,
                 ms_after=ms_after,
-                seed=params["seed"],
+                seed=seed,
                 **detection_params,
                 **job_kwargs,
             )
             detection_params["prototype"] = prototype
             detection_params["ms_before"] = ms_before
-            if params["debug"]:
+            if debug:
                 np.save(clustering_folder / "waveforms.npy", waveforms)
                 np.save(clustering_folder / "prototype.npy", prototype)
             if skip_peaks:
                 detection_params["skip_after_n_peaks"] = n_peaks
                 detection_params["recording_slices"] = get_shuffled_recording_slices(
-                    recording_w, seed=params["seed"], **job_kwargs
+                    recording_w, seed=seed, **job_kwargs
                 )
             detection_method = "matched_filtering"
         else:
@@ -234,7 +229,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             if skip_peaks:
                 detection_params["skip_after_n_peaks"] = n_peaks
                 detection_params["recording_slices"] = get_shuffled_recording_slices(
-                    recording_w, seed=params["seed"], **job_kwargs
+                    recording_w, seed=seed, **job_kwargs
                 )
             detection_method = "locally_exclusive"
         
@@ -260,7 +255,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         peaks = results[0]
         positions = results[1]
 
-        if params["debug"]:
+        if debug:
             np.save(clustering_folder / "peaks.npy", peaks)
             np.save(clustering_folder / "peaks_locations.npy", positions)
 
@@ -276,10 +271,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         else:
             ## We subselect a subset of all the peaks, by making the distributions os SNRs over all
             ## channels as flat as possible
-            selection_params = params["selection"]
-            selection_params["n_peaks"] = n_peaks
-            selection_params.update({"noise_levels": noise_levels})
-            selected_peaks, peak_indices = select_peaks(peaks, return_indices=True, **selection_params)
+            selected_peaks, peak_indices = select_peaks(peaks, return_indices=True, seed=seed, method=selection_method, **selection_params)
             selected_positions = positions[peak_indices]
 
             if verbose:
@@ -291,6 +283,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             clustering_params = params["clustering"].get("method_kwargs", dict())
         
             if clustering_method == "circus":
+                clustering_params["waveforms"] = {}
                 clustering_params["sparsity"] = sparsity_kwargs
                 clustering_params["peak_locations"] = selected_positions
                 clustering_params["radius_um"] = radius_um
@@ -302,52 +295,20 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 clustering_params["ms_after"] = ms_after
                 clustering_params["verbose"] = verbose
                 clustering_params["tmp_folder"] = sorter_output_folder / "clustering"
-                clustering_params["debug"] = params["debug"]
+                clustering_params["debug"] = debug
                 clustering_params["noise_threshold"] = detection_params.get("detect_threshold", 4)
+            elif clustering_method == "graph_clustering":
+                clustering_params = {}
 
-            else:
-                clustering_method = "random_projections"
-
-            labels, peak_labels = find_cluster_from_peaks(
+            _, peak_labels = find_cluster_from_peaks(
                 recording_w, selected_peaks, method=clustering_method, method_kwargs=clustering_params, **job_kwargs
             )
 
-            ## We get the labels for our peaks
-            mask = peak_labels > -1
-
-            labeled_peaks = np.zeros(np.sum(mask), dtype=minimum_spike_dtype)
-            labeled_peaks["sample_index"] = selected_peaks[mask]["sample_index"]
-            labeled_peaks["segment_index"] = selected_peaks[mask]["segment_index"]
-            for count, l in enumerate(labels):
-                sub_mask = peak_labels[mask] == l
-                labeled_peaks["unit_index"][sub_mask] = count
-            unit_ids = np.arange(len(np.unique(labeled_peaks["unit_index"])))
-            sorting = NumpySorting(labeled_peaks, sampling_frequency, unit_ids=unit_ids)
-
-            if params["debug"]:
-                np.save(clustering_folder / "peak_labels", peak_labels)
-                np.save(clustering_folder / "labels", labels)
-
-            templates_array = estimate_templates(
-                recording_w, labeled_peaks, unit_ids, nbefore, nafter, return_scaled=False, job_name=None, **job_kwargs
-            )
-
-            templates = Templates(
-                templates_array=templates_array,
-                sampling_frequency=sampling_frequency,
-                nbefore=nbefore,
-                sparsity_mask=None,
-                channel_ids=recording_w.channel_ids,
-                unit_ids=unit_ids,
-                probe=recording_w.get_probe(),
-                is_scaled=False,
-            )
-
+            templates = get_templates_from_clusters(recording_w, selected_peaks, peak_labels, ms_before, ms_after)
             sparsity = compute_sparsity(templates, noise_levels, **sparsity_kwargs)
             templates = templates.to_sparse(sparsity)
-            templates = remove_empty_templates(templates)
-
-            if params["debug"]:
+            
+            if debug:
                 templates.to_zarr(folder_path=clustering_folder / "templates")
                 sorting = sorting.save(folder=clustering_folder / "sorting")
 
@@ -361,7 +322,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                     recording_w, matching_method, method_kwargs=matching_params, **job_kwargs
                 )
 
-                if params["debug"]:
+                if debug:
                     fitting_folder = sorter_output_folder / "fitting"
                     fitting_folder.mkdir(parents=True, exist_ok=True)
                     np.save(fitting_folder / "spikes", spikes)
@@ -374,7 +335,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 sorting["sample_index"] = spikes["sample_index"]
                 sorting["unit_index"] = spikes["cluster_index"]
                 sorting["segment_index"] = spikes["segment_index"]
-                sorting = NumpySorting(sorting, sampling_frequency, unit_ids)
+                sorting = NumpySorting(sorting, sampling_frequency, templates.unit_ids)
 
         sorting_folder = sorter_output_folder / "sorting"
         if sorting_folder.exists():
@@ -395,12 +356,11 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 max_distance_um = merging_params.get("max_distance_um", 50)
                 merging_params["max_distance_um"] = max(max_distance_um, 2 * max_motion)
 
-            if params["debug"]:
+            if debug:
                 curation_folder = sorter_output_folder / "curation"
                 if curation_folder.exists():
                     shutil.rmtree(curation_folder)
                 sorting.save(folder=curation_folder)
-                # np.save(fitting_folder / "amplitudes", guessed_amplitudes)
 
             final_analyzer = final_cleaning_circus(recording_w, sorting, templates, **merging_params, **job_kwargs)
             final_analyzer.save_as(format="binary_folder", folder=sorter_output_folder / "final_analyzer")

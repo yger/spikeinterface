@@ -71,16 +71,12 @@ class GraphClustering:
             peak_locations=None,
             bin_um=bin_um,
             dim=1,
-            #mode="radius",
             mode="knn",
             direction="y",
             n_neighbors=n_neighbors,
         )
-
-        # import scipy.sparse
-        # scipy.sparse.save_npz('test', distances)
         
-        print("clustering_method", clustering_method)
+        #print("clustering_method", clustering_method)
 
         if clustering_method == "networkx-louvain":
             # using networkx : very slow (possible backend with cude  backend="cugraph",)
@@ -139,6 +135,7 @@ class GraphClustering:
 
         labels_set = np.unique(peak_labels)
         labels_set = labels_set[labels_set >= 0]        
+
         return labels_set, peak_labels
 
 
