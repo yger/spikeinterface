@@ -21,10 +21,14 @@ class GraphClustering:
         "bin_um": 30.,
         "motion": None,
         "seed": None,
-        "n_neighbors": 100,
+        "n_neighbors": 50,
         "clustering_method": "hdbscan",
-        "clustering_kwargs" : dict(min_samples=1, n_jobs=-1, min_cluster_size=200),
-        "peak_locations" : None
+        "clustering_kwargs" : dict(min_samples=1,
+                                   n_jobs=-1,
+                                   min_cluster_size=200,
+                                   allow_single_cluster=True),
+        "peak_locations" : None,
+        "extract_peaks_svd_kwargs" : dict()
     }
 
     @classmethod
@@ -38,6 +42,7 @@ class GraphClustering:
         peak_locations = params["peak_locations"]
         clustering_method = params["clustering_method"]
         clustering_kwargs = params["clustering_kwargs"]
+        extract_peaks_svd_kwargs = params["extract_peaks_svd_kwargs"]
 
         motion_aware = motion is not None
 
@@ -48,6 +53,7 @@ class GraphClustering:
             radius_um=radius_um,
             motion_aware=motion_aware,
             motion=None,
+            **extract_peaks_svd_kwargs
         )
 
         if peak_locations is None:

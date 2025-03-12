@@ -111,34 +111,13 @@ def create_graph_from_peak_features(
             local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
             local_graphs.append(local_graph)
         elif mode == "knn":
-            n_components = min(5, flatten_feat.shape[1])
-            
-            # from sklearn.decomposition import TruncatedSVD
-            # tsvd = TruncatedSVD(n_components)
-            # print(local_feats.shape)
-            # local_feat_svd = np.zeros((local_feats.shape[0], local_feats.shape[1], n_components), dtype=np.float32)
-            # tsvd.fit(local_feats[:, 0, :])
-            # weights = tsvd.explained_variance_ratio_
-            # for i in range(local_feats.shape[1]):
-            #     local_feat_svd[:, i, :] = tsvd.transform(local_feats[:, i, :])
-            
-            # local_feat_svd *= weights[None, None, :]
-            # new_flatten_feat = local_feat_svd.reshape(local_feat_svd.shape[0], -1)
-            # print(local_feat_svd.shape)
-
             from sklearn.decomposition import TruncatedSVD
-            tsvd = TruncatedSVD(n_components)
+            tsvd = TruncatedSVD(flatten_feat.shape[1])
             new_flatten_feat = tsvd.fit_transform(flatten_feat)
-
-            # per_channel_norms = np.linalg.norm(local_feats, axis=1)
-            # noise_threshold = np.percentile(per_channel_norms, 0)
-            # mask = (per_channel_norms > noise_threshold)[:, None, :]
-            # print(noise_threshold, mask.mean())
-            # new_local_feats = local_feats * mask
-            # new_flatten_feat = new_local_feats.reshape(new_local_feats.shape[0], -1)
-            # print(new_flatten_feat.shape)
-
-            nn_tree = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=-1)
+            thr = np.percentile(tsvd.explained_variance_ratio_, 80)
+            indices = tsvd.explained_variance_ratio_ > thr
+            new_flatten_feat = new_flatten_feat[:, indices]
+            nn_tree = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=-1, metric='l1')
             nn_tree.fit(new_flatten_feat)
             local_sparse_dist  = nn_tree.kneighbors_graph(new_flatten_feat[target_mask], mode='distance')
             data = local_sparse_dist.data.astype("float32")
@@ -148,26 +127,8 @@ def create_graph_from_peak_features(
                 a, b = indptr[i], indptr[i+1]
                 src = new_flatten_feat[target_mask][i]
                 tgt = new_flatten_feat[local_sparse_dist.indices[a:b]]
-                norm = (np.linalg.norm(src) + np.linalg.norm(tgt, axis=1))
+                norm = (np.linalg.norm(src, 1) + np.linalg.norm(tgt, 1, axis=1))
                 data[a:b] /= norm
-
-
-            #norms_tgt = np.linalg.norm(flatten_feat, axis=1)
-            #norms_src = norms_tgt[target_mask]
-
-            # for i in range(local_sparse_dist.shape[0]):
-            #     a, b = indptr[i], indptr[i+1]
-            #     new_data = []
-            #     overlaps = mask[i] * mask[local_sparse_dist.indices[a:b]]
-            #     print(overlaps.shape)
-            #     for count, j in enumerate(local_sparse_dist.indices[a:b]):
-            #         src = local_feats[target_mask][i]
-            #         tgt = local_feats[j]
-            #         print(np.linalg.norm(src - tgt, axis=0).shape)
-            #         new_data += [[overlaps[i]].sum()]
-            #     data[a:b] = new_data
-            # print("done")
-
             
             indices = peak_indices[local_sparse_dist.indices]
             local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
