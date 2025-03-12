@@ -29,19 +29,23 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 1},
         "filtering": {"freq_min": 150, "freq_max": 7000, "ftype": "bessel", "filter_order": 2, "margin_ms": 10},
         "whitening": {"mode": "local", "regularize": False},
-        "detection": {"peak_sign": "neg", "detect_threshold": 5},
-        "selection": {
-            "method": "uniform",
-            "n_peaks_per_channel": 5000,
-            "min_n_peaks": 100000,
-            "select_per_channel": False,
-            "seed": 42,
-        },
+        "detection": {"method" : "matched_filtering", 
+                      "method_kwargs" : dict(
+                            peak_sign="neg",
+                            detect_threshold=5
+                        ),
+        "selection": {"method": "uniform", 
+                      "method_kwargs" : dict(
+                            n_peaks_per_channel=5000,
+                            min_n_peaks=100000,
+                            select_per_channel=False,
+                            seed=42)
+                        },
         "apply_motion_correction": True,
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
-        "clustering": {"legacy": True},
-        "matching": {"method": "circus-omp-svd"},
+        "clustering": {"method": "graph_clustering", "method_kwargs" : dict()},
+        "matching": {"method": "circus-omp-svd", "method_kwargs" : dict()},
         "apply_preprocessing": True,
         "matched_filtering": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
@@ -182,7 +186,11 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
         ## Then, we are detecting peaks with a locally_exclusive method
         detection_params = params["detection"].copy()
-        selection_params = params["selection"].copy()
+        selection_params = params["selection"].get("method_kwargs", dict())
+
+        selection_method = selection_params.get("method", "uniform")
+        n_peaks_per_channel = selection_params["n_peaks_per_channel"]
+
         detection_params["radius_um"] = radius_um
         detection_params["exclude_sweep_ms"] = exclude_sweep_ms
         detection_params["noise_levels"] = noise_levels
@@ -191,8 +199,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         nbefore = int(ms_before * fs / 1000.0)
         nafter = int(ms_after * fs / 1000.0)
 
-        skip_peaks = not params["multi_units_only"] and selection_params.get("method", "uniform") == "uniform"
-        max_n_peaks = selection_params["n_peaks_per_channel"] * num_channels
+        skip_peaks = not params["multi_units_only"] and selection_method == "uniform"
+        max_n_peaks =  * num_channels
         n_peaks = max(selection_params["min_n_peaks"], max_n_peaks)
 
         if params["debug"]:
@@ -275,30 +283,27 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
             ## We launch a clustering (using hdbscan) relying on positions and features extracted on
             ## the fly from the snippets
-            clustering_params = params["clustering"].copy()
-            clustering_params["waveforms"] = {}
-            sparsity_kwargs = params["sparsity"].copy()
-            if "peak_sign" not in sparsity_kwargs:
-                sparsity_kwargs["peak_sign"] = peak_sign
+            clustering_method = params["clustering"].get("method", "graph_clustering")
+            clustering_params = params["clustering"].get("method_kwargs", dict())
+        
+            if clustering_method == "circus":
+                sparsity_kwargs = params["sparsity"].copy()
+                if "peak_sign" not in sparsity_kwargs:
+                    sparsity_kwargs["peak_sign"] = peak_sign
+                clustering_params["sparsity"] = sparsity_kwargs
+                clustering_params["peak_locations"] = selected_positions
+                clustering_params["radius_um"] = radius_um
+                clustering_params["waveforms"]["ms_before"] = ms_before
+                clustering_params["waveforms"]["ms_after"] = ms_after
+                clustering_params["few_waveforms"] = waveforms
+                clustering_params["noise_levels"] = noise_levels
+                clustering_params["ms_before"] = ms_before
+                clustering_params["ms_after"] = ms_after
+                clustering_params["verbose"] = verbose
+                clustering_params["tmp_folder"] = sorter_output_folder / "clustering"
+                clustering_params["debug"] = params["debug"]
+                clustering_params["noise_threshold"] = detection_params.get("detect_threshold", 4)
 
-            clustering_params["sparsity"] = sparsity_kwargs
-            clustering_params["peak_locations"] = selected_positions
-            clustering_params["radius_um"] = radius_um
-            clustering_params["waveforms"]["ms_before"] = ms_before
-            clustering_params["waveforms"]["ms_after"] = ms_after
-            clustering_params["few_waveforms"] = waveforms
-            clustering_params["noise_levels"] = noise_levels
-            clustering_params["ms_before"] = ms_before
-            clustering_params["ms_after"] = ms_after
-            clustering_params["verbose"] = verbose
-            clustering_params["tmp_folder"] = sorter_output_folder / "clustering"
-            clustering_params["debug"] = params["debug"]
-            clustering_params["noise_threshold"] = detection_params.get("detect_threshold", 4)
-
-            legacy = clustering_params.get("legacy", True)
-
-            if legacy:
-                clustering_method = "circus"
             else:
                 clustering_method = "random_projections"
 
@@ -346,8 +351,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 sorting = sorting.save(folder=clustering_folder / "sorting")
 
             ## We launch a OMP matching pursuit by full convolution of the templates and the raw traces
-            matching_method = params["matching"].pop("method")
-            matching_params = params["matching"].copy()
+            matching_method = params["matching"].get("method", "circus-omp_svd")
+            matching_params = params["matching"].get("method_kwargs", dict())
             matching_params["templates"] = templates
 
             if matching_method is not None:
