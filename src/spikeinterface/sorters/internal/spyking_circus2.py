@@ -33,7 +33,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                       "method_kwargs" : dict(
                             peak_sign="neg",
                             detect_threshold=5
-                        ),
+                        )},
         "selection": {"method": "uniform", 
                       "method_kwargs" : dict(
                             n_peaks_per_channel=5000,
@@ -135,6 +135,10 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         peak_sign = params["detection"].get("peak_sign", "neg")
         exclude_sweep_ms = params["detection"].get("exclude_sweep_ms", max(ms_before, ms_after))
 
+        fs = recording.get_sampling_frequency()
+        nbefore = int(ms_before * fs / 1000.0)
+        nafter = int(ms_after * fs / 1000.0)
+
         ## First, we are filtering the data
         filtering_params = params["filtering"].copy()
         if params["apply_preprocessing"]:
@@ -185,30 +189,26 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         recording_w = cache_preprocessing(recording_w, **job_kwargs, **params["cache_preprocessing"])
 
         ## Then, we are detecting peaks with a locally_exclusive method
-        detection_params = params["detection"].copy()
-        selection_params = params["selection"].get("method_kwargs", dict())
-
-        selection_method = selection_params.get("method", "uniform")
-        n_peaks_per_channel = selection_params["n_peaks_per_channel"]
-
+        detection_method = params["detection"].get("method", "matched_filtering")
+        detection_params = params["detection"].get("method_kwargs", dict())
         detection_params["radius_um"] = radius_um
         detection_params["exclude_sweep_ms"] = exclude_sweep_ms
         detection_params["noise_levels"] = noise_levels
 
-        fs = recording_w.get_sampling_frequency()
-        nbefore = int(ms_before * fs / 1000.0)
-        nafter = int(ms_after * fs / 1000.0)
-
+        selection_method = params["selection"].get("method", "uniform")
+        selection_params = params["selection"].get("method_kwargs", dict())
+        n_peaks_per_channel = selection_params.get("n_peaks_per_channel", 5000)
+        min_n_peaks = selection_params.get("min_n_peaks", 100000)
         skip_peaks = not params["multi_units_only"] and selection_method == "uniform"
-        max_n_peaks =  * num_channels
-        n_peaks = max(selection_params["min_n_peaks"], max_n_peaks)
+        max_n_peaks = n_peaks_per_channel * num_channels
+        n_peaks = max(min_n_peaks, max_n_peaks)
 
         if params["debug"]:
             clustering_folder = sorter_output_folder / "clustering"
             clustering_folder.mkdir(parents=True, exist_ok=True)
             np.save(clustering_folder / "noise_levels.npy", noise_levels)
 
-        if params["matched_filtering"]:
+        if detection_method == "matched_filtering":
             prototype, waveforms, _ = get_prototype_and_waveforms_from_recording(
                 recording_w,
                 n_peaks=10000,
@@ -267,6 +267,10 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         if not skip_peaks and verbose:
             print("Found %d peaks in total" % len(peaks))
 
+        sparsity_kwargs = params["sparsity"].copy()
+        if "peak_sign" not in sparsity_kwargs:
+            sparsity_kwargs["peak_sign"] = peak_sign
+
         if params["multi_units_only"]:
             sorting = NumpySorting.from_peaks(peaks, sampling_frequency, unit_ids=recording_w.unit_ids)
         else:
@@ -287,9 +291,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             clustering_params = params["clustering"].get("method_kwargs", dict())
         
             if clustering_method == "circus":
-                sparsity_kwargs = params["sparsity"].copy()
-                if "peak_sign" not in sparsity_kwargs:
-                    sparsity_kwargs["peak_sign"] = peak_sign
                 clustering_params["sparsity"] = sparsity_kwargs
                 clustering_params["peak_locations"] = selected_positions
                 clustering_params["radius_um"] = radius_um
