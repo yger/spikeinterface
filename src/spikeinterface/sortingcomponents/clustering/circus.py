@@ -63,7 +63,6 @@ class CircusClustering:
         "tmp_folder": None,
         "verbose": True,
         "debug": False,
-        "memory_limit": 0.25,
     }
 
     @classmethod
