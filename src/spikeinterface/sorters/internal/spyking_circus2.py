@@ -43,7 +43,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "apply_motion_correction": True,
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
-        "clustering": {"method": "circus", "method_kwargs" : dict()},
+        "clustering": {"method": "graph_clustering", "method_kwargs" : dict()},
         "matching": {"method": "circus-omp-svd", "method_kwargs" : dict()},
         "apply_preprocessing": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
@@ -213,6 +213,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 **detection_params,
                 **job_kwargs,
             )
+            
             detection_params["prototype"] = prototype
             detection_params["ms_before"] = ms_before
             if debug:
@@ -298,13 +299,19 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 clustering_params["debug"] = debug
                 clustering_params["noise_threshold"] = detection_params.get("detect_threshold", 4)
             elif clustering_method == "graph_clustering":
-                clustering_params = {}
+                clustering_params = {"ms_before" : ms_before,
+                                     "ms_after" : ms_after}
 
-            _, peak_labels = find_cluster_from_peaks(
-                recording_w, selected_peaks, method=clustering_method, method_kwargs=clustering_params, **job_kwargs
+            outputs = find_cluster_from_peaks(
+                recording_w, selected_peaks, method=clustering_method, method_kwargs=clustering_params, extra_outputs=True, **job_kwargs
             )
 
-            templates = get_templates_from_clusters(recording_w, selected_peaks, peak_labels, ms_before, ms_after)
+            if clustering_method == "graph_clustering":
+                _, peak_labels, templates = outputs
+            else:
+                _, templates = outputs
+                templates = get_templates_from_clusters(recording_w, selected_peaks, peak_labels, ms_before, ms_after)
+
             sparsity = compute_sparsity(templates, noise_levels, **sparsity_kwargs)
             templates = templates.to_sparse(sparsity)
             

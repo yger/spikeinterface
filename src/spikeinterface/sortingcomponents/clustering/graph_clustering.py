@@ -19,14 +19,16 @@ class GraphClustering:
     _default_params = {
         "radius_um": 100.,
         "bin_um": 30.,
+        "ms_before" : 2,
+        "ms_after" : 2,
         "motion": None,
         "seed": None,
         "n_neighbors": 50,
-        "clustering_method": "hdbscan",
-        "clustering_kwargs" : dict(min_samples=1,
-                                   n_jobs=-1,
-                                   min_cluster_size=200,
-                                   allow_single_cluster=True),
+        "clustering_method": "networkx-louvain",
+        "clustering_kwargs" : {},#dict(min_samples=1,
+                                #   n_jobs=-1,
+                                #   min_cluster_size=200,
+                                #   allow_single_cluster=True),
         "peak_locations" : None,
         "extract_peaks_svd_kwargs" : dict()
     }
@@ -38,6 +40,8 @@ class GraphClustering:
         bin_um = params["bin_um"]
         motion = params["motion"]
         seed = params["seed"]
+        ms_before = params["ms_before"]
+        ms_after = params["ms_after"]
         n_neighbors = params["n_neighbors"]
         peak_locations = params["peak_locations"]
         clustering_method = params["clustering_method"]
@@ -48,9 +52,12 @@ class GraphClustering:
 
         assert radius_um >= bin_um * 3
 
-        peaks_svd, sparse_mask, _ = extract_peaks_svd(
-            recording, peaks,
+        peaks_svd, sparse_mask, svd_model = extract_peaks_svd(
+            recording, 
+            peaks,
             radius_um=radius_um,
+            ms_before=ms_before,
+            ms_after=ms_after,
             motion_aware=motion_aware,
             motion=None,
             **extract_peaks_svd_kwargs
@@ -136,7 +143,30 @@ class GraphClustering:
         labels_set = np.unique(peak_labels)
         labels_set = labels_set[labels_set >= 0]        
 
-        return labels_set, peak_labels
+        fs = recording.get_sampling_frequency()
+        nbefore = int(ms_before * fs / 1000.0)
+        nafter = int(ms_after * fs / 1000.0)
+        num_channels = recording.get_num_channels()
+        templates_array = np.zeros((len(labels_set), nbefore+nafter, num_channels), dtype=np.float32)
+        for count, label in enumerate(labels_set):
+            mask = peak_labels == label
+            templates_array[count, :, 0] = np.median(svd_model.inverse_transform(peaks_svd[mask, :, 0]))
+
+        unit_ids = np.arange(len(labels_set))
+
+        from spikeinterface.core.template import Templates
+        templates = Templates(
+            templates_array=templates_array,
+            sampling_frequency=fs,
+            nbefore=nbefore,
+            sparsity_mask=None,
+            channel_ids=recording.channel_ids,
+            unit_ids=unit_ids,
+            probe=recording.get_probe(),
+            is_scaled=False,
+        )
+
+        return labels_set, peak_labels, templates
 
 
 
