@@ -47,13 +47,20 @@ def extract_peaks_svd(
 
     # Step 1 : select a few peaks to fit the SVD
     if svd_model is None:
-        few_peaks = select_peaks(peaks, recording=recording, method="uniform", n_peaks=5000, margin=(nbefore, nafter))
+        few_peaks = select_peaks(peaks, recording=recording, method="uniform", n_peaks=10000, margin=(nbefore, nafter))
         few_wfs = extract_waveform_at_max_channel(
             recording, few_peaks, ms_before=ms_before, ms_after=ms_after, job_name="Fit peaks svd", **job_kwargs
         )
 
         wfs = few_wfs[:, :, 0]
         from sklearn.decomposition import TruncatedSVD
+
+        # Remove outliers
+        valid = np.argmax(np.abs(wfs), axis=1) == nbefore
+        wfs = wfs[valid]
+
+        # Ensure all waveforms have a positive max
+        wfs *= np.sign(wfs[:, nbefore])[:, np.newaxis]
 
         svd_model = TruncatedSVD(n_components=n_components)
         svd_model.fit(wfs)

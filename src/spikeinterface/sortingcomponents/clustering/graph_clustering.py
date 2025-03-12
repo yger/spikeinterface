@@ -21,9 +21,9 @@ class GraphClustering:
         "bin_um": 30.,
         "motion": None,
         "seed": None,
-        "n_neighbors": 20,
+        "n_neighbors": 100,
         "clustering_method": "hdbscan",
-        "clustering_kwargs" : dict(min_samples=1, n_jobs=-1, min_cluster_size=10),
+        "clustering_kwargs" : dict(min_samples=1, n_jobs=-1, min_cluster_size=200),
         "peak_locations" : None
     }
 
@@ -66,7 +66,7 @@ class GraphClustering:
             bin_um=bin_um,
             dim=1,
             #mode="radius",
-            mode="knn-svd",
+            mode="knn",
             direction="y",
             n_neighbors=n_neighbors,
         )
@@ -121,10 +121,11 @@ class GraphClustering:
             _remove_small_cluster(peak_labels, min_size=1)
         elif clustering_method == "hdbscan":
             from sklearn.cluster import HDBSCAN
+            symmetric = distances.maximum(distances.T)
             clusterer = HDBSCAN(metric='precomputed', 
                                 metric_params={'max_distance' : np.inf},
                                 **clustering_kwargs)
-            symmetric = distances.maximum(distances.T)
+            
             clusterer.fit(symmetric)
             peak_labels = clusterer.labels_ 
         else:

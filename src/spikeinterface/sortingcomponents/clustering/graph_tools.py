@@ -44,7 +44,7 @@ def create_graph_from_peak_features(
 
     import scipy.sparse
     from scipy.spatial.distance import cdist
-    if mode in ["knn", "knn-svd"]:
+    if mode in ["knn"]:
         from sklearn.neighbors import NearestNeighbors
     
 
@@ -101,7 +101,6 @@ def create_graph_from_peak_features(
             print("dont_have_channels", np.sum(dont_have_channels), "for n=", peak_indices.size, "bin", b0, b1)
         
         dont_have_channels_target = dont_have_channels[target_mask]
-
         flatten_feat = local_feats.reshape(local_feats.shape[0], -1)
 
         if mode == "full":
@@ -112,30 +111,64 @@ def create_graph_from_peak_features(
             local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
             local_graphs.append(local_graph)
         elif mode == "knn":
-            nn_tree = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=-1)
-            nn_tree.fit(flatten_feat)
-            local_sparse_dist  = nn_tree.kneighbors_graph(flatten_feat[target_mask], mode='distance')
-            data = local_sparse_dist.data.astype("float32")
-            indptr = local_sparse_dist.indptr
-            indices = peak_indices[local_sparse_dist.indices]
-            local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
-            local_graphs.append(local_graph)
-        elif mode == "knn-svd":
+            n_components = min(5, flatten_feat.shape[1])
+            
+            # from sklearn.decomposition import TruncatedSVD
+            # tsvd = TruncatedSVD(n_components)
+            # print(local_feats.shape)
+            # local_feat_svd = np.zeros((local_feats.shape[0], local_feats.shape[1], n_components), dtype=np.float32)
+            # tsvd.fit(local_feats[:, 0, :])
+            # weights = tsvd.explained_variance_ratio_
+            # for i in range(local_feats.shape[1]):
+            #     local_feat_svd[:, i, :] = tsvd.transform(local_feats[:, i, :])
+            
+            # local_feat_svd *= weights[None, None, :]
+            # new_flatten_feat = local_feat_svd.reshape(local_feat_svd.shape[0], -1)
+            # print(local_feat_svd.shape)
+
             from sklearn.decomposition import TruncatedSVD
-            tsvd = TruncatedSVD(5)
-            final_features = tsvd.fit_transform(flatten_feat)
+            tsvd = TruncatedSVD(n_components)
+            new_flatten_feat = tsvd.fit_transform(flatten_feat)
+
+            # per_channel_norms = np.linalg.norm(local_feats, axis=1)
+            # noise_threshold = np.percentile(per_channel_norms, 0)
+            # mask = (per_channel_norms > noise_threshold)[:, None, :]
+            # print(noise_threshold, mask.mean())
+            # new_local_feats = local_feats * mask
+            # new_flatten_feat = new_local_feats.reshape(new_local_feats.shape[0], -1)
+            # print(new_flatten_feat.shape)
+
             nn_tree = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=-1)
-            nn_tree.fit(final_features)
-            local_sparse_dist = nn_tree.kneighbors_graph(final_features[target_mask], mode='distance')
+            nn_tree.fit(new_flatten_feat)
+            local_sparse_dist  = nn_tree.kneighbors_graph(new_flatten_feat[target_mask], mode='distance')
             data = local_sparse_dist.data.astype("float32")
+            
             indptr = local_sparse_dist.indptr
             for i in range(local_sparse_dist.shape[0]):
                 a, b = indptr[i], indptr[i+1]
-                src = flatten_feat[target_mask][i]
-                tgt = flatten_feat[local_sparse_dist.indices[a:b]]
-                data[a:b] = cdist(src.reshape(1,-1), tgt)
+                src = new_flatten_feat[target_mask][i]
+                tgt = new_flatten_feat[local_sparse_dist.indices[a:b]]
                 norm = (np.linalg.norm(src) + np.linalg.norm(tgt, axis=1))
                 data[a:b] /= norm
+
+
+            #norms_tgt = np.linalg.norm(flatten_feat, axis=1)
+            #norms_src = norms_tgt[target_mask]
+
+            # for i in range(local_sparse_dist.shape[0]):
+            #     a, b = indptr[i], indptr[i+1]
+            #     new_data = []
+            #     overlaps = mask[i] * mask[local_sparse_dist.indices[a:b]]
+            #     print(overlaps.shape)
+            #     for count, j in enumerate(local_sparse_dist.indices[a:b]):
+            #         src = local_feats[target_mask][i]
+            #         tgt = local_feats[j]
+            #         print(np.linalg.norm(src - tgt, axis=0).shape)
+            #         new_data += [[overlaps[i]].sum()]
+            #     data[a:b] = new_data
+            # print("done")
+
+            
             indices = peak_indices[local_sparse_dist.indices]
             local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
             local_graphs.append(local_graph)
