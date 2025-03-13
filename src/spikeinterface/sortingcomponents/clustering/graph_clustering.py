@@ -23,7 +23,6 @@ class GraphClustering:
         "ms_after" : 2,
         "motion": None,
         "seed": None,
-        "n_neighbors": 50,
         "clustering_method": "hdbscan",
         "clustering_kwargs" : dict(min_samples=1,
                                    n_jobs=-1,
@@ -31,6 +30,12 @@ class GraphClustering:
                                    cluster_selection_method='leaf',
                                    allow_single_cluster=True),
         "peak_locations" : None,
+        "graph_kwargs" : dict(normed_distances=True,
+                              n_neighbors=50,
+                              n_components=0.8,
+                              mode="knn",
+                              apply_local_svd=True,
+                              direction="y"),
         "extract_peaks_svd_kwargs" : dict()
     }
 
@@ -43,7 +48,6 @@ class GraphClustering:
         seed = params["seed"]
         ms_before = params["ms_before"]
         ms_after = params["ms_after"]
-        n_neighbors = params["n_neighbors"]
         peak_locations = params["peak_locations"]
         clustering_method = params["clustering_method"]
         clustering_kwargs = params["clustering_kwargs"]
@@ -79,9 +83,7 @@ class GraphClustering:
             sparse_mask,
             peak_locations=None,
             bin_um=bin_um,
-            mode="knn",
-            direction="y",
-            n_neighbors=n_neighbors,
+            **params["graph_kwargs"],
         )
         
         #print("clustering_method", clustering_method)
@@ -118,7 +120,7 @@ class GraphClustering:
         elif clustering_method == "leidenalg":
             import leidenalg
             import igraph
-            graph = igraph.Graph.Weighted_Adjacency(distances.tocoo(), mode='directed',)
+            graph = igraph.Graph.Weighted_Adjacency(distances_bool.tocoo(), mode='directed',)
             clusters = leidenalg.find_partition(graph, leidenalg.ModularityVertexPartition)
             peak_labels = np.array(clusters.membership)
             _remove_small_cluster(peak_labels, min_size=1)
