@@ -118,20 +118,25 @@ def create_graph_from_peak_features(
             indices = tsvd.explained_variance_ratio_ > thr
             new_flatten_feat = new_flatten_feat[:, indices]
             nn = min(n_neighbors, len(new_flatten_feat))
-            nn_tree = NearestNeighbors(n_neighbors=nn, n_jobs=-1, metric='l1')
-            nn_tree.fit(new_flatten_feat)
-            local_sparse_dist  = nn_tree.kneighbors_graph(new_flatten_feat[target_mask], mode='distance')
-            data = local_sparse_dist.data.astype("float32")
-            
-            indptr = local_sparse_dist.indptr
-            for i in range(local_sparse_dist.shape[0]):
-                a, b = indptr[i], indptr[i+1]
-                src = new_flatten_feat[target_mask][i]
-                tgt = new_flatten_feat[local_sparse_dist.indices[a:b]]
-                norm = (np.linalg.norm(src, 1) + np.linalg.norm(tgt, 1, axis=1))
-                data[a:b] /= norm
-            
-            indices = peak_indices[local_sparse_dist.indices]
+            if nn == 0 or new_flatten_feat.shape[1] == 0:
+                indices = []
+                data = []
+                indptr = []
+            else:
+                nn_tree = NearestNeighbors(n_neighbors=nn, n_jobs=-1, metric='l1')
+                nn_tree.fit(new_flatten_feat)
+                local_sparse_dist  = nn_tree.kneighbors_graph(new_flatten_feat[target_mask], mode='distance')
+                data = local_sparse_dist.data.astype("float32")
+                
+                indptr = local_sparse_dist.indptr
+                for i in range(local_sparse_dist.shape[0]):
+                    a, b = indptr[i], indptr[i+1]
+                    src = new_flatten_feat[target_mask][i]
+                    tgt = new_flatten_feat[local_sparse_dist.indices[a:b]]
+                    norm = (np.linalg.norm(src, 1) + np.linalg.norm(tgt, 1, axis=1))
+                    data[a:b] /= norm
+                
+                indices = peak_indices[local_sparse_dist.indices]
             local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size), dtype=np.float32)
             local_graphs.append(local_graph)
 

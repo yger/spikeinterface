@@ -25,7 +25,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
     sorter_name = "spykingcircus2"
 
     _default_params = {
-        "general": {"ms_before": 2, "ms_after": 2, "radius_um": 75},
+        "general": {"ms_before": 2, "ms_after": 2, "radius_um": 100},
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 1},
         "filtering": {"freq_min": 150, "freq_max": 7000, "ftype": "bessel", "filter_order": 2, "margin_ms": 10},
         "whitening": {"mode": "local", "regularize": True},
@@ -308,6 +308,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 clustering_params = {"ms_before" : ms_before,
                                      "ms_after" : ms_after, 
                                      "clustering_method": "hdbscan",
+                                     "radius_um" : radius_um,
                                      "clustering_kwargs" : dict(min_samples=1,
                                                                n_jobs=-1,
                                                                min_cluster_size=min_cluster_size,

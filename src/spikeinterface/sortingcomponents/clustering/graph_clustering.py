@@ -25,7 +25,10 @@ class GraphClustering:
         "seed": None,
         "n_neighbors": 50,
         "clustering_method": "hdbscan",
-        "clustering_kwargs" : {},
+        "clustering_kwargs" : dict(min_samples=1,
+                                   n_jobs=-1,
+                                   min_cluster_size=2*128,
+                                   allow_single_cluster=True),
         "peak_locations" : None,
         "extract_peaks_svd_kwargs" : dict()
     }
