@@ -79,7 +79,6 @@ class GraphClustering:
             sparse_mask,
             peak_locations=None,
             bin_um=bin_um,
-            dim=1,
             mode="knn",
             direction="y",
             n_neighbors=n_neighbors,
