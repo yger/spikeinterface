@@ -212,7 +212,6 @@ class LocalFeatureClustering:
         n_pca_features=2,
         minimum_overlap_ratio=0.25,
         projection_mode="pca",
-        normalize_distance=False
     ):
         local_labels = np.zeros(peak_indices.size, dtype=np.int64)
 
@@ -283,16 +282,8 @@ class LocalFeatureClustering:
 
         if clusterer == "hdbscan":
             from hdbscan import HDBSCAN
-            if not normalize_distance:
-                clust = HDBSCAN(**clusterer_kwargs, core_dist_n_jobs=1)
-                clust.fit(final_features)
-            else:
-                clust = HDBSCAN(**clusterer_kwargs, core_dist_n_jobs=1, metric="precomputed")
-                from scipy.spatial.distance import cdist
-                normalized_distances = cdist(final_features, final_features)
-                norms = np.linalg.norm(final_features, axis=1)
-                normalized_distances /= (norms[None, :] + norms[:, None])
-                clust.fit(normalized_distances)
+            clust = HDBSCAN(**clusterer_kwargs, core_dist_n_jobs=1)
+            clust.fit(final_features)
             possible_labels = clust.labels_
             is_split = np.setdiff1d(possible_labels, [-1]).size > 1
             del clust
