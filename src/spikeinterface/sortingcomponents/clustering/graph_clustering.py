@@ -148,9 +148,18 @@ class GraphClustering:
         nafter = int(ms_after * fs / 1000.0)
         num_channels = recording.get_num_channels()
         templates_array = np.zeros((len(labels_set), nbefore+nafter, num_channels), dtype=np.float32)
-        for count, label in enumerate(labels_set):
+        for unit_ind, label in enumerate(labels_set):
             mask = peak_labels == label
-            templates_array[count, :, 0] = np.median(svd_model.inverse_transform(peaks_svd[mask, :, 0]))
+            local_peaks = peaks[mask]
+            local_svd = peaks_svd[mask]
+            denominators = np.zeros(num_channels, dtype=int)
+            for channel_ind in np.unique(local_peaks['channel_index']):
+                sub_mask = local_peaks['channel_index'] == channel_ind
+                for count, i in enumerate(np.flatnonzero(sparse_mask[channel_ind])):
+                    data = svd_model.inverse_transform(local_svd[sub_mask, :, count])
+                    templates_array[unit_ind, :, i] += data.sum(0)
+                    denominators[i] += len(data)
+            templates_array[unit_ind] /= denominators
 
         unit_ids = np.arange(len(labels_set))
 
