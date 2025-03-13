@@ -14,11 +14,9 @@ def create_graph_from_peak_features(
     sparse_mask,
     peak_locations=None,
     bin_um=20.,
-    dim=1,
     mode="full",
     direction="y",
     n_neighbors=20,
-    radius_neighbors=10,
     progress_bar=True,
 ):
     """
@@ -119,9 +117,7 @@ def create_graph_from_peak_features(
             new_flatten_feat = new_flatten_feat[:, indices]
             nn = min(n_neighbors, len(new_flatten_feat))
             if nn == 0 or new_flatten_feat.shape[1] == 0:
-                indices = []
-                data = []
-                indptr = []
+                local_graph = scipy.sparse.csr_matrix((target_indices.size, peaks.size), dtype=np.float32)
             else:
                 nn_tree = NearestNeighbors(n_neighbors=nn, n_jobs=-1, metric='l1')
                 nn_tree.fit(new_flatten_feat)

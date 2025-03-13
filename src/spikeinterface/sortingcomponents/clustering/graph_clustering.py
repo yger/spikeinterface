@@ -28,6 +28,7 @@ class GraphClustering:
         "clustering_kwargs" : dict(min_samples=1,
                                    n_jobs=-1,
                                    min_cluster_size=2*128,
+                                   cluster_selection_method='leaf',
                                    allow_single_cluster=True),
         "peak_locations" : None,
         "extract_peaks_svd_kwargs" : dict()
