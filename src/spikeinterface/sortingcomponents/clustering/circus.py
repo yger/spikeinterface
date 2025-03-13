@@ -49,7 +49,7 @@ class CircusClustering:
             "returns_split_count": True,
         },
         "split_kwargs": {"projection_mode": "tsvd", 
-                         "percentile_variance_explained": 95,
+                         "n_pca_features": 0.9,
                          "normalize_distance" : False},
         "radius_um": 100,
         "n_svd": 5,
