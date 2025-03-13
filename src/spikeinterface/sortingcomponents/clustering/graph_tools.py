@@ -117,7 +117,8 @@ def create_graph_from_peak_features(
             thr = np.percentile(tsvd.explained_variance_ratio_, 80)
             indices = tsvd.explained_variance_ratio_ > thr
             new_flatten_feat = new_flatten_feat[:, indices]
-            nn_tree = NearestNeighbors(n_neighbors=n_neighbors, n_jobs=-1, metric='l1')
+            nn = min(n_neighbors, len(new_flatten_feat))
+            nn_tree = NearestNeighbors(n_neighbors=nn, n_jobs=-1, metric='l1')
             nn_tree.fit(new_flatten_feat)
             local_sparse_dist  = nn_tree.kneighbors_graph(new_flatten_feat[target_mask], mode='distance')
             data = local_sparse_dist.data.astype("float32")

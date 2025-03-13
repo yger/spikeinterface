@@ -28,7 +28,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "general": {"ms_before": 2, "ms_after": 2, "radius_um": 75},
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 1},
         "filtering": {"freq_min": 150, "freq_max": 7000, "ftype": "bessel", "filter_order": 2, "margin_ms": 10},
-        "whitening": {"mode": "local", "regularize": False},
+        "whitening": {"mode": "local", "regularize": True},
         "detection": {"method" : "matched_filtering", 
                       "method_kwargs" : dict(
                             peak_sign="neg",
@@ -40,12 +40,14 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                             min_n_peaks=100000,
                             select_per_channel=False)
                         },
-        "apply_motion_correction": True,
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
-        "clustering": {"method": "graph_clustering", "method_kwargs" : dict()},
-        "matching": {"method": "circus-omp-svd", "method_kwargs" : dict()},
+        "clustering": {"method": "graph_clustering", 
+                       "method_kwargs" : dict()},
+        "matching": {"method": "circus-omp-svd", 
+                     "method_kwargs" : dict()},
         "apply_preprocessing": True,
+        "apply_motion_correction": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
         "chunk_preprocessing": {"memory_limit": 0.01},
         "multi_units_only": False,
@@ -130,11 +132,13 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         peak_sign = params["detection"].get("peak_sign", "neg")
         debug = params["debug"]
         seed = params["seed"]
+        apply_preprocessing = params["apply_preprocessing"]
+        apply_motion_correction = params["apply_motion_correction"]
         exclude_sweep_ms = params["detection"].get("exclude_sweep_ms", max(ms_before, ms_after))
 
         ## First, we are filtering the data
         filtering_params = params["filtering"].copy()
-        if params["apply_preprocessing"]:
+        if apply_preprocessing:
             if verbose:
                 print("Preprocessing the recording (bandpass filtering + CMR + whitening)")
             recording_f = bandpass_filter(recording, **filtering_params, dtype="float32")
@@ -147,7 +151,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             recording_f.annotate(is_filtered=True)
 
         valid_geometry = check_probe_for_drift_correction(recording_f)
-        if params["apply_motion_correction"]:
+        if apply_motion_correction:
             if not valid_geometry:
                 if verbose:
                     print("Geometry of the probe does not allow 1D drift correction")
@@ -170,6 +174,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             whitening_kwargs["regularize"] = False
         if whitening_kwargs["regularize"]:
             whitening_kwargs["regularize_kwargs"] = {"method": "LedoitWolf"}
+            whitening_kwargs["apply_mean"] = True
 
         recording_w = whiten(recording_f, **whitening_kwargs)
         noise_levels = get_noise_levels(recording_w, return_scaled=False, **job_kwargs)
@@ -299,14 +304,21 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 clustering_params["debug"] = debug
                 clustering_params["noise_threshold"] = detection_params.get("detect_threshold", 4)
             elif clustering_method == "graph_clustering":
+                min_cluster_size = int(len(peaks)/recording.get_num_channels())
                 clustering_params = {"ms_before" : ms_before,
-                                     "ms_after" : ms_after}
+                                     "ms_after" : ms_after, 
+                                     "clustering_method": "hdbscan",
+                                     "clustering_kwargs" : dict(min_samples=1,
+                                                               n_jobs=-1,
+                                                               min_cluster_size=min_cluster_size,
+                                                               allow_single_cluster=True)
+                }
 
             outputs = find_cluster_from_peaks(
                 recording_w, selected_peaks, method=clustering_method, method_kwargs=clustering_params, extra_outputs=True, **job_kwargs
             )
 
-            if clustering_method == "graph_clustering":
+            if clustering_method in ["graph_clustering", "kilosort_clustering"]:
                 _, peak_labels, templates = outputs
             else:
                 _, templates = outputs

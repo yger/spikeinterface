@@ -24,7 +24,7 @@ class GraphClustering:
         "motion": None,
         "seed": None,
         "n_neighbors": 50,
-        "clustering_method": "networkx-louvain",
+        "clustering_method": "hdbscan",
         "clustering_kwargs" : {},#dict(min_samples=1,
                                 #   n_jobs=-1,
                                 #   min_cluster_size=200,
@@ -60,7 +60,8 @@ class GraphClustering:
             ms_after=ms_after,
             motion_aware=motion_aware,
             motion=None,
-            **extract_peaks_svd_kwargs
+            **extract_peaks_svd_kwargs,
+            **job_kwargs
         )
 
         if peak_locations is None:
@@ -131,12 +132,20 @@ class GraphClustering:
         elif clustering_method == "hdbscan":
             from sklearn.cluster import HDBSCAN
             symmetric = distances.maximum(distances.T)
+            #from scipy.sparse.csgraph import connected_components
+            #n_components, labels = connected_components(csgraph=symmetric, directed=False, return_labels=True)
+            #peak_labels = -1*np.ones(len(peaks), dtype=int)
+            #n_clusters = 0
+
+            # for component in range(n_components):
+            #     mask = labels == component
             clusterer = HDBSCAN(metric='precomputed', 
-                                metric_params={'max_distance' : np.inf},
-                                **clustering_kwargs)
-            
+                                    metric_params={'max_distance' : np.inf},
+                                    **clustering_kwargs)
+                
             clusterer.fit(symmetric)
-            peak_labels = clusterer.labels_ 
+            peak_labels[mask] = clusterer.labels_# + n_clusters
+            #     n_clusters = np.max()
         else:
             raise ValueError("GraphClustering : wrong clustering_method")
 

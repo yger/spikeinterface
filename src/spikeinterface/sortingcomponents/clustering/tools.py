@@ -196,8 +196,6 @@ def apply_waveforms_shift(waveforms, peak_shifts, inplace=False):
 
 
 def get_templates_from_clusters(recording, peaks, peak_labels, ms_before, ms_after, **job_kwargs):
-    '''
-    '''
 
     from spikeinterface.core.basesorting import minimum_spike_dtype
     from spikeinterface.core import NumpySorting
