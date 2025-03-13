@@ -91,21 +91,23 @@ def create_graph_from_peak_features(
         local_depths = peak_depths[peak_indices]
 
         target_mask = (local_depths >= l0) & (local_depths < l1)
-        target_local_inds = np.flatnonzero(target_mask)
-        target_indices = peak_indices[target_local_inds]
-        row_indices.append(target_indices)
-
-        if target_indices.size == 0:
-            continue
+        
 
         local_feats, dont_have_channels = aggregate_sparse_features(peaks, peak_indices,
                                                                  peak_features, sparse_mask, local_chans)
 
-        #if np.sum(dont_have_channels) > 0:
-        #    print("dont_have_channels", np.sum(dont_have_channels), "for n=", peak_indices.size, "bin", b0, b1)
+        target_mask *= ~dont_have_channels
+        #if np.sum(no_channels_target) > 0:
+        #    print("dont_have_channels", np.sum(no_channels_target), "for n=", peak_indices.size, "bin", b0, b1)
         
-        dont_have_channels_target = dont_have_channels[target_mask]
+        target_local_inds = np.flatnonzero(target_mask)
+        target_indices = peak_indices[target_local_inds]
+
+        if target_indices.size == 0:
+            continue
+
         flatten_feat = local_feats.reshape(local_feats.shape[0], -1)
+        row_indices.append(target_indices)
 
         if apply_local_svd:
             if isinstance(n_components, int):
