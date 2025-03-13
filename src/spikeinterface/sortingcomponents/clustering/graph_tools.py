@@ -85,7 +85,7 @@ def create_graph_from_peak_features(
         b0, b1 = l0 - bin_um, l1 + bin_um
         local_chans = np.flatnonzero((channel_locations[:, dim] >= (b0 )) & (channel_locations[:, dim] <= (b1)))
 
-        mask = (peak_depths>= b0) & (peak_depths< b1)
+        mask = (peak_depths >= b0) & (peak_depths < b1)
         peak_indices = np.flatnonzero(mask)
 
         local_depths = peak_depths[peak_indices]
@@ -101,8 +101,8 @@ def create_graph_from_peak_features(
         local_feats, dont_have_channels = aggregate_sparse_features(peaks, peak_indices,
                                                                  peak_features, sparse_mask, local_chans)
 
-        if np.sum(dont_have_channels) > 0:
-            print("dont_have_channels", np.sum(dont_have_channels), "for n=", peak_indices.size, "bin", b0, b1)
+        #if np.sum(dont_have_channels) > 0:
+        #    print("dont_have_channels", np.sum(dont_have_channels), "for n=", peak_indices.size, "bin", b0, b1)
         
         dont_have_channels_target = dont_have_channels[target_mask]
         flatten_feat = local_feats.reshape(local_feats.shape[0], -1)
