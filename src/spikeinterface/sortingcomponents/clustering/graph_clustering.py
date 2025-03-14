@@ -35,6 +35,7 @@ class GraphClustering:
                               n_components=0.8,
                               mode="knn",
                               apply_local_svd=True,
+                              enforce_diagonal_to_zero=False,
                               direction="y"),
         "extract_peaks_svd_kwargs" : dict()
     }

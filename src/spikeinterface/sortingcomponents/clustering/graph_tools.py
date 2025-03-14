@@ -92,7 +92,6 @@ def create_graph_from_peak_features(
 
         target_mask = (local_depths >= l0) & (local_depths < l1)
         
-
         local_feats, dont_have_channels = aggregate_sparse_features(peaks, peak_indices,
                                                                  peak_features, sparse_mask, local_chans)
 
