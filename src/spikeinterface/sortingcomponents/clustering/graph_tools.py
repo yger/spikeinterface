@@ -14,12 +14,12 @@ def create_graph_from_peak_features(
     sparse_mask,
     peak_locations=None,
     bin_um=20.,
-    mode="full",
+    mode="knn",
     apply_local_svd=False,
     n_components=10,
     normed_distances=False,
     direction="y",
-    n_neighbors=20,
+    n_neighbors=50,
     enforce_diagonal_to_zero=True,
     progress_bar=True,
 ):
@@ -122,7 +122,6 @@ def create_graph_from_peak_features(
                 flatten_feat = flatten_feat[:, indices]
         
         if mode == "full":
-            # t0 = time.perf_counter()
             local_dists = cdist(flatten_feat[target_mask], flatten_feat)
 
             if normed_distances:
@@ -143,9 +142,9 @@ def create_graph_from_peak_features(
                 nn_tree.fit(flatten_feat)
                 local_sparse_dist  = nn_tree.kneighbors_graph(flatten_feat[target_mask], mode='distance')
                 data = local_sparse_dist.data.astype("float32")
-                
-                if normed_distances:
-                    indptr = local_sparse_dist.indptr
+                indptr = local_sparse_dist.indptr
+
+                if normed_distances:    
                     for i in range(local_sparse_dist.shape[0]):
                         a, b = indptr[i], indptr[i+1]
                         src = flatten_feat[target_mask][i]
