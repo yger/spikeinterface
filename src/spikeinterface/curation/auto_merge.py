@@ -13,13 +13,8 @@ try:
 except ImportError:
     HAVE_NUMBA = False
 
-<<<<<<< HEAD
-from ..core import SortingAnalyzer
-from ..qualitymetrics import compute_refrac_period_violations, compute_firing_rates
-=======
 from spikeinterface.core import SortingAnalyzer
 from spikeinterface.qualitymetrics import compute_refrac_period_violations, compute_firing_rates
->>>>>>> clustering_components_api
 
 from .mergeunitssorting import MergeUnitsSorting
 from .curation_tools import resolve_merging_graph
@@ -477,22 +472,12 @@ def _auto_merge_units_single_iteration(
             if not is_mergeable:
                 if raise_error:
                     raise ValueError(
-<<<<<<< HEAD
-                        f"Units {merge_unit_group} can not be merged with the current sparsity_threshold. Merging is stopped"
-                    )
-                else:
-                    warnings.warn(
-                        f"Units {merge_unit_group} can not be merged with the current sparsity_threshold. Merging is skipped",
-                    )
-                    print(merge_unit_group, merge_unit_groups)
-=======
                         f"Units {merge_unit_group} can not be merged with the current sparsity_overlap. Merging is stopped"
                     )
                 else:
                     warnings.warn(
                         f"Units {merge_unit_group} can not be merged with the current sparsity_overlap. Merging is skipped",
                     )
->>>>>>> clustering_components_api
                     merge_unit_groups.remove(list(merge_unit_group))
 
         merged_analyzer, new_unit_ids = sorting_analyzer.merge_units(
@@ -705,11 +690,7 @@ def auto_merge_units(
     steps: list[str] | None = None,
     recursive: bool = False,
     censor_ms=None,
-<<<<<<< HEAD
-    sparsity_threshold=0.75,
-=======
     sparsity_overlap=0.75,
->>>>>>> clustering_components_api
     merging_mode="soft",
     new_id_strategy="append",
     raise_error: bool = False,
@@ -764,11 +745,7 @@ def auto_merge_units(
     with default parameters if not present (i.e. correlograms, template_similarity, ...) If you want to
     have a finer control on these values, please precompute the extensions before applying the auto_merge
 
-<<<<<<< HEAD
-    If you have errors on sparsity_threshold, this is because you are trying to perform soft_merges for units
-=======
     If you have errors on sparsity_overlap, this is because you are trying to perform soft_merges for units
->>>>>>> clustering_components_api
     that are barely overlapping. While in theory this should not happen, if this is the case, it means that either
     you are trying to perform too aggressive merges (and thus check params), and/or that you should switch to hard merges.
 
@@ -816,11 +793,7 @@ def auto_merge_units(
 
     apply_merge_kwargs = {
         "censor_ms": censor_ms,
-<<<<<<< HEAD
-        "sparsity_threshold": sparsity_threshold,
-=======
         "sparsity_overlap": sparsity_overlap,
->>>>>>> clustering_components_api
         "merging_mode": merging_mode,
         "new_id_strategy": new_id_strategy,
     }

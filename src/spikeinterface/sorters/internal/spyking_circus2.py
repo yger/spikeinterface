@@ -42,7 +42,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                         },
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
-        "clustering": {"method": "graph_clustering", 
+        "clustering": {"method": "circus", 
                        "method_kwargs" : dict()},
         "matching": {"method": "circus-omp-svd", 
                      "method_kwargs" : dict()},
@@ -322,7 +322,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             if clustering_method in ["graph_clustering", "kilosort_clustering"]:
                 _, peak_labels, templates = outputs
             else:
-                _, templates = outputs
+                _, peak_labels = outputs
                 templates = get_templates_from_clusters(recording_w, selected_peaks, peak_labels, ms_before, ms_after)
 
             sparsity = compute_sparsity(templates, noise_levels, **sparsity_kwargs)
