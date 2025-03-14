@@ -48,7 +48,7 @@ class FeaturesLoader:
             return FeaturesLoader(features_dict_or_folder)
 
 
-def aggregate_sparse_features(peaks, peak_indices, sparse_feature, sparse_mask, target_channels):
+def aggregate_sparse_features(peaks, peak_indices, sparse_feature, sparse_mask, target_channels, complete_only=True):
     """
     Aggregate sparse features that have unaligned channels and realigned then on target_channels.
 
@@ -90,8 +90,9 @@ def aggregate_sparse_features(peaks, peak_indices, sparse_feature, sparse_mask, 
             source_chans = np.flatnonzero(np.in1d(sparse_chans, target_channels))
             aligned_features[peak_inds, :, :] = sparse_feature[peak_indices[peak_inds], :, :][:, :, source_chans]
         else:
-            # some channel are missing, peak are not removde
-            dont_have_channels[peak_inds] = True
+            # some channel are missing, peak are not removed
+            if complete_only:
+                dont_have_channels[peak_inds] = True
 
     return aligned_features, dont_have_channels
 
@@ -192,3 +193,44 @@ def apply_waveforms_shift(waveforms, peak_shifts, inplace=False):
             aligned_waveforms[mask, -shift:, :] = wfs[:, :-shift, :]
 
     return aligned_waveforms
+
+
+def get_templates_from_clusters(recording, peaks, peak_labels, ms_before, ms_after, **job_kwargs):
+
+    from spikeinterface.core.basesorting import minimum_spike_dtype
+    from spikeinterface.core import NumpySorting
+    from spikeinterface.core.template import Templates
+    from spikeinterface.core.waveform_tools import estimate_templates
+
+    mask = peak_labels > -1
+    labels = np.unique(peak_labels[mask])
+
+    fs = recording.get_sampling_frequency()
+    nbefore = int(ms_before * fs / 1000.0)
+    nafter = int(ms_after * fs / 1000.0)
+
+    labeled_peaks = np.zeros(np.sum(mask), dtype=minimum_spike_dtype)
+    labeled_peaks["sample_index"] = peaks[mask]["sample_index"]
+    labeled_peaks["segment_index"] = peaks[mask]["segment_index"]
+    for count, l in enumerate(labels):
+        sub_mask = peak_labels[mask] == l
+        labeled_peaks["unit_index"][sub_mask] = count
+    
+    unit_ids = np.arange(len(np.unique(labeled_peaks["unit_index"])))
+
+    templates_array = estimate_templates(
+        recording, labeled_peaks, unit_ids, nbefore, nafter, return_scaled=False, job_name=None, **job_kwargs
+    )
+
+    templates = Templates(
+        templates_array=templates_array,
+        sampling_frequency=fs,
+        nbefore=nbefore,
+        sparsity_mask=None,
+        channel_ids=recording.channel_ids,
+        unit_ids=unit_ids,
+        probe=recording.get_probe(),
+        is_scaled=False,
+    )
+
+    return templates

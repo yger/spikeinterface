@@ -211,8 +211,7 @@ class LocalFeatureClustering:
         min_size_split=25,
         n_pca_features=2,
         minimum_overlap_ratio=0.25,
-        projection_mode="tsvd",
-        percentile_variance_explained=None,
+        projection_mode="pca",
     ):
         local_labels = np.zeros(peak_indices.size, dtype=np.int64)
 
@@ -248,7 +247,8 @@ class LocalFeatureClustering:
 
         is_split = False
 
-        if percentile_variance_explained is not None:
+        if isinstance(n_pca_features, float):
+            assert 0 < n_pca_features < 1, "n_components should be in ]0, 1["
             nb_dimensions = min(flatten_features.shape[0], flatten_features.shape[1])
             if projection_mode == "pca":
                 from sklearn.decomposition import PCA
@@ -260,11 +260,11 @@ class LocalFeatureClustering:
                 tsvd = TruncatedSVD(nb_dimensions)
 
             final_features = tsvd.fit_transform(flatten_features)
-            thr = np.percentile(tsvd.explained_variance_ratio_, percentile_variance_explained)
+            thr = np.percentile(tsvd.explained_variance_ratio_, 100*n_pca_features)
             indices = tsvd.explained_variance_ratio_ > thr
             final_features = final_features[:, indices]
             n_pca_features = final_features.shape[1]
-        else:
+        elif isinstance(n_pca_features, int):
             if flatten_features.shape[1] > n_pca_features:
                 if projection_mode == "pca":
                     from sklearn.decomposition import PCA
@@ -282,7 +282,6 @@ class LocalFeatureClustering:
 
         if clusterer == "hdbscan":
             from hdbscan import HDBSCAN
-
             clust = HDBSCAN(**clusterer_kwargs, core_dist_n_jobs=1)
             clust.fit(final_features)
             possible_labels = clust.labels_
