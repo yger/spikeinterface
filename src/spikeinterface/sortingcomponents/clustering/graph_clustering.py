@@ -16,6 +16,17 @@ class GraphClustering:
     Then a classic algorithm like louvain or hdbscan is used.
     """
 
+    # _default_params = {
+    #     "radius_um": 180.,
+    #     "bin_um": 60.,
+    #     "motion": None,
+    #     "seed": None,
+    #     "n_neighbors": 15,
+    #     # "clustering_method": "leidenalg",
+    #     "clustering_method": "sknetwork-leiden",
+    # }
+
+
     _default_params = {
         "radius_um": 100.,
         "bin_um": 30.,
@@ -31,20 +42,24 @@ class GraphClustering:
                                    allow_single_cluster=True),
         "peak_locations" : None,
         "graph_kwargs" : dict(normed_distances=True,
-                              n_neighbors=50,
-                              n_components=0.8,
-                              mode="knn",
+                              n_neighbors=30,
+                              n_components=10,
+                              bin_mode="channels",
+                              sparse_mode="knn",
+                              neighbors_radius_um=30,
                               apply_local_svd=True,
-                              enforce_diagonal_to_zero=True,
                               direction="y"),
-        "extract_peaks_svd_kwargs" : dict()
+        "extract_peaks_svd_kwargs" : dict(n_components=3)
     }
+
+
+
 
     @classmethod
     def main_function(cls, recording, peaks, params, job_kwargs=dict()):
 
         radius_um = params["radius_um"]
-        bin_um = params["bin_um"]
+        # bin_um = params["bin_um"]
         motion = params["motion"]
         seed = params["seed"]
         ms_before = params["ms_before"]
@@ -53,14 +68,19 @@ class GraphClustering:
         clustering_method = params["clustering_method"]
         clustering_kwargs = params["clustering_kwargs"]
         extract_peaks_svd_kwargs = params["extract_peaks_svd_kwargs"]
+        graph_kwargs = params["graph_kwargs"]
 
         motion_aware = motion is not None
 
-        assert radius_um >= bin_um * 3
+
+        if graph_kwargs["bin_mode"] == "channels":
+            assert radius_um >= graph_kwargs["neighbors_radius_um"] * 2
+        elif graph_kwargs["bin_mode"] == "vertical_bins":
+            assert radius_um >= graph_kwargs["bin_um"] * 3
+
 
         peaks_svd, sparse_mask, svd_model = extract_peaks_svd(
-            recording, 
-            peaks,
+            recording, peaks,
             radius_um=radius_um,
             ms_before=ms_before,
             ms_after=ms_after,
@@ -70,12 +90,21 @@ class GraphClustering:
             **job_kwargs
         )
 
-        if peak_locations is None:
-            channel_locations = recording.get_channel_locations()
-            channel_depth = channel_locations[:, 1]
-            peak_depths = channel_depth[peaks["channel_index"]]
-        else:
-            peak_depths = peak_locations[:, 1]
+
+
+        channel_locations = recording.get_channel_locations()
+        channel_depth = channel_locations[:, 1]
+        peak_depths = channel_depth[peaks["channel_index"]]
+
+        # order peaks by depth
+        order = np.argsort(peak_depths)
+        ordered_peaks = peaks[order]
+        ordered_peaks_svd = peaks_svd[order]
+
+        # TODO : try to use real peak location
+        
+        # some method need a symetric matrix
+        ensure_symetric = clustering_method in ("hdbscan", )
 
         distances = create_graph_from_peak_features(
             recording,
@@ -83,19 +112,27 @@ class GraphClustering:
             peaks_svd,
             sparse_mask,
             peak_locations=None,
-            bin_um=bin_um,
-            **params["graph_kwargs"],
+            # bin_um=bin_um,
+            ensure_symetric=ensure_symetric,
+            **graph_kwargs
         )
-        
-        #print("clustering_method", clustering_method)
+
+        # print(distances)
+        # print(distances.shape)
+        # print("sparsity: ", distances.indices.size / (distances.shape[0]**2))        
+
+
+        print("clustering_method", clustering_method)
 
         if clustering_method == "networkx-louvain":
             # using networkx : very slow (possible backend with cude  backend="cugraph",)
             import networkx as nx
-            distances.data[:] = 1
-            G = nx.Graph(distances)
-            communities = nx.community.louvain_communities(G, seed=seed, **clustering_kwargs)
-            peak_labels = np.zeros(peaks.size, dtype=int)
+
+            distances_bool = distances.copy()
+            distances_bool.data[:] = 1
+            G = nx.Graph(distances_bool)
+            communities = nx.community.louvain_communities(G, seed=seed)
+            peak_labels = np.zeros(ordered_peaks.size, dtype=int)
             peak_labels[:] = -1
             k = 0
             for community in communities:
@@ -106,22 +143,26 @@ class GraphClustering:
         
         elif clustering_method == "sknetwork-louvain":
             from sknetwork.clustering import Louvain
-            distances.data[:] = 1
-            classifier = Louvain(**clustering_kwargs)
-            peak_labels = classifier.fit_predict(distances)
+            classifier = Louvain()
+            distances_bool = distances.copy()
+            distances_bool.data[:] = 1
+            peak_labels = classifier.fit_predict(distances_bool)
             _remove_small_cluster(peak_labels, min_size=1)
 
         elif clustering_method == "sknetwork-leiden":
             from sknetwork.clustering import Leiden
-            distances.data[:] = 1
-            classifier = Leiden(**clustering_kwargs)
-            peak_labels = classifier.fit_predict(distances)
+            classifier = Leiden()
+            distances_bool = distances.copy()
+            distances_bool.data[:] = 1
+            peak_labels = classifier.fit_predict(distances_bool)
             _remove_small_cluster(peak_labels, min_size=1)
 
         elif clustering_method == "leidenalg":
             import leidenalg
             import igraph
-            graph = igraph.Graph.Weighted_Adjacency(distances_bool.tocoo(), mode='directed',)
+            adjacency = distances.copy()
+            adjacency.data = 1. - adjacency.data  
+            graph = igraph.Graph.Weighted_Adjacency(adjacency.tocoo(), mode='directed',)
             clusters = leidenalg.find_partition(graph, leidenalg.ModularityVertexPartition)
             peak_labels = np.array(clusters.membership)
             _remove_small_cluster(peak_labels, min_size=1)
@@ -134,9 +175,8 @@ class GraphClustering:
             _remove_small_cluster(peak_labels, min_size=1)
         elif clustering_method == "hdbscan":
             from sklearn.cluster import HDBSCAN
-            symmetric = distances.maximum(distances.T)
             from scipy.sparse.csgraph import connected_components
-            n_components, labels = connected_components(csgraph=symmetric, 
+            n_components, labels = connected_components(csgraph=distances, 
                                                         directed=False, 
                                                         return_labels=True)
             peak_labels = -1*np.ones(len(peaks), dtype=int)
@@ -148,7 +188,7 @@ class GraphClustering:
                                     metric_params={'max_distance' : np.inf},
                                     **clustering_kwargs)
                 
-                clusterer.fit(symmetric[connected_nodes].tocsc()[:, connected_nodes])
+                clusterer.fit(distances[connected_nodes].tocsc()[:, connected_nodes])
                 valid_clusters = np.flatnonzero(clusterer.labels_ > -1)
                 peak_labels[connected_nodes[valid_clusters]] = clusterer.labels_[valid_clusters] + n_clusters
                 n_clusters = np.max(clusterer.labels_[valid_clusters]) + 1
