@@ -16,17 +16,6 @@ class GraphClustering:
     Then a classic algorithm like louvain or hdbscan is used.
     """
 
-    # _default_params = {
-    #     "radius_um": 180.,
-    #     "bin_um": 60.,
-    #     "motion": None,
-    #     "seed": None,
-    #     "n_neighbors": 15,
-    #     # "clustering_method": "leidenalg",
-    #     "clustering_method": "sknetwork-leiden",
-    # }
-
-
     _default_params = {
         "radius_um": 100.,
         "bin_um": 30.,
@@ -37,23 +26,20 @@ class GraphClustering:
         "clustering_method": "hdbscan",
         "clustering_kwargs" : dict(min_samples=1,
                                    n_jobs=-1,
-                                   min_cluster_size=200,
-                                   cluster_selection_method='leaf',
+                                   min_cluster_size=30,
+                                   cluster_selection_method='eom',
                                    allow_single_cluster=True),
         "peak_locations" : None,
         "graph_kwargs" : dict(normed_distances=True,
-                              n_neighbors=30,
+                              n_neighbors=3*30,
                               n_components=10,
                               bin_mode="channels",
                               sparse_mode="knn",
                               neighbors_radius_um=30,
                               apply_local_svd=True,
-                              direction="xy"),
+                              direction="y"),
         "extract_peaks_svd_kwargs" : dict(n_components=3)
     }
-
-
-
 
     @classmethod
     def main_function(cls, recording, peaks, params, job_kwargs=dict()):
@@ -72,12 +58,10 @@ class GraphClustering:
 
         motion_aware = motion is not None
 
-
         if graph_kwargs["bin_mode"] == "channels":
             assert radius_um >= graph_kwargs["neighbors_radius_um"] * 2
         elif graph_kwargs["bin_mode"] == "vertical_bins":
             assert radius_um >= graph_kwargs["bin_um"] * 3
-
 
         peaks_svd, sparse_mask, svd_model = extract_peaks_svd(
             recording, peaks,
@@ -90,16 +74,10 @@ class GraphClustering:
             **job_kwargs
         )
 
-
-
         channel_locations = recording.get_channel_locations()
         channel_depth = channel_locations[:, 1]
         peak_depths = channel_depth[peaks["channel_index"]]
 
-        # order peaks by depth
-        order = np.argsort(peak_depths)
-        ordered_peaks = peaks[order]
-        ordered_peaks_svd = peaks_svd[order]
 
         # TODO : try to use real peak location
         
@@ -132,7 +110,7 @@ class GraphClustering:
             distances_bool.data[:] = 1
             G = nx.Graph(distances_bool)
             communities = nx.community.louvain_communities(G, seed=seed)
-            peak_labels = np.zeros(ordered_peaks.size, dtype=int)
+            peak_labels = np.zeros(peaks.size, dtype=int)
             peak_labels[:] = -1
             k = 0
             for community in communities:

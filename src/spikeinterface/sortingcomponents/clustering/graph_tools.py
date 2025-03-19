@@ -56,7 +56,7 @@ def create_graph_from_peak_features(
     if apply_local_svd:
         from sklearn.decomposition import TruncatedSVD    
 
-    
+    print(len(peaks))
 
     if bin_mode == "channels":
         
@@ -149,7 +149,6 @@ def create_graph_from_peak_features(
                 n_components = min(n_components, flatten_feat.shape[1])
                 tsvd = TruncatedSVD(n_components)
                 flatten_feat = tsvd.fit_transform(flatten_feat)
-
                 n_components = min(n_components, flatten_feat.shape[1])
                 tsvd = TruncatedSVD(n_components)
                 flatten_feat = tsvd.fit_transform(flatten_feat)
@@ -190,7 +189,7 @@ def create_graph_from_peak_features(
                         tgt = flatten_feat[local_sparse_dist.indices[a:b]]
                         norm = (np.linalg.norm(src) + np.linalg.norm(tgt, axis=1))
                         data[a:b] /= norm
-                data = np.nan_to_num(data)
+
                 indices = neighbors_indices[local_sparse_dist.indices]
                 local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size))
 
@@ -209,13 +208,13 @@ def create_graph_from_peak_features(
         if sparse_mode == "knn":
             distances = scipy.sparse.csr_matrix(distances)
 
-        if enforce_diagonal_to_zero:
-            ind0, ind1 = distances.tocoo().coords
-            distances.data[ind0 == ind1] = 0.
-
     else:
         distances = scipy.sparse.csr_matrix((peaks.size, peaks.size), dtype="float32")
     
+    if enforce_diagonal_to_zero:
+        ind0, ind1 = distances.tocoo().coords
+        distances.data[ind0 == ind1] = 0.
+
     if ensure_symetric:
         # because of the way the graph is done the distance matrix could be not symetric
         # this trick force the symetry
