@@ -37,7 +37,7 @@ class GraphClustering:
         "clustering_method": "hdbscan",
         "clustering_kwargs" : dict(min_samples=1,
                                    n_jobs=-1,
-                                   min_cluster_size=2*128,
+                                   min_cluster_size=200,
                                    cluster_selection_method='leaf',
                                    allow_single_cluster=True),
         "peak_locations" : None,
@@ -48,7 +48,7 @@ class GraphClustering:
                               sparse_mode="knn",
                               neighbors_radius_um=30,
                               apply_local_svd=True,
-                              direction="y"),
+                              direction="xy"),
         "extract_peaks_svd_kwargs" : dict(n_components=3)
     }
 

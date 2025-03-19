@@ -145,7 +145,6 @@ def create_graph_from_peak_features(
         flatten_feat = local_feats.reshape(local_feats.shape[0], -1)
 
         if apply_local_svd:
-            full_flatten_feat = flatten_feat.copy()
             if isinstance(n_components, int):
                 n_components = min(n_components, flatten_feat.shape[1])
                 tsvd = TruncatedSVD(n_components)
@@ -180,8 +179,8 @@ def create_graph_from_peak_features(
                 local_graph = scipy.sparse.csr_matrix((target_indices.size, peaks.size), dtype=np.float32)
             else:
                 nn_tree = NearestNeighbors(n_neighbors=min(n_neighbors, target_local_inds.size))
-                nn_tree.fit(full_flatten_feat)
-                local_sparse_dist = nn_tree.kneighbors_graph(full_flatten_feat[target_local_inds], mode='distance')
+                nn_tree.fit(flatten_feat)
+                local_sparse_dist = nn_tree.kneighbors_graph(flatten_feat[target_local_inds], mode='distance')
                 data = local_sparse_dist.data.astype("float32")
                 indptr = local_sparse_dist.indptr
                 if normed_distances:
