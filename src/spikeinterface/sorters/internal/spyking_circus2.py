@@ -239,31 +239,29 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 )
             detection_method = "locally_exclusive"
         
-        from spikeinterface.sortingcomponents.peak_localization import LocalizeGridConvolution
-        from spikeinterface.core.node_pipeline import ExtractDenseWaveforms
-
-        extra_node_1 = ExtractDenseWaveforms(
-            recording_w,
-            return_output=False,
-            ms_before=ms_before,
-            ms_after=ms_after,
-        )
-            
-        extra_node_2 = LocalizeGridConvolution(recording_w,
-            return_output=True,
-            parents = [extra_node_1],
-            prototype=prototype,
-            peak_sign=peak_sign
-        )
-
-        detection_params["pipeline_nodes"] = [extra_node_1, extra_node_2]
-        results = detect_peaks(recording_w, detection_method, **detection_params, **job_kwargs)
-        peaks = results[0]
-        positions = results[1]
+        # from spikeinterface.sortingcomponents.peak_localization import LocalizeGridConvolution
+        # from spikeinterface.core.node_pipeline import ExtractDenseWaveforms
+        # extra_node_1 = ExtractDenseWaveforms(
+        #     recording_w,
+        #     return_output=False,
+        #     ms_before=ms_before,
+        #     ms_after=ms_after,
+        # )
+        # extra_node_2 = LocalizeGridConvolution(recording_w,
+        #     return_output=True,
+        #     parents = [extra_node_1],
+        #     prototype=prototype,
+        #     peak_sign=peak_sign
+        # )
+        #detection_params["pipeline_nodes"] = [extra_node_1, extra_node_2]
+        
+        peaks = detect_peaks(recording_w, detection_method, **detection_params, **job_kwargs)
+        #peaks = results[0]
+        #positions = results[1]
 
         if debug:
             np.save(clustering_folder / "peaks.npy", peaks)
-            np.save(clustering_folder / "peaks_locations.npy", positions)
+            #np.save(clustering_folder / "peaks_locations.npy", positions)
 
         if not skip_peaks and verbose:
             print("Found %d peaks in total" % len(peaks))
@@ -278,7 +276,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             ## We subselect a subset of all the peaks, by making the distributions os SNRs over all
             ## channels as flat as possible
             selected_peaks, peak_indices = select_peaks(peaks, return_indices=True, seed=seed, method=selection_method, **selection_params)
-            selected_positions = positions[peak_indices]
+            #selected_positions = positions[peak_indices]
 
             if verbose:
                 print("Kept %d peaks for clustering" % len(selected_peaks))
@@ -291,7 +289,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             if clustering_method == "circus":
                 clustering_params["waveforms"] = {}
                 clustering_params["sparsity"] = sparsity_kwargs
-                clustering_params["peak_locations"] = selected_positions
                 clustering_params["radius_um"] = radius_um
                 clustering_params["waveforms"]["ms_before"] = ms_before
                 clustering_params["waveforms"]["ms_after"] = ms_after
@@ -330,7 +327,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             
             if debug:
                 templates.to_zarr(folder_path=clustering_folder / "templates")
-                sorting = sorting.save(folder=clustering_folder / "sorting")
 
             ## We launch a OMP matching pursuit by full convolution of the templates and the raw traces
             matching_method = params["matching"].get("method", "circus-omp_svd")

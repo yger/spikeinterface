@@ -52,7 +52,6 @@ class CircusClustering:
                          "n_pca_features": 0.9},
         "radius_um": 100,
         "n_svd": 5,
-        "peak_locations": None,
         "few_waveforms": None,
         "ms_before": 0.5,
         "ms_after": 0.5,
