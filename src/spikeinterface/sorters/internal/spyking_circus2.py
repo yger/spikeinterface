@@ -301,14 +301,14 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 clustering_params["debug"] = debug
                 clustering_params["noise_threshold"] = detection_params.get("detect_threshold", 4)
             elif clustering_method == "graph_clustering":
-                min_cluster_size = int(len(peaks)/recording.get_num_channels())
                 clustering_params = {"ms_before" : ms_before,
                                      "ms_after" : ms_after, 
                                      "clustering_method": "hdbscan",
                                      "radius_um" : radius_um,
                                      "clustering_kwargs" : dict(min_samples=1,
                                                                n_jobs=-1,
-                                                               min_cluster_size=min_cluster_size,
+                                                               min_cluster_size=50,
+                                                               cluster_selection_method='leaf',
                                                                allow_single_cluster=True)
                 }
 
@@ -319,9 +319,15 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             if clustering_method in ["graph_clustering", "kilosort_clustering"]:
                 _, peak_labels, templates = outputs
             else:
+<<<<<<< Updated upstream
                 _, templates = outputs
                 templates = get_templates_from_clusters(recording_w, selected_peaks, peak_labels, ms_before, ms_after)
 
+=======
+                _, peak_labels = outputs
+            
+            templates = get_templates_from_clusters(recording_w, selected_peaks, peak_labels, ms_before, ms_after)
+>>>>>>> Stashed changes
             sparsity = compute_sparsity(templates, noise_levels, **sparsity_kwargs)
             templates = templates.to_sparse(sparsity)
             

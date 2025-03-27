@@ -25,20 +25,20 @@ class GraphClustering:
         "seed": None,
         "clustering_method": "hdbscan",
         "clustering_kwargs" : dict(min_samples=1,
+                                   min_cluster_size=50,
                                    n_jobs=-1,
-                                   min_cluster_size=30,
-                                   cluster_selection_method='eom',
+                                   cluster_selection_method='leaf',
                                    allow_single_cluster=True),
         "peak_locations" : None,
         "graph_kwargs" : dict(normed_distances=True,
-                              n_neighbors=3*30,
+                              n_neighbors=50,
                               n_components=10,
                               bin_mode="channels",
                               sparse_mode="knn",
-                              neighbors_radius_um=30,
+                              neighbors_radius_um=50,
                               apply_local_svd=True,
                               direction="y"),
-        "extract_peaks_svd_kwargs" : dict(n_components=3)
+        "extract_peaks_svd_kwargs" : dict(n_components=5)
     }
 
     @classmethod
@@ -94,6 +94,9 @@ class GraphClustering:
             ensure_symetric=ensure_symetric,
             **graph_kwargs
         )
+
+        #import scipy.sparse
+        #scipy.sparse.save_npz("distances.npz", distances)
 
         # print(distances)
         # print(distances.shape)
@@ -162,14 +165,16 @@ class GraphClustering:
 
             for component in range(n_components):
                 connected_nodes = np.flatnonzero(labels == component)
-                clusterer = HDBSCAN(metric='precomputed', 
-                                    metric_params={'max_distance' : np.inf},
-                                    **clustering_kwargs)
-                
-                clusterer.fit(distances[connected_nodes].tocsc()[:, connected_nodes])
-                valid_clusters = np.flatnonzero(clusterer.labels_ > -1)
-                peak_labels[connected_nodes[valid_clusters]] = clusterer.labels_[valid_clusters] + n_clusters
-                n_clusters = np.max(clusterer.labels_[valid_clusters]) + 1
+                if len(connected_nodes) > 1:
+                    sub_distances = distances[connected_nodes].tocsc()[:, connected_nodes]
+                    clusterer = HDBSCAN(metric='precomputed',
+                                        **clustering_kwargs, 
+                                        cluster_selection_epsilon=0.1)
+                    clusterer.fit(sub_distances)
+                    valid_clusters = np.flatnonzero(clusterer.labels_ > -1)
+                    if valid_clusters.size > 0:
+                        peak_labels[connected_nodes[valid_clusters]] = clusterer.labels_[valid_clusters] + n_clusters
+                        n_clusters = np.max(clusterer.labels_[valid_clusters]) + 1
         else:
             raise ValueError("GraphClustering : wrong clustering_method")
 
