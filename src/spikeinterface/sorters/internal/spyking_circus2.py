@@ -316,18 +316,12 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 recording_w, selected_peaks, method=clustering_method, method_kwargs=clustering_params, extra_outputs=True, **job_kwargs
             )
 
-            if clustering_method in ["graph_clustering", "kilosort_clustering"]:
+            if clustering_method in ["kilosort_clustering"]:
                 _, peak_labels, templates = outputs
             else:
-<<<<<<< Updated upstream
-                _, templates = outputs
+                _, peak_labels = outputs
                 templates = get_templates_from_clusters(recording_w, selected_peaks, peak_labels, ms_before, ms_after)
 
-=======
-                _, peak_labels = outputs
-            
-            templates = get_templates_from_clusters(recording_w, selected_peaks, peak_labels, ms_before, ms_after)
->>>>>>> Stashed changes
             sparsity = compute_sparsity(templates, noise_levels, **sparsity_kwargs)
             templates = templates.to_sparse(sparsity)
             
