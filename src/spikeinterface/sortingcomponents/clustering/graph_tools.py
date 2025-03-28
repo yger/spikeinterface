@@ -13,7 +13,7 @@ def create_graph_from_peak_features(
     peak_features,
     sparse_mask,
     peak_locations=None,
-    bin_mode="channel",
+    bin_mode="channels",
     neighbors_radius_um=60.,
     # bin_mode="vertical_bins",
     bin_um=20.,
@@ -55,8 +55,6 @@ def create_graph_from_peak_features(
         from sklearn.neighbors import NearestNeighbors
     if apply_local_svd:
         from sklearn.decomposition import TruncatedSVD    
-
-    print(len(peaks))
 
     if bin_mode == "channels":
         
@@ -137,18 +135,12 @@ def create_graph_from_peak_features(
         
         local_feats, dont_have_channels = aggregate_sparse_features(peaks, neighbors_indices,
                                                                  peak_features, sparse_mask, local_chans)
-        
-        if np.sum(dont_have_channels) > 0:
-            print("dont_have_channels", np.sum(dont_have_channels), "for n=", neighbors_indices.size, "bin", b0, b1)
-        # dont_have_channels_target = dont_have_channels[target_local_inds]
+        #dont_have_channels_target = dont_have_channels[target_local_inds]
 
         flatten_feat = local_feats.reshape(local_feats.shape[0], -1)
 
         if apply_local_svd:
             if isinstance(n_components, int):
-                n_components = min(n_components, flatten_feat.shape[1])
-                tsvd = TruncatedSVD(n_components)
-                flatten_feat = tsvd.fit_transform(flatten_feat)
                 n_components = min(n_components, flatten_feat.shape[1])
                 tsvd = TruncatedSVD(n_components)
                 flatten_feat = tsvd.fit_transform(flatten_feat)
