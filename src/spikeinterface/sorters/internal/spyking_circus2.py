@@ -26,7 +26,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
     _default_params = {
         "general": {"ms_before": 2, "ms_after": 2, "radius_um": 100},
-        "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 1},
+        "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0},
         "filtering": {"freq_min": 150, "freq_max": 7000, "ftype": "bessel", "filter_order": 2, "margin_ms": 10},
         "whitening": {"mode": "local", "regularize": True},
         "detection": {"method" : "matched_filtering", 
@@ -309,14 +309,15 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                                                                n_jobs=-1,
                                                                min_cluster_size=50,
                                                                cluster_selection_method='leaf',
-                                                               allow_single_cluster=True)
+                                                               allow_single_cluster=True,
+                                                               cluster_selection_epsilon=0.1)
                 }
 
             outputs = find_cluster_from_peaks(
                 recording_w, selected_peaks, method=clustering_method, method_kwargs=clustering_params, extra_outputs=True, **job_kwargs
             )
 
-            if clustering_method in ["kilosort_clustering"]:
+            if clustering_method in ["kilosort_clustering", "graph_clustering"]:
                 _, peak_labels, templates = outputs
             else:
                 _, peak_labels = outputs

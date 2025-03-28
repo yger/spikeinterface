@@ -144,9 +144,6 @@ def create_graph_from_peak_features(
                 n_components = min(n_components, flatten_feat.shape[1])
                 tsvd = TruncatedSVD(n_components)
                 flatten_feat = tsvd.fit_transform(flatten_feat)
-                n_components = min(n_components, flatten_feat.shape[1])
-                tsvd = TruncatedSVD(n_components)
-                flatten_feat = tsvd.fit_transform(flatten_feat)
             elif isinstance(n_components, float):
                 assert 0 < n_components < 1, "n_components should be in ]0, 1["
                 tsvd = TruncatedSVD(flatten_feat.shape[1])
