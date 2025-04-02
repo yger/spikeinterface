@@ -28,6 +28,7 @@ class GraphClustering:
                                    min_cluster_size=50,
                                    n_jobs=-1,
                                    cluster_selection_method='leaf',
+                                   cluster_selection_epsilon=0.1,
                                    allow_single_cluster=True),
         "peak_locations" : None,
         "graph_kwargs" : dict(normed_distances=True,
