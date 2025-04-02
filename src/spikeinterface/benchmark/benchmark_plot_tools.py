@@ -401,6 +401,8 @@ def plot_performances_vs_snr(
 
     if axs is None:
         fig, axs = plt.subplots(ncols=ncols, nrows=nrows, figsize=figsize, squeeze=True)
+        if ncols == 1 and nrows == 1:
+            axs = [axs]
     else:
         assert len(axs) == len(performance_names), "axs should have the same number of axes as performance_names"
         fig = axs[0].get_figure()
@@ -408,7 +410,7 @@ def plot_performances_vs_snr(
     for count, performance_name in enumerate(performance_names):
 
         ax = axs[count]
-        case_keys, labels = study.get_grouped_keys_mapping(levels_to_group_by=levels_to_keep)
+        case_keys, labels = study.get_grouped_keys_mapping(case_keys, levels_to_group_by=levels_to_keep)
         colors = study.get_colors(levels_to_group_by=levels_to_keep)
         assert all([key in colors for key in case_keys]), f"colors must have a color for each case key: {case_keys}"
 
@@ -661,9 +663,10 @@ def plot_performances_comparison(
                         comp2 = study.get_result(sub_key2)["gt_comparison"]
 
                         for performance_name, color in performance_colors.items():
-                            perf1 = comp1.get_performance()[performance_name]
-                            perf2 = comp2.get_performance()[performance_name]
-                            ax.scatter(perf2, perf1, marker=".", label=performance_name, color=color)
+                            if performance_name in performance_names:
+                                perf1 = comp1.get_performance()[performance_name]
+                                perf2 = comp2.get_performance()[performance_name]
+                                ax.scatter(perf2, perf1, marker=".", label=performance_name, color=color)
 
                 ax.plot([0, 1], [0, 1], "k--", alpha=0.5)
                 ax.set_ylim(ylim)

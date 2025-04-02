@@ -317,12 +317,14 @@ class BenchmarkStudy:
             df.index.names = self.levels
         return df
 
-    def get_grouped_keys_mapping(self, levels_to_group_by=None):
+    def get_grouped_keys_mapping(self, cases=None, levels_to_group_by=None):
         """
         Return a dictionary of grouped keys.
 
         Parameters
         ----------
+        cases : list | None
+            A list of cases to group by. If None, all cases are used.
         levels_to_group_by : list
             A list of levels to group by.
 
@@ -334,7 +336,8 @@ class BenchmarkStudy:
         labels : dict
             A dictionary of labels, with the new keys as keys and the labels as values.
         """
-        cases = list(self.cases.keys())
+        if cases is None:
+            cases = list(self.cases.keys())
         if levels_to_group_by is None or self.levels is None:
             keys_mapping = {key: [key] for key in cases}
         elif len(self.levels) == 1:
