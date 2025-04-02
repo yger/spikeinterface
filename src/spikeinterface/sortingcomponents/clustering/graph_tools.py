@@ -13,18 +13,17 @@ def create_graph_from_peak_features(
     peak_features,
     sparse_mask,
     peak_locations=None,
-    bin_mode="channel",
+    bin_mode="channels",
     neighbors_radius_um=60.,
     # bin_mode="vertical_bins",
     bin_um=20.,
-    direction="y",
     # sparse_mode="connected_to_all_neighbors",
     sparse_mode="knn",
     apply_local_svd=False,
     n_components=10,
     normed_distances=False,
-    
     n_neighbors=20,
+    direction="y",
     ensure_symetric=False,
     enforce_diagonal_to_zero=True,
     progress_bar=True,
@@ -38,8 +37,9 @@ def create_graph_from_peak_features(
     So the original features sparsity must be big enougth to cover local channel (actual bin+neighbour).
 
     2 possible modes:
-      * "full_connected_bin" : compute the distances from all peaks in a bin to all peaks in the same bin + neighbour
+      * "full" : compute the distances from all peaks in a bin to all peaks in the same bin + neighbour
       * "knn" : keep the k neareast neighbour for each peaks in bin + neighbour
+      * "radius" : keep the spikes in bin that are within a given radius in um
     
     Important, peak_locations can be:
       * the peak location from the channel (fast)
@@ -56,24 +56,24 @@ def create_graph_from_peak_features(
     if apply_local_svd:
         from sklearn.decomposition import TruncatedSVD    
 
-
-    channel_locations = recording.get_channel_locations()
-    channel_distances = np.linalg.norm(channel_locations[:, np.newaxis] - channel_locations[np.newaxis, :], axis=2)
-
     if bin_mode == "channels":
         
+        dims = ["xyz".index(i) for i in direction]
+        channel_locations = recording.get_channel_locations()[:, dims]
+        channel_distances = np.linalg.norm(channel_locations[:, np.newaxis] - channel_locations[np.newaxis, :], axis=2)
+
         loop = []
         for channel_ind in range(channel_locations.shape[0]):
-            local_chans = np.flatnonzero(channel_distances[channel_ind, :]<=neighbors_radius_um)
+            local_chans = np.flatnonzero(channel_distances[channel_ind, :] <= neighbors_radius_um)
             neighbors_indices = np.flatnonzero(np.isin(peaks["channel_index"], local_chans))
             target_local_inds = np.flatnonzero(peaks["channel_index"][neighbors_indices] == channel_ind)
-            # print(local_chans, neighbors_indices.size, target_local_inds.size)
             loop.append((local_chans, neighbors_indices, target_local_inds))
 
     
     elif bin_mode == "vertical_bins":
 
         dim = "xyz".index(direction)
+        channel_locations = recording.get_channel_locations()
         channel_depth = channel_locations[:, dim]
 
         if peak_locations is None:
@@ -130,35 +130,17 @@ def create_graph_from_peak_features(
         target_indices = neighbors_indices[target_local_inds]
         row_indices.append(target_indices)
 
-        # print()
-        # print(target_indices.size, neighbors_indices.size)
-
-        # print(local_chans, sparse_mask.shape, peak_features.shape)
-
-        # print(local_chans)
         if target_indices.size == 0:
             continue
         
-        # import time
-        # t0 = time.perf_counter()
         local_feats, dont_have_channels = aggregate_sparse_features(peaks, neighbors_indices,
                                                                  peak_features, sparse_mask, local_chans)
-        # t1 = time.perf_counter()
-        # print("aggregate", t1-t0)
-        # print(b)
-        if np.sum(dont_have_channels) > 0:
-            print("dont_have_channels", np.sum(dont_have_channels), "for n=", neighbors_indices.size, "bin", b0, b1)
-        # dont_have_channels_target = dont_have_channels[target_local_inds]
+        #dont_have_channels_target = dont_have_channels[target_local_inds]
 
         flatten_feat = local_feats.reshape(local_feats.shape[0], -1)
 
-
         if apply_local_svd:
             if isinstance(n_components, int):
-                n_components = min(n_components, flatten_feat.shape[1])
-                tsvd = TruncatedSVD(n_components)
-                flatten_feat = tsvd.fit_transform(flatten_feat)
-
                 n_components = min(n_components, flatten_feat.shape[1])
                 tsvd = TruncatedSVD(n_components)
                 flatten_feat = tsvd.fit_transform(flatten_feat)
@@ -183,33 +165,25 @@ def create_graph_from_peak_features(
             local_graphs.append(local_graph)
 
         elif sparse_mode == "knn":
-            nn_tree = NearestNeighbors(n_neighbors=min(n_neighbors, target_local_inds.size), metric="minkowski", p=2) # euclidean
-            nn_tree.fit(flatten_feat)
-            local_sparse_dist = nn_tree.kneighbors_graph(flatten_feat[target_local_inds], mode='distance')
+            nn = min(n_neighbors, len(flatten_feat))
+            if nn == 0 or flatten_feat.shape[1] == 0:
+                local_graph = scipy.sparse.csr_matrix((target_indices.size, peaks.size), dtype=np.float32)
+            else:
+                nn_tree = NearestNeighbors(n_neighbors=min(n_neighbors, target_local_inds.size))
+                nn_tree.fit(flatten_feat)
+                local_sparse_dist = nn_tree.kneighbors_graph(flatten_feat[target_local_inds], mode='distance')
+                data = local_sparse_dist.data.astype("float32")
+                indptr = local_sparse_dist.indptr
+                if normed_distances:
+                    for i in range(local_sparse_dist.shape[0]):
+                        src = flatten_feat[target_local_inds[i]]
+                        a, b = indptr[i], indptr[i+1]
+                        tgt = flatten_feat[local_sparse_dist.indices[a:b]]
+                        norm = (np.linalg.norm(src) + np.linalg.norm(tgt, axis=1))
+                        data[a:b] /= norm
 
-
-            # t1 = time.perf_counter()
-            # print("knn", t1-t0)
-
-
-
-            # remap to all columns
-            # t0 = time.perf_counter()
-            data = local_sparse_dist.data.astype("float32")
-            indptr = local_sparse_dist.indptr
-            if normed_distances:
-                for i in range(local_sparse_dist.shape[0]):
-                    src = flatten_feat[target_local_inds[i]]
-                    a, b = indptr[i], indptr[i+1]
-                    tgt = flatten_feat[local_sparse_dist.indices[a:b]]
-                    norm = (np.linalg.norm(src, 1) + np.linalg.norm(tgt, 1, axis=1))
-                    data[a:b] /= norm
-            indices = neighbors_indices[local_sparse_dist.indices]
-            local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size))
-
-
-            # t1 = time.perf_counter()
-            # print("make local sparse csr", t1-t0)
+                indices = neighbors_indices[local_sparse_dist.indices]
+                local_graph = scipy.sparse.csr_matrix((data, indices, indptr), shape=(target_indices.size, peaks.size))
 
             local_graphs.append(local_graph)
 
@@ -220,28 +194,19 @@ def create_graph_from_peak_features(
     if len(local_graphs) > 0:
         distances = scipy.sparse.vstack(local_graphs)
         row_indices = np.concatenate(row_indices)
-        # print(np.unique(np.diff(row_indices)))
         row_order = np.argsort(row_indices)
-        # print(np.unique(np.diff(row_indices[row_order])))
-
-        # t0 = time.perf_counter()
         distances = distances[row_order]
-        # t1 = time.perf_counter()
-        # print("row_order", t1 - t0)
 
         if sparse_mode == "knn":
-            # t0 = time.perf_counter()
             distances = scipy.sparse.csr_matrix(distances)
-            # t1 = time.perf_counter()
-            # print("final csr", t1 - t0)
-
-        if enforce_diagonal_to_zero:
-            ind0, ind1 = distances.tocoo().coords
-            distances.data[ind0 == ind1] = 0.
 
     else:
-        distances = scipy.sparse.csr_matrix(([], ([], [])), shape=(peaks.size, peaks.size), dtype="float32")
+        distances = scipy.sparse.csr_matrix((peaks.size, peaks.size), dtype="float32")
     
+    if enforce_diagonal_to_zero:
+        ind0, ind1 = distances.tocoo().coords
+        distances.data[ind0 == ind1] = 0.
+
     if ensure_symetric:
         # because of the way the graph is done the distance matrix could be not symetric
         # this trick force the symetry
