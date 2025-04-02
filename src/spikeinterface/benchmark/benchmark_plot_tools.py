@@ -637,7 +637,7 @@ def plot_performances_comparison(
 
     if case_keys is None:
         case_keys = list(study.cases.keys())
-    case_keys, labels = study.get_grouped_keys_mapping(levels_to_group_by=levels_to_keep)
+    case_keys, labels = study.get_grouped_keys_mapping(cases=case_keys, levels_to_group_by=levels_to_keep)
 
     num_methods = len(case_keys)
     assert num_methods >= 2, "plot_performances_comparison need at least 2 cases!"
