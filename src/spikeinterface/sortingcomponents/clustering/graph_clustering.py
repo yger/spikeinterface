@@ -38,7 +38,7 @@ class GraphClustering:
                               sparse_mode="knn",
                               neighbors_radius_um=50,
                               apply_local_svd=True,
-                              direction="y"),
+                              direction="xy"),
         "extract_peaks_svd_kwargs" : dict(n_components=5)
     }
 
