@@ -607,6 +607,7 @@ def plot_performances_comparison(
     performance_colors={"accuracy": "g", "recall": "b", "precision": "r"},
     levels_to_keep=None,
     ylim=(-0.1, 1.1),
+    axs=None
 ):
     """
     Plot performances comparison for a study.
@@ -627,6 +628,8 @@ def plot_performances_comparison(
         A list of levels to keep. Performances are aggregated by these levels.
     ylim : tuple, default: (-0.1, 1.1)
         The y-axis limits.
+    axs : matplotlib.axes.Axes | None, default: None
+        The axs to use for plotting. Should be the same size as (num_methods - 1)**2.
 
     Returns
     -------
@@ -646,7 +649,12 @@ def plot_performances_comparison(
         [key in performance_colors for key in performance_names]
     ), f"performance_colors must have a color for each performance name: {performance_names}"
 
-    fig, axs = plt.subplots(ncols=num_methods - 1, nrows=num_methods - 1, figsize=figsize, squeeze=False)
+    if axs is None:
+        fig, axs = plt.subplots(ncols=num_methods - 1, nrows=num_methods - 1, figsize=figsize, squeeze=False)
+    else:
+        assert axs.shape == (num_methods - 1, num_methods - 1), "axs should have the same shape as (num_methods - 1, num_methods - 1)"
+        fig = axs[0, 0].get_figure()
+
     for i, key1 in enumerate(case_keys):
         for j, key2 in enumerate(case_keys):
             if i < j:
