@@ -5,8 +5,8 @@ from typing import Optional
 from packaging.version import parse
 
 from .tf_utils import has_tf, import_tf
-from ...core.core_tools import define_function_from_class
-from ..basepreprocessor import BasePreprocessor, BasePreprocessorSegment
+from spikeinterface.core.core_tools import define_function_handling_dict_from_class
+from spikeinterface.preprocessing.basepreprocessor import BasePreprocessor, BasePreprocessorSegment
 
 
 class DeepInterpolatedRecording(BasePreprocessor):
@@ -48,8 +48,6 @@ class DeepInterpolatedRecording(BasePreprocessor):
     recording: DeepInterpolatedRecording
         The deepinterpolated recording extractor object
     """
-
-    name = "deepinterpolate"
 
     def __init__(
         self,
@@ -150,12 +148,6 @@ class DeepInterpolatedRecordingSegment(BasePreprocessorSegment):
 
         n_frames = self.parent_recording_segment.get_num_samples()
 
-        if start_frame == None:
-            start_frame = 0
-
-        if end_frame == None:
-            end_frame = n_frames
-
         # for frames that lack full training data (i.e. pre and post frames including omissinos),
         # just return uninterpolated
         if start_frame < self.pre_frame + self.pre_post_omission:
@@ -202,4 +194,6 @@ class DeepInterpolatedRecordingSegment(BasePreprocessorSegment):
 
 
 # function for API
-deepinterpolate = define_function_from_class(source_class=DeepInterpolatedRecording, name="deepinterpolate")
+deepinterpolate = define_function_handling_dict_from_class(
+    source_class=DeepInterpolatedRecording, name="deepinterpolate"
+)

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from spikeinterface.core.core_tools import define_function_from_class
+from spikeinterface.core.core_tools import define_function_handling_dict_from_class
 from .basepreprocessor import BasePreprocessor, BasePreprocessorSegment
 
-from ..core import get_random_data_chunks, get_noise_levels
-from ..core.generate import NoiseGeneratorRecording
+from spikeinterface.core import get_random_data_chunks, get_noise_levels
+from spikeinterface.core.generate import NoiseGeneratorRecording
 
 
 class SilencedPeriodsRecording(BasePreprocessor):
@@ -25,7 +25,9 @@ class SilencedPeriodsRecording(BasePreprocessor):
         One list per segment of tuples (start_frame, end_frame) to silence
     noise_levels : array
         Noise levels if already computed
-
+    seed : int | None, default: None
+        Random seed for `get_noise_levels` and `NoiseGeneratorRecording`.
+        If none, `get_noise_levels` uses `seed=0` and `NoiseGeneratorRecording` generates a random seed using `numpy.random.default_rng`.
     mode : "zeros" | "noise, default: "zeros"
         Determines what periods are replaced by. Can be one of the following:
 
@@ -41,8 +43,6 @@ class SilencedPeriodsRecording(BasePreprocessor):
     silence_recording : SilencedPeriodsRecording
         The recording extractor after silencing some periods
     """
-
-    name = "silence_periods"
 
     def __init__(self, recording, list_periods, mode="zeros", noise_levels=None, seed=None, **random_chunk_kwargs):
         available_modes = ("zeros", "noise")
@@ -71,8 +71,10 @@ class SilencedPeriodsRecording(BasePreprocessor):
 
         if mode in ["noise"]:
             if noise_levels is None:
+                random_slices_kwargs = random_chunk_kwargs.copy()
+                random_slices_kwargs["seed"] = seed
                 noise_levels = get_noise_levels(
-                    recording, return_scaled=False, concatenated=True, seed=seed, **random_chunk_kwargs
+                    recording, return_scaled=False, random_slices_kwargs=random_slices_kwargs
                 )
             noise_generator = NoiseGeneratorRecording(
                 num_channels=recording.get_num_channels(),
@@ -95,7 +97,8 @@ class SilencedPeriodsRecording(BasePreprocessor):
             rec_segment = SilencedPeriodsRecordingSegment(parent_segment, periods, mode, noise_generator, seg_index)
             self.add_recording_segment(rec_segment)
 
-        self._kwargs = dict(recording=recording, list_periods=list_periods, mode=mode, noise_generator=noise_generator)
+        self._kwargs = dict(recording=recording, list_periods=list_periods, mode=mode, seed=seed)
+        self._kwargs.update(random_chunk_kwargs)
 
 
 class SilencedPeriodsRecordingSegment(BasePreprocessorSegment):
@@ -109,12 +112,6 @@ class SilencedPeriodsRecordingSegment(BasePreprocessorSegment):
     def get_traces(self, start_frame, end_frame, channel_indices):
         traces = self.parent_recording_segment.get_traces(start_frame, end_frame, channel_indices)
         traces = traces.copy()
-        num_channels = traces.shape[1]
-
-        if start_frame is None:
-            start_frame = 0
-        if end_frame is None:
-            end_frame = self.get_num_samples()
 
         if len(self.periods) > 0:
             new_interval = np.array([start_frame, end_frame])
@@ -140,4 +137,6 @@ class SilencedPeriodsRecordingSegment(BasePreprocessorSegment):
 
 
 # function for API
-silence_periods = define_function_from_class(source_class=SilencedPeriodsRecording, name="silence_periods")
+silence_periods = define_function_handling_dict_from_class(
+    source_class=SilencedPeriodsRecording, name="silence_periods"
+)

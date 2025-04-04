@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 
@@ -30,39 +30,33 @@ class BaseSorting(BaseExtractor):
         self._cached_spike_trains = {}
 
     def __repr__(self):
-        clsname = self.__class__.__name__
+        return self._repr_header()
+
+    def _repr_header(self, display_name=True):
         nseg = self.get_num_segments()
         nunits = self.get_num_units()
         sf_khz = self.get_sampling_frequency() / 1000.0
-        txt = f"{clsname}: {nunits} units - {nseg} segments - {sf_khz:0.1f}kHz"
+        if display_name and self.name != self.__class__.__name__:
+            name = f"{self.name} ({self.__class__.__name__})"
+        else:
+            name = self.__class__.__name__
+        txt = f"{name}: {nunits} units - {nseg} segments - {sf_khz:0.1f}kHz"
         if "file_path" in self._kwargs:
             txt += "\n  file_path: {}".format(self._kwargs["file_path"])
         return txt
 
-    def _repr_html_(self):
+    def _repr_html_(self, display_name=True):
         common_style = "margin-left: 10px;"
         border_style = "border:1px solid #ddd; padding:10px;"
 
-        html_header = f"<div style='{border_style}'><strong>{self.__repr__()}</strong></div>"
+        html_header = f"<div style='{border_style}'><strong>{self._repr_header(display_name)}</strong></div>"
 
         html_unit_ids = f"<details style='{common_style}'>  <summary><strong>Unit IDs</strong></summary><ul>"
         html_unit_ids += f"{self.unit_ids} </details>"
 
-        html_annotations = f"<details style='{common_style}'>  <summary><strong>Annotations</strong></summary><ul>"
-        for key, value in self._annotations.items():
-            html_annotations += f"<li> <strong> {key} </strong>: {value}</li>"
-        html_annotations += f"</details>"
+        html_extra = self._get_common_repr_html(common_style)
 
-        html_unit_properties = (
-            f"<details style='{common_style}'><summary><strong>Unit Properties</strong></summary><ul>"
-        )
-        for key, value in self._properties.items():
-            # Add a further indent for each property
-            value_formatted = np.asarray(value)
-            html_unit_properties += f"<details><summary><strong>{key}</strong></summary>{value_formatted}</details>"
-        html_unit_properties += "</ul></details>"
-
-        html_repr = html_header + html_unit_ids + html_annotations + html_unit_properties
+        html_repr = html_header + html_unit_ids + html_extra
         return html_repr
 
     @property
@@ -73,7 +67,7 @@ class BaseSorting(BaseExtractor):
     def sampling_frequency(self):
         return self._sampling_frequency
 
-    def get_unit_ids(self) -> List:
+    def get_unit_ids(self) -> list:
         return self._main_ids
 
     def get_num_units(self) -> int:
@@ -121,7 +115,7 @@ class BaseSorting(BaseExtractor):
             s += self.get_num_samples(segment_index)
         return s
 
-    def get_total_duration(self):
+    def get_total_duration(self) -> float:
         """Returns the total duration in s of the associated recording.
 
         Returns
@@ -136,7 +130,7 @@ class BaseSorting(BaseExtractor):
 
     def get_unit_spike_train(
         self,
-        unit_id,
+        unit_id: str | int,
         segment_index: Union[int, None] = None,
         start_frame: Union[int, None] = None,
         end_frame: Union[int, None] = None,
@@ -180,7 +174,9 @@ class BaseSorting(BaseExtractor):
             return spike_frames
 
     def register_recording(self, recording, check_spike_frames=True):
-        """Register a recording to the sorting.
+        """
+        Register a recording to the sorting. If the sorting and recording both contain
+        time information, the recording’s time information will be used.
 
         Parameters
         ----------
@@ -197,7 +193,7 @@ class BaseSorting(BaseExtractor):
             self.get_num_segments() == recording.get_num_segments()
         ), "The recording has a different number of segments than the sorting!"
         if check_spike_frames:
-            if has_exceeding_spikes(recording, self):
+            if has_exceeding_spikes(self, recording):
                 warnings.warn(
                     "Some spikes exceed the recording's duration! "
                     "Removing these excess spikes with `spikeinterface.curation.remove_excess_spikes()` "
@@ -219,7 +215,7 @@ class BaseSorting(BaseExtractor):
     def has_recording(self):
         return self._recording is not None
 
-    def has_time_vector(self, segment_index=None):
+    def has_time_vector(self, segment_index=None) -> bool:
         """
         Check if the segment of the registered recording has a time vector.
         """
@@ -473,6 +469,43 @@ class BaseSorting(BaseExtractor):
         )
         return sub_sorting
 
+    def time_slice(self, start_time: float | None, end_time: float | None) -> BaseSorting:
+        """
+        Returns a new sorting object, restricted to the time interval [start_time, end_time].
+
+        Parameters
+        ----------
+        start_time : float | None, default: None
+            The start time in seconds. If not provided it is set to 0.
+        end_time : float | None, default: None
+            The end time in seconds. If not provided it is set to the total duration.
+
+        Returns
+        -------
+        BaseSorting
+            A new sorting object with only samples between start_time and end_time
+        """
+
+        assert self.get_num_segments() == 1, "Time slicing is only supported for single segment sortings."
+
+        start_frame = self.time_to_sample_index(start_time, segment_index=0) if start_time else None
+        end_frame = self.time_to_sample_index(end_time, segment_index=0) if end_time else None
+
+        return self.frame_slice(start_frame=start_frame, end_frame=end_frame)
+
+    def time_to_sample_index(self, time, segment_index=0):
+        """
+        Transform time in seconds into sample index
+        """
+        if self.has_recording():
+            sample_index = self._recording.time_to_sample_index(time, segment_index=segment_index)
+        else:
+            segment = self._sorting_segments[segment_index]
+            t_start = segment._t_start if segment._t_start is not None else 0
+            sample_index = round((time - t_start) * self.get_sampling_frequency())
+
+        return sample_index
+
     def get_all_spike_trains(self, outputs="unit_id"):
         """
         Return all spike trains concatenated.
@@ -514,8 +547,6 @@ class BaseSorting(BaseExtractor):
     def precompute_spike_trains(self, from_spike_vector=None):
         """
         Pre-computes and caches all spike trains for this sorting
-
-
 
         Parameters
         ----------

@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from .basepreprocessor import BasePreprocessor, BasePreprocessorSegment
-from spikeinterface.core.core_tools import define_function_from_class
+from spikeinterface.core.core_tools import define_function_handling_dict_from_class
 from spikeinterface.preprocessing import preprocessing_tools
 
 
@@ -40,8 +40,6 @@ class InterpolateBadChannelsRecording(BasePreprocessor):
     interpolated_recording : InterpolateBadChannelsRecording
         The recording object with interpolated bad channels
     """
-
-    name = "interpolate_bad_channels"
 
     def __init__(self, recording, bad_channel_ids, sigma_um=None, p=1.3, weights=None):
         BasePreprocessor.__init__(self, recording)
@@ -115,6 +113,6 @@ def estimate_recommended_sigma_um(recording):
     return scipy.stats.mode(np.diff(np.unique(y_sorted)), keepdims=False)[0]
 
 
-interpolate_bad_channels = define_function_from_class(
+interpolate_bad_channels = define_function_handling_dict_from_class(
     source_class=InterpolateBadChannelsRecording, name="interpolate_bad_channels"
 )

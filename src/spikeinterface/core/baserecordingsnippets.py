@@ -6,7 +6,6 @@ import numpy as np
 from probeinterface import Probe, ProbeGroup, write_probeinterface, read_probeinterface, select_axes
 
 from .base import BaseExtractor
-from .core_tools import check_json
 from .recording_tools import check_probe_do_not_overlap
 
 from warnings import warn
@@ -48,7 +47,7 @@ class BaseRecordingSnippets(BaseExtractor):
     def get_dtype(self):
         return self._dtype
 
-    def has_scaleable_traces(self):
+    def has_scaleable_traces(self) -> bool:
         if self.get_property("gain_to_uV") is None or self.get_property("offset_to_uV") is None:
             return False
         else:
@@ -62,10 +61,10 @@ class BaseRecordingSnippets(BaseExtractor):
         )
         return self.has_scaleable_traces()
 
-    def has_probe(self):
+    def has_probe(self) -> bool:
         return "contact_vector" in self.get_property_keys()
 
-    def has_channel_location(self):
+    def has_channel_location(self) -> bool:
         return self.has_probe() or "location" in self.get_property_keys()
 
     def is_filtered(self):
@@ -73,9 +72,6 @@ class BaseRecordingSnippets(BaseExtractor):
         return self._annotations.get("is_filtered", False)
 
     def _channel_slice(self, channel_ids, renamed_channel_ids=None):
-        raise NotImplementedError
-
-    def _frame_slice(self, channel_ids, renamed_channel_ids=None):
         raise NotImplementedError
 
     def set_probe(self, probe, group_mode="by_probe", in_place=False):
@@ -148,6 +144,11 @@ class BaseRecordingSnippets(BaseExtractor):
         else:
             raise ValueError("must give Probe or ProbeGroup or list of Probe")
 
+        # check that the probe do not overlap
+        num_probes = len(probegroup.probes)
+        if num_probes > 1:
+            check_probe_do_not_overlap(probegroup.probes)
+
         # handle not connected channels
         assert all(
             probe.device_channel_indices is not None for probe in probegroup.probes
@@ -170,8 +171,10 @@ class BaseRecordingSnippets(BaseExtractor):
         number_of_device_channel_indices = np.max(list(device_channel_indices) + [0])
         if number_of_device_channel_indices >= self.get_num_channels():
             error_msg = (
-                f"The given Probe have 'device_channel_indices' that do not match channel count \n"
-                f"{number_of_device_channel_indices} vs {self.get_num_channels()} \n"
+                f"The given Probe either has 'device_channel_indices' that does not match channel count \n"
+                f"{len(device_channel_indices)} vs {self.get_num_channels()} \n"
+                f"or it's max index {number_of_device_channel_indices} is the same as the number of channels {self.get_num_channels()} \n"
+                f"If using all channels remember that python is 0-indexed so max device_channel_index should be {self.get_num_channels() - 1} \n"
                 f"device_channel_indices are the following: {device_channel_indices} \n"
                 f"recording channels are the following: {self.get_channel_ids()} \n"
             )
@@ -190,7 +193,7 @@ class BaseRecordingSnippets(BaseExtractor):
             if np.array_equal(new_channel_ids, self.get_channel_ids()):
                 sub_recording = self.clone()
             else:
-                sub_recording = self.channel_slice(new_channel_ids)
+                sub_recording = self.select_channels(new_channel_ids)
 
         # create a vector that handle all contacts in property
         sub_recording.set_property("contact_vector", probe_as_numpy_array, ids=None)
@@ -237,7 +240,7 @@ class BaseRecordingSnippets(BaseExtractor):
 
         warning_msg = (
             "`set_probes` is now a private function and the public function will be "
-            "removed in 0.103.0. Please use `set_probe` or `set_probegroups` instead"
+            "removed in 0.103.0. Please use `set_probe` or `set_probegroup` instead"
         )
 
         warn(warning_msg, category=DeprecationWarning, stacklevel=2)
@@ -347,21 +350,19 @@ class BaseRecordingSnippets(BaseExtractor):
             raise ValueError("set_channel_locations(..) destroys the probe description, prefer _set_probes(..)")
         self.set_property("location", locations, ids=channel_ids)
 
-    def get_channel_locations(self, channel_ids=None, axes: str = "xy"):
+    def get_channel_locations(self, channel_ids=None, axes: str = "xy") -> np.ndarray:
         if channel_ids is None:
             channel_ids = self.get_channel_ids()
         channel_indices = self.ids_to_indices(channel_ids)
-        if self.get_property("contact_vector") is not None:
-            if len(self.get_probes()) == 1:
-                probe = self.get_probe()
-                positions = probe.contact_positions[channel_indices]
-            else:
-                all_probes = self.get_probes()
-                # check that multiple probes are non-overlapping
-                check_probe_do_not_overlap(all_probes)
-                all_positions = np.vstack([probe.contact_positions for probe in all_probes])
-                positions = all_positions[channel_indices]
-            return select_axes(positions, axes)
+        contact_vector = self.get_property("contact_vector")
+        if contact_vector is not None:
+            # here we bypass the probe reconstruction so this works both for probe and probegroup
+            ndim = len(axes)
+            all_positions = np.zeros((contact_vector.size, ndim), dtype="float64")
+            for i, dim in enumerate(axes):
+                all_positions[:, i] = contact_vector[dim]
+            positions = all_positions[channel_indices]
+            return positions
         else:
             locations = self.get_property("location")
             if locations is None:
@@ -369,7 +370,7 @@ class BaseRecordingSnippets(BaseExtractor):
             locations = np.asarray(locations)[channel_indices]
             return select_axes(locations, axes)
 
-    def has_3d_locations(self):
+    def has_3d_locations(self) -> bool:
         return self.get_property("location").shape[1] == 3
 
     def clear_channel_locations(self, channel_ids=None):
@@ -461,6 +462,22 @@ class BaseRecordingSnippets(BaseExtractor):
         """
         return self._channel_slice(channel_ids, renamed_channel_ids=renamed_channel_ids)
 
+    def select_channels(self, channel_ids):
+        """
+        Returns a new object with sliced channels.
+
+        Parameters
+        ----------
+        channel_ids : np.array or list
+            The list of channels to keep
+
+        Returns
+        -------
+        BaseRecordingSnippets
+            The object with sliced channels
+        """
+        raise NotImplementedError
+
     def remove_channels(self, remove_channel_ids):
         """
         Returns a new object with removed channels.
@@ -494,7 +511,7 @@ class BaseRecordingSnippets(BaseExtractor):
         BaseRecordingSnippets
             The object with sliced frames
         """
-        return self._frame_slice(start_frame, end_frame)
+        raise NotImplementedError
 
     def select_segments(self, segment_indices):
         """
@@ -542,10 +559,11 @@ class BaseRecordingSnippets(BaseExtractor):
             recordings = []
         elif outputs == "dict":
             recordings = {}
-        for value in np.unique(values):
+        for value in np.unique(values).tolist():
             (inds,) = np.nonzero(values == value)
             new_channel_ids = self.get_channel_ids()[inds]
-            subrec = self.channel_slice(new_channel_ids)
+            subrec = self.select_channels(new_channel_ids)
+            subrec.set_annotation("split_by_property", value=property)
             if outputs == "list":
                 recordings.append(subrec)
             elif outputs == "dict":

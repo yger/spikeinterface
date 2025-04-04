@@ -10,7 +10,9 @@ def check_ipywidget_backend():
     import matplotlib
 
     mpl_backend = matplotlib.get_backend()
-    assert "ipympl" in mpl_backend, "To use the 'ipywidgets' backend, you have to set %matplotlib widget"
+    assert (
+        "ipympl" in mpl_backend or "widget" in mpl_backend
+    ), "To use the 'ipywidgets' backend, you have to set %matplotlib widget"
 
 
 class TimeSlider(W.HBox):
@@ -401,7 +403,7 @@ class UnitSelector(W.VBox):
             options=self.unit_ids,
             value=self.unit_ids,
             disabled=False,
-            layout=W.Layout(height="100%", width="80%", align="center"),
+            layout=W.Layout(height="100%", width="3cm", align="center"),
         )
 
         super(W.VBox, self).__init__(children=[label, self.selector], **kwargs)

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from spikeinterface.core.core_tools import define_function_from_class
+from spikeinterface.core.core_tools import define_function_handling_dict_from_class
 from .basepreprocessor import BasePreprocessor, BasePreprocessorSegment
 
-from ..core import get_random_data_chunks
+from spikeinterface.core import get_random_data_chunks
 
 
 class ClipRecording(BasePreprocessor):
@@ -29,8 +29,6 @@ class ClipRecording(BasePreprocessor):
     rescaled_traces : ClipTracesRecording
         The clipped traces recording extractor object
     """
-
-    name = "clip"
 
     def __init__(self, recording, a_min=None, a_max=None):
         value_min = a_min
@@ -85,8 +83,6 @@ class BlankSaturationRecording(BasePreprocessor):
         The filtered traces recording extractor object
 
     """
-
-    name = "blank_staturation"
 
     def __init__(
         self,
@@ -173,5 +169,7 @@ class ClipRecordingSegment(BasePreprocessorSegment):
         return traces
 
 
-clip = define_function_from_class(source_class=ClipRecording, name="clip")
-blank_staturation = define_function_from_class(source_class=BlankSaturationRecording, name="blank_staturation")
+clip = define_function_handling_dict_from_class(source_class=ClipRecording, name="clip")
+blank_saturation = define_function_handling_dict_from_class(
+    source_class=BlankSaturationRecording, name="blank_saturation"
+)

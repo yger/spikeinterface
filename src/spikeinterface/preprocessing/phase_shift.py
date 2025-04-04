@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from spikeinterface.core.core_tools import define_function_from_class
+from spikeinterface.core.core_tools import define_function_handling_dict_from_class
 
-from ..core import get_chunk_with_margin
+from spikeinterface.core import get_chunk_with_margin
 
 from .basepreprocessor import BasePreprocessor, BasePreprocessorSegment
 
@@ -31,14 +31,15 @@ class PhaseShiftRecording(BasePreprocessor):
     inter_sample_shift : None or numpy array, default: None
         If "inter_sample_shift" is not in recording properties,
         we can externally provide one.
+    dtype : None | str | dtype, default: None
+        Dtype of input and output `recording` objects.
+
 
     Returns
     -------
     filter_recording : PhaseShiftRecording
         The phase shifted recording object
     """
-
-    name = "phase_shift"
 
     def __init__(self, recording, margin_ms=40.0, inter_sample_shift=None, dtype=None):
         if inter_sample_shift is None:
@@ -81,10 +82,6 @@ class PhaseShiftRecordingSegment(BasePreprocessorSegment):
         self.tmp_dtype = tmp_dtype
 
     def get_traces(self, start_frame, end_frame, channel_indices):
-        if start_frame is None:
-            start_frame = 0
-        if end_frame is None:
-            end_frame = self.get_num_samples()
         if channel_indices is None:
             channel_indices = slice(None)
 
@@ -111,7 +108,7 @@ class PhaseShiftRecordingSegment(BasePreprocessorSegment):
 
 
 # function for API
-phase_shift = define_function_from_class(source_class=PhaseShiftRecording, name="phase_shift")
+phase_shift = define_function_handling_dict_from_class(source_class=PhaseShiftRecording, name="phase_shift")
 
 
 def apply_frequency_shift(signal, shift_samples, axis=0):

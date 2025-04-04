@@ -18,8 +18,9 @@ class CommonTestSuite:
     downloads = []
     entities = []
 
-    def setUp(self):
-        for remote_path in self.downloads:
+    @classmethod
+    def setUpClass(cls):
+        for remote_path in cls.downloads:
             download_dataset(repo=gin_repo, remote_path=remote_path, local_folder=local_folder, update_if_exists=True)
 
 
@@ -51,8 +52,11 @@ class RecordingCommonTestSuite(CommonTestSuite):
                 num_samples = rec.get_num_samples(segment_index=segment_index)
 
                 full_traces = rec.get_traces(segment_index=segment_index)
-                assert full_traces.shape == (num_samples, num_chans)
-                assert full_traces.dtype == dtype
+                assert full_traces.shape == (
+                    num_samples,
+                    num_chans,
+                ), f"{full_traces.shape} != {(num_samples, num_chans)}"
+                assert full_traces.dtype == dtype, f"{full_traces.dtype} != {dtype=}"
 
                 traces_sample_first = rec.get_traces(segment_index=segment_index, start_frame=0, end_frame=1)
                 assert traces_sample_first.shape == (1, num_chans)

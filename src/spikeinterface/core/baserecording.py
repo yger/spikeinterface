@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import warnings
 from pathlib import Path
 
@@ -7,14 +8,9 @@ from probeinterface import Probe, ProbeGroup, read_probeinterface, select_axes, 
 
 from .base import BaseSegment
 from .baserecordingsnippets import BaseRecordingSnippets
-from .core_tools import (
-    convert_bytes_to_str,
-    convert_seconds_to_str,
-)
-from .recording_tools import write_binary_recording
-
-
+from .core_tools import convert_bytes_to_str, convert_seconds_to_str
 from .job_tools import split_job_kwargs
+from .recording_tools import write_binary_recording
 
 
 class BaseRecording(BaseRecordingSnippets):
@@ -23,7 +19,7 @@ class BaseRecording(BaseRecordingSnippets):
     Internally handle list of RecordingSegment
     """
 
-    _main_annotations = ["is_filtered"]
+    _main_annotations = BaseRecordingSnippets._main_annotations + ["is_filtered"]
     _main_properties = ["group", "location", "gain_to_uV", "offset_to_uV"]
     _main_features = []  # recording do not handle features
 
@@ -45,8 +41,6 @@ class BaseRecording(BaseRecordingSnippets):
         self.annotate(is_filtered=False)
 
     def __repr__(self):
-
-        extractor_name = self.__class__.__name__
         num_segments = self.get_num_segments()
 
         txt = self._repr_header()
@@ -56,7 +50,7 @@ class BaseRecording(BaseRecordingSnippets):
             split_index = txt.rfind("-", 0, 100)  # Find the last "-" before character 100
             if split_index != -1:
                 first_line = txt[:split_index]
-                recording_string_space = len(extractor_name) + 2  # Length of extractor_name plus ": "
+                recording_string_space = len(self.name) + 2  # Length of self.name plus ": "
                 white_space_to_align_with_first_line = " " * recording_string_space
                 second_line = white_space_to_align_with_first_line + txt[split_index + 1 :].lstrip()
                 txt = first_line + "\n" + second_line
@@ -95,21 +89,31 @@ class BaseRecording(BaseRecordingSnippets):
 
         return txt
 
-    def _repr_header(self):
-        extractor_name = self.__class__.__name__
+    def _repr_header(self, display_name=True):
         num_segments = self.get_num_segments()
         num_channels = self.get_num_channels()
-        sf_khz = self.get_sampling_frequency() / 1000.0
         dtype = self.get_dtype()
 
         total_samples = self.get_total_samples()
         total_duration = self.get_total_duration()
         total_memory_size = self.get_total_memory_size()
 
+        sf_hz = self.get_sampling_frequency()
+        if not sf_hz.is_integer():
+            sampling_frequency_repr = f"{sf_hz:f} Hz"
+        else:
+            # Khz for high sampling rate and Hz for LFP
+            sampling_frequency_repr = f"{(sf_hz/1000.0):0.1f}kHz" if sf_hz > 10_000.0 else f"{sf_hz:0.1f}Hz"
+
+        if display_name and self.name != self.__class__.__name__:
+            name = f"{self.name} ({self.__class__.__name__})"
+        else:
+            name = self.__class__.__name__
+
         txt = (
-            f"{extractor_name}: "
+            f"{name}: "
             f"{num_channels} channels - "
-            f"{sf_khz:0.1f}kHz - "
+            f"{sampling_frequency_repr} - "
             f"{num_segments} segments - "
             f"{total_samples:,} samples - "
             f"{convert_seconds_to_str(total_duration)} - "
@@ -119,11 +123,11 @@ class BaseRecording(BaseRecordingSnippets):
 
         return txt
 
-    def _repr_html_(self):
+    def _repr_html_(self, display_name=True):
         common_style = "margin-left: 10px;"
         border_style = "border:1px solid #ddd; padding:10px;"
 
-        html_header = f"<div style='{border_style}'><strong>{self._repr_header()}</strong></div>"
+        html_header = f"<div style='{border_style}'><strong>{self._repr_header(display_name)}</strong></div>"
 
         html_segments = ""
         if self.get_num_segments() > 1:
@@ -144,19 +148,8 @@ class BaseRecording(BaseRecordingSnippets):
         html_channel_ids = f"<details style='{common_style}'>  <summary><strong>Channel IDs</strong></summary><ul>"
         html_channel_ids += f"{self.channel_ids} </details>"
 
-        html_annotations = f"<details style='{common_style}'>  <summary><strong>Annotations</strong></summary><ul>"
-        for key, value in self._annotations.items():
-            html_annotations += f"<li> <strong> {key} </strong>: {value}</li>"
-        html_annotations += "</ul> </details>"
-
-        html_properties = f"<details style='{common_style}'><summary><strong>Channel Properties</strong></summary><ul>"
-        for key, value in self._properties.items():
-            # Add a further indent for each property
-            value_formatted = np.asarray(value)
-            html_properties += f"<details><summary> <strong> {key} </strong> </summary>{value_formatted}</details>"
-        html_properties += "</ul></details>"
-
-        html_repr = html_header + html_segments + html_channel_ids + html_annotations + html_properties
+        html_extra = self._get_common_repr_html(common_style)
+        html_repr = html_header + html_segments + html_channel_ids + html_extra
         return html_repr
 
     def get_num_segments(self) -> int:
@@ -182,7 +175,7 @@ class BaseRecording(BaseRecordingSnippets):
         self._recording_segments.append(recording_segment)
         recording_segment.set_parent_extractor(self)
 
-    def get_num_samples(self, segment_index=None) -> int:
+    def get_num_samples(self, segment_index: int | None = None) -> int:
         """
         Returns the number of samples for a segment.
 
@@ -233,9 +226,9 @@ class BaseRecording(BaseRecordingSnippets):
         float
             The duration in seconds
         """
-        segment_index = self._check_segment_index(segment_index)
-        segment_num_samples = self.get_num_samples(segment_index=segment_index)
-        segment_duration = segment_num_samples / self.get_sampling_frequency()
+        segment_duration = (
+            self.get_end_time(segment_index) - self.get_start_time(segment_index) + (1 / self.get_sampling_frequency())
+        )
         return segment_duration
 
     def get_total_duration(self) -> float:
@@ -247,7 +240,7 @@ class BaseRecording(BaseRecordingSnippets):
         float
             The duration in seconds
         """
-        duration = self.get_total_samples() / self.get_sampling_frequency()
+        duration = sum([self.get_duration(segment_index) for segment_index in range(self.get_num_segments())])
         return duration
 
     def get_memory_size(self, segment_index=None) -> int:
@@ -296,7 +289,7 @@ class BaseRecording(BaseRecordingSnippets):
         order: "C" | "F" | None = None,
         return_scaled: bool = False,
         cast_unsigned: bool = False,
-    ):
+    ) -> np.ndarray:
         """Returns traces from recording.
 
         Parameters
@@ -331,6 +324,9 @@ class BaseRecording(BaseRecordingSnippets):
         segment_index = self._check_segment_index(segment_index)
         channel_indices = self.ids_to_indices(channel_ids, prefer_slice=True)
         rs = self._recording_segments[segment_index]
+        start_frame = int(start_frame) if start_frame is not None else 0
+        num_samples = rs.get_num_samples()
+        end_frame = int(min(end_frame, num_samples)) if end_frame is not None else num_samples
         traces = rs.get_traces(start_frame=start_frame, end_frame=end_frame, channel_indices=channel_indices)
         if order is not None:
             assert order in ["C", "F"]
@@ -348,13 +344,6 @@ class BaseRecording(BaseRecordingSnippets):
                 traces = traces.astype(f"int{dtype.itemsize * 8}")
 
         if return_scaled:
-            if hasattr(self, "NeoRawIOClass"):
-                if self.has_non_standard_units:
-                    message = (
-                        f"This extractor based on neo.{self.NeoRawIOClass} has channels with units not in (V, mV, uV)"
-                    )
-                    warnings.warn(message)
-
             if not self.has_scaleable_traces():
                 if self._dtype.kind == "f":
                     # here we do not truely have scale but we assume this is scaled
@@ -414,7 +403,7 @@ class BaseRecording(BaseRecordingSnippets):
 
         return time_kwargs
 
-    def get_times(self, segment_index=None):
+    def get_times(self, segment_index=None) -> np.ndarray:
         """Get time vector for a recording segment.
 
         If the segment has a time_vector, then it is returned. Otherwise
@@ -436,6 +425,40 @@ class BaseRecording(BaseRecordingSnippets):
         rs = self._recording_segments[segment_index]
         times = rs.get_times()
         return times
+
+    def get_start_time(self, segment_index=None) -> float:
+        """Get the start time of the recording segment.
+
+        Parameters
+        ----------
+        segment_index : int or None, default: None
+            The segment index (required for multi-segment)
+
+        Returns
+        -------
+        float
+            The start time in seconds
+        """
+        segment_index = self._check_segment_index(segment_index)
+        rs = self._recording_segments[segment_index]
+        return rs.get_start_time()
+
+    def get_end_time(self, segment_index=None) -> float:
+        """Get the stop time of the recording segment.
+
+        Parameters
+        ----------
+        segment_index : int or None, default: None
+            The segment index (required for multi-segment)
+
+        Returns
+        -------
+        float
+            The stop time in seconds
+        """
+        segment_index = self._check_segment_index(segment_index)
+        rs = self._recording_segments[segment_index]
+        return rs.get_end_time()
 
     def has_time_vector(self, segment_index=None):
         """Check if the segment of the recording has a time vector.
@@ -483,6 +506,49 @@ class BaseRecording(BaseRecordingSnippets):
                 "Use this carefully!"
             )
 
+    def reset_times(self):
+        """
+        Reset time information in-memory for all segments that have a time vector.
+        If the timestamps come from a file, the files won't be modified. but only the in-memory
+        attributes of the recording objects are deleted. Also `t_start` is set to None and the
+        segment's sampling frequency is set to the recording's sampling frequency.
+        """
+        for segment_index in range(self.get_num_segments()):
+            rs = self._recording_segments[segment_index]
+            if self.has_time_vector(segment_index):
+                rs.time_vector = None
+            rs.t_start = None
+            rs.sampling_frequency = self.sampling_frequency
+
+    def shift_times(self, shift: int | float, segment_index: int | None = None) -> None:
+        """
+        Shift all times by a scalar value.
+
+        Parameters
+        ----------
+        shift : int | float
+            The shift to apply. If positive, times will be increased by `shift`.
+            e.g. shifting by 1 will be like the recording started 1 second later.
+            If negative, the start time will be decreased i.e. as if the recording
+            started earlier.
+
+        segment_index : int | None
+            The segment on which to shift the times.
+            If `None`, all segments will be shifted.
+        """
+        if segment_index is None:
+            segments_to_shift = range(self.get_num_segments())
+        else:
+            segments_to_shift = (segment_index,)
+
+        for idx in segments_to_shift:
+            rs = self._recording_segments[idx]
+
+            if self.has_time_vector(segment_index=idx):
+                rs.time_vector += shift
+            else:
+                rs.t_start += shift
+
     def sample_index_to_time(self, sample_ind, segment_index=None):
         """
         Transform sample index into time in seconds
@@ -496,24 +562,35 @@ class BaseRecording(BaseRecordingSnippets):
         rs = self._recording_segments[segment_index]
         return rs.time_to_sample_index(time_s)
 
-    def _save(self, format="binary", verbose: bool = False, **save_kwargs):
+    def _get_t_starts(self):
         # handle t_starts
         t_starts = []
         has_time_vectors = []
-        for segment_index, rs in enumerate(self._recording_segments):
+        for rs in self._recording_segments:
             d = rs.get_times_kwargs()
             t_starts.append(d["t_start"])
-            has_time_vectors.append(d["time_vector"] is not None)
 
         if all(t_start is None for t_start in t_starts):
             t_starts = None
+        return t_starts
 
+    def _get_time_vectors(self):
+        time_vectors = []
+        for rs in self._recording_segments:
+            d = rs.get_times_kwargs()
+            time_vectors.append(d["time_vector"])
+        if all(time_vector is None for time_vector in time_vectors):
+            time_vectors = None
+        return time_vectors
+
+    def _save(self, format="binary", verbose: bool = False, **save_kwargs):
         kwargs, job_kwargs = split_job_kwargs(save_kwargs)
 
         if format == "binary":
             folder = kwargs["folder"]
             file_paths = [folder / f"traces_cached_seg{i}.raw" for i in range(self.get_num_segments())]
             dtype = kwargs.get("dtype", None) or self.get_dtype()
+            t_starts = self._get_t_starts()
 
             write_binary_recording(self, file_paths=file_paths, dtype=dtype, verbose=verbose, **job_kwargs)
 
@@ -530,6 +607,7 @@ class BaseRecording(BaseRecordingSnippets):
                 channel_ids=self.get_channel_ids(),
                 time_axis=0,
                 file_offset=0,
+                is_filtered=self.is_filtered(),
                 gain_to_uV=self.get_channel_gains(),
                 offset_to_uV=self.get_channel_offsets(),
             )
@@ -570,11 +648,11 @@ class BaseRecording(BaseRecordingSnippets):
             probegroup = self.get_probegroup()
             cached.set_probegroup(probegroup)
 
-        for segment_index, rs in enumerate(self._recording_segments):
-            d = rs.get_times_kwargs()
-            time_vector = d["time_vector"]
-            if time_vector is not None:
-                cached._recording_segments[segment_index].time_vector = time_vector
+        for segment_index in range(self.get_num_segments()):
+            if self.has_time_vector(segment_index):
+                # the use of get_times is preferred since timestamps are converted to array
+                time_vector = self.get_times(segment_index=segment_index)
+                cached.set_times(time_vector, segment_index=segment_index)
 
         return cached
 
@@ -643,7 +721,7 @@ class BaseRecording(BaseRecordingSnippets):
         from .channelslice import ChannelSliceRecording
 
         warnings.warn(
-            "This method will be removed in version 0.103, use `select_channels` or `rename_channels` instead.",
+            "Recording.channel_slice will be removed in version 0.103, use `select_channels` or `rename_channels` instead.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -653,20 +731,91 @@ class BaseRecording(BaseRecordingSnippets):
     def _remove_channels(self, remove_channel_ids):
         from .channelslice import ChannelSliceRecording
 
+        recording_channel_ids = self.get_channel_ids()
+        non_present_channel_ids = list(set(remove_channel_ids).difference(recording_channel_ids))
+        if len(non_present_channel_ids) != 0:
+            raise ValueError(
+                f"`remove_channel_ids` {non_present_channel_ids} are not in recording ids {recording_channel_ids}."
+            )
+
         new_channel_ids = self.channel_ids[~np.isin(self.channel_ids, remove_channel_ids)]
         sub_recording = ChannelSliceRecording(self, new_channel_ids)
         return sub_recording
 
-    def _frame_slice(self, start_frame, end_frame):
+    def frame_slice(self, start_frame: int | None, end_frame: int | None) -> BaseRecording:
+        """
+        Returns a new recording with sliced frames. Note that this operation is not in place.
+
+        Parameters
+        ----------
+        start_frame : int, optional
+            The start frame, if not provided it is set to 0
+        end_frame : int, optional
+            The end frame, it not provided it is set to the total number of samples
+
+        Returns
+        -------
+        BaseRecording
+            A new recording object with only samples between start_frame and end_frame
+        """
+
         from .frameslicerecording import FrameSliceRecording
 
         sub_recording = FrameSliceRecording(self, start_frame=start_frame, end_frame=end_frame)
         return sub_recording
 
+    def time_slice(self, start_time: float | None, end_time: float) -> BaseRecording:
+        """
+        Returns a new recording object, restricted to the time interval [start_time, end_time].
+
+        Parameters
+        ----------
+        start_time : float, optional
+            The start time in seconds. If not provided it is set to 0.
+        end_time : float, optional
+            The end time in seconds. If not provided it is set to the total duration.
+
+        Returns
+        -------
+        BaseRecording
+            A new recording object with only samples between start_time and end_time
+        """
+
+        assert self.get_num_segments() == 1, "Time slicing is only supported for single segment recordings."
+
+        start_frame = self.time_to_sample_index(start_time) if start_time else None
+        end_frame = self.time_to_sample_index(end_time) if end_time else None
+
+        return self.frame_slice(start_frame=start_frame, end_frame=end_frame)
+
     def _select_segments(self, segment_indices):
         from .segmentutils import SelectSegmentRecording
 
         return SelectSegmentRecording(self, segment_indices=segment_indices)
+
+    def get_channel_locations(
+        self,
+        channel_ids: list | np.ndarray | tuple | None = None,
+        axes: "xy" | "yz" | "xz" | "xyz" = "xy",
+    ) -> np.ndarray:
+        """
+        Get the physical locations of specified channels.
+
+        Parameters
+        ----------
+        channel_ids : array-like, optional
+            The IDs of the channels for which to retrieve locations. If None, retrieves locations
+            for all available channels. Default is None.
+        axes : "xy" | "yz" | "xz" | "xyz", default: "xy"
+            The spatial axes to return, specified as a string (e.g., "xy", "xyz"). Default is "xy".
+
+        Returns
+        -------
+        np.ndarray
+            A 2D or 3D array of shape (n_channels, n_dimensions) containing the locations of the channels.
+            The number of dimensions depends on the `axes` argument (e.g., 2 for "xy", 3 for "xyz").
+        """
+        return super().get_channel_locations(channel_ids=channel_ids, axes=axes)
 
     def is_binary_compatible(self) -> bool:
         """
@@ -690,7 +839,13 @@ class BaseRecording(BaseRecordingSnippets):
             raise NotImplementedError
 
     def binary_compatible_with(
-        self, dtype=None, time_axis=None, file_paths_lenght=None, file_offset=None, file_suffix=None
+        self,
+        dtype=None,
+        time_axis=None,
+        file_paths_length=None,
+        file_offset=None,
+        file_suffix=None,
+        file_paths_lenght=None,
     ):
         """
         Check is the recording is binary compatible with some constrain on
@@ -701,6 +856,15 @@ class BaseRecording(BaseRecordingSnippets):
           * file_offset
           * file_suffix
         """
+
+        # spelling typo need to fix
+        if file_paths_lenght is not None:
+            warnings.warn(
+                "`file_paths_lenght` is deprecated and will be removed in 0.103.0 please use `file_paths_length`"
+            )
+            if file_paths_length is None:
+                file_paths_length = file_paths_lenght
+
         if not self.is_binary_compatible():
             return False
 
@@ -712,7 +876,7 @@ class BaseRecording(BaseRecordingSnippets):
         if time_axis is not None and time_axis != d["time_axis"]:
             return False
 
-        if file_paths_lenght is not None and file_paths_lenght != len(d["file_paths"]):
+        if file_paths_length is not None and file_paths_length != len(d["file_paths"]):
             return False
 
         if file_offset is not None and file_offset != d["file_offset"]:
@@ -725,7 +889,7 @@ class BaseRecording(BaseRecordingSnippets):
         return True
 
     def astype(self, dtype, round: bool | None = None):
-        from ..preprocessing.astype import astype
+        from spikeinterface.preprocessing.astype import astype
 
         return astype(self, dtype=dtype, round=round)
 
@@ -750,18 +914,31 @@ class BaseRecordingSegment(BaseSegment):
 
         BaseSegment.__init__(self)
 
-    def get_times(self):
+    def get_times(self) -> np.ndarray:
         if self.time_vector is not None:
-            if isinstance(self.time_vector, np.ndarray):
-                return self.time_vector
-            else:
-                return np.array(self.time_vector)
+            self.time_vector = np.asarray(self.time_vector)
+            return self.time_vector
         else:
             time_vector = np.arange(self.get_num_samples(), dtype="float64")
             time_vector /= self.sampling_frequency
             if self.t_start is not None:
                 time_vector += self.t_start
             return time_vector
+
+    def get_start_time(self) -> float:
+        if self.time_vector is not None:
+            return self.time_vector[0]
+        else:
+            return self.t_start if self.t_start is not None else 0.0
+
+    def get_end_time(self) -> float:
+        if self.time_vector is not None:
+            return self.time_vector[-1]
+        else:
+            t_stop = (self.get_num_samples() - 1) / self.sampling_frequency
+            if self.t_start is not None:
+                t_stop += self.t_start
+            return t_stop
 
     def get_times_kwargs(self) -> dict:
         """
@@ -806,9 +983,11 @@ class BaseRecordingSegment(BaseSegment):
                 sample_index = time_s * self.sampling_frequency
             else:
                 sample_index = (time_s - self.t_start) * self.sampling_frequency
+            sample_index = np.round(sample_index).astype(int)
         else:
             sample_index = np.searchsorted(self.time_vector, time_s, side="right") - 1
-        return int(sample_index)
+
+        return sample_index
 
     def get_num_samples(self) -> int:
         """Returns the number of samples in this signal segment

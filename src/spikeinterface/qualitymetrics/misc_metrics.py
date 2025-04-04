@@ -11,25 +11,26 @@ from __future__ import annotations
 
 
 from collections import namedtuple
-
 import math
-import numpy as np
 import warnings
+import importlib.util
 
-from ..postprocessing import correlogram_for_one_segment
-from ..core import SortingAnalyzer, get_noise_levels
-from ..core.template_tools import (
+import numpy as np
+
+from spikeinterface.core.job_tools import fix_job_kwargs, split_job_kwargs
+from spikeinterface.postprocessing import correlogram_for_one_segment
+from spikeinterface.core import SortingAnalyzer, get_noise_levels
+from spikeinterface.core.template_tools import (
     get_template_extremum_channel,
     get_template_extremum_amplitude,
     get_dense_templates_array,
 )
 
 
-try:
-    import numba
-
+numba_spec = importlib.util.find_spec("numba")
+if numba_spec is not None:
     HAVE_NUMBA = True
-except ModuleNotFoundError as err:
+else:
     HAVE_NUMBA = False
 
 
@@ -69,7 +70,10 @@ def compute_num_spikes(sorting_analyzer, unit_ids=None, **kwargs):
     return num_spikes
 
 
-def compute_firing_rates(sorting_analyzer, unit_ids=None, **kwargs):
+_default_params["num_spikes"] = {}
+
+
+def compute_firing_rates(sorting_analyzer, unit_ids=None):
     """
     Compute the firing rate across segments.
 
@@ -98,7 +102,10 @@ def compute_firing_rates(sorting_analyzer, unit_ids=None, **kwargs):
     return firing_rates
 
 
-def compute_presence_ratios(sorting_analyzer, bin_duration_s=60.0, mean_fr_ratio_thresh=0.0, unit_ids=None, **kwargs):
+_default_params["firing_rate"] = {}
+
+
+def compute_presence_ratios(sorting_analyzer, bin_duration_s=60.0, mean_fr_ratio_thresh=0.0, unit_ids=None):
     """
     Calculate the presence ratio, the fraction of time the unit is firing above a certain threshold.
 
@@ -117,7 +124,7 @@ def compute_presence_ratios(sorting_analyzer, bin_duration_s=60.0, mean_fr_ratio
 
     Returns
     -------
-    presence_ratio : dict of flaots
+    presence_ratio : dict of floats
         The presence ratio for each unit ID.
 
     Notes
@@ -194,7 +201,7 @@ def compute_snrs(
         A SortingAnalyzer object.
     peak_sign : "neg" | "pos" | "both", default: "neg"
         The sign of the template to compute best channels.
-    peak_mode : "extremum" | "at_index", default: "extremum"
+    peak_mode : "extremum" | "at_index" | "peak_to_peak", default: "extremum"
         How to compute the amplitude.
         Extremum takes the maxima/minima
         At_index takes the value at t=sorting_analyzer.nbefore.
@@ -210,7 +217,7 @@ def compute_snrs(
     noise_levels = sorting_analyzer.get_extension("noise_levels").get_data()
 
     assert peak_sign in ("neg", "pos", "both")
-    assert peak_mode in ("extremum", "at_index")
+    assert peak_mode in ("extremum", "at_index", "peak_to_peak")
 
     if unit_ids is None:
         unit_ids = sorting_analyzer.unit_ids
@@ -241,7 +248,7 @@ def compute_isi_violations(sorting_analyzer, isi_threshold_ms=1.5, min_isi_ms=0,
 
     It computes several metrics related to isi violations:
         * isi_violations_ratio: the relative firing rate of the hypothetical neurons that are
-                                generating the ISI violations. Described in [Hill]_. See Notes.
+                                generating the ISI violations. See Notes.
         * isi_violation_count: number of ISI violations
 
     Parameters
@@ -261,22 +268,29 @@ def compute_isi_violations(sorting_analyzer, isi_threshold_ms=1.5, min_isi_ms=0,
     Returns
     -------
     isi_violations_ratio : dict
-        The isi violation ratio described in [Hill]_.
+        The isi violation ratio.
     isi_violation_count : dict
         Number of violations.
 
     Notes
     -----
-    You can interpret an ISI violations ratio value of 0.5 as meaning that contaminating spikes are
-    occurring at roughly half the rate of "true" spikes for that unit.
-    In cases of highly contaminated units, the ISI violations ratio can sometimes be greater than 1.
+    The returned ISI violations ratio approximates the fraction of spikes in each
+    unit which are contaminted. The formulation assumes that the contaminating spikes
+    are statistically independent from the other spikes in that cluster. This
+    approximation can break down in reality, especially for highly contaminated units.
+    See the discussion in Section 4.1 of [Llobet]_ for more details.
+
+    This method counts the number of spikes whose isi is violated. If there are three
+    spikes within `isi_threshold_ms`, the first and second are violated. Hence there are two
+    spikes which have been violated.  This is is contrast to `compute_refrac_period_violations`,
+    which counts the number of violations.
 
     References
     ----------
-    Based on metrics described in [Hill]_
+    Based on metrics originally implemented in Ultra Mega Sort [UMS]_.
 
-    Originally written in Matlab by Nick Steinmetz (https://github.com/cortex-lab/sortingQuality)
-    and converted to Python by Daniel Denman.
+    This implementation is based on one of the original implementations written in Matlab by Nick Steinmetz
+    (https://github.com/cortex-lab/sortingQuality) and converted to Python by Daniel Denman.
     """
     res = namedtuple("isi_violation", ["isi_violations_ratio", "isi_violations_count"])
 
@@ -324,7 +338,6 @@ def compute_refrac_period_violations(
     Calculate the number of refractory period violations.
 
     This is similar (but slightly different) to the ISI violations.
-    The key difference being that the violations are not only computed on consecutive spikes.
 
     This is required for some formulas (e.g. the ones from Llobet & Wyngaard 2022).
 
@@ -351,6 +364,12 @@ def compute_refrac_period_violations(
     -----
     Requires "numba" package
 
+    This method counts the number of violations which occur during the refactory period.
+    For example, if there are three spikes within `refractory_period_ms`, the second and third spikes
+    violate the first spike and the third spike violates the second spike. Hence there
+    are three violations. This is in contrast to `compute_isi_violations`, which
+    computes the number of spikes which have been violated.
+
     References
     ----------
     Based on metrics described in [Llobet]_
@@ -358,8 +377,8 @@ def compute_refrac_period_violations(
     res = namedtuple("rp_violations", ["rp_contamination", "rp_violations"])
 
     if not HAVE_NUMBA:
-        print("Error: numba is not installed.")
-        print("compute_refrac_period_violations cannot run without numba.")
+        warnings.warn("Error: numba is not installed.")
+        warnings.warn("compute_refrac_period_violations cannot run without numba.")
         return None
 
     sorting = sorting_analyzer.sorting
@@ -388,11 +407,11 @@ def compute_refrac_period_violations(
     nb_violations = {}
     rp_contamination = {}
 
-    for i, unit_id in enumerate(sorting.unit_ids):
+    for unit_index, unit_id in enumerate(sorting.unit_ids):
         if unit_id not in unit_ids:
             continue
 
-        nb_violations[unit_id] = n_v = nb_rp_violations[i]
+        nb_violations[unit_id] = n_v = nb_rp_violations[unit_index]
         N = num_spikes[unit_id]
         if N == 0:
             rp_contamination[unit_id] = np.nan
@@ -502,7 +521,7 @@ _default_params["sliding_rp_violation"] = dict(
 )
 
 
-def get_synchrony_counts(spikes, synchrony_sizes, all_unit_ids):
+def _get_synchrony_counts(spikes, synchrony_sizes, all_unit_ids):
     """
     Compute synchrony counts, the number of simultaneous spikes with sizes `synchrony_sizes`.
 
@@ -510,19 +529,19 @@ def get_synchrony_counts(spikes, synchrony_sizes, all_unit_ids):
     ----------
     spikes : np.array
         Structured numpy array with fields ("sample_index", "unit_index", "segment_index").
-    synchrony_sizes : numpy array
-        The synchrony sizes to compute. Should be pre-sorted.
     all_unit_ids : list or None, default: None
         List of unit ids to compute the synchrony metrics. Expecting all units.
+    synchrony_sizes : None or np.array, default: None
+        The synchrony sizes to compute. Should be pre-sorted.
 
     Returns
     -------
-    synchrony_counts : dict
+    synchrony_counts : np.ndarray
         The synchrony counts for the synchrony sizes.
 
     References
     ----------
-    Based on concepts described in [Gruen]_
+    Based on concepts described in [Grün]_
     This code was adapted from `Elephant - Electrophysiology Analysis Toolkit <https://github.com/NeuralEnsemble/elephant/blob/master/elephant/spike_train_synchrony.py#L245>`_
     """
 
@@ -547,71 +566,69 @@ def get_synchrony_counts(spikes, synchrony_sizes, all_unit_ids):
     return synchrony_counts
 
 
-def compute_synchrony_metrics(sorting_analyzer, synchrony_sizes=(2, 4, 8), unit_ids=None):
+def compute_synchrony_metrics(sorting_analyzer, unit_ids=None, synchrony_sizes=None):
     """
     Compute synchrony metrics. Synchrony metrics represent the rate of occurrences of
-    "synchrony_size" spikes at the exact same sample index.
+    spikes at the exact same sample index, with synchrony sizes 2, 4 and 8.
 
     Parameters
     ----------
     sorting_analyzer : SortingAnalyzer
         A SortingAnalyzer object.
-    synchrony_sizes : list or tuple, default: (2, 4, 8)
-        The synchrony sizes to compute.
     unit_ids : list or None, default: None
         List of unit ids to compute the synchrony metrics. If None, all units are used.
+    synchrony_sizes: None, default: None
+        Deprecated argument. Please use private `_get_synchrony_counts` if you need finer control over number of synchronous spikes.
 
     Returns
     -------
     sync_spike_{X} : dict
         The synchrony metric for synchrony size X.
-        Returns are as many as synchrony_sizes.
 
     References
     ----------
-    Based on concepts described in [Gruen]_
+    Based on concepts described in [Grün]_
     This code was adapted from `Elephant - Electrophysiology Analysis Toolkit <https://github.com/NeuralEnsemble/elephant/blob/master/elephant/spike_train_synchrony.py#L245>`_
     """
-    assert min(synchrony_sizes) > 1, "Synchrony sizes must be greater than 1"
-    # Sort the synchrony times so we can slice numpy arrays, instead of using dicts
-    synchrony_sizes_np = np.array(synchrony_sizes, dtype=np.int16)
-    synchrony_sizes_np.sort()
 
-    res = namedtuple("synchrony_metrics", [f"sync_spike_{size}" for size in synchrony_sizes_np])
+    if synchrony_sizes is not None:
+        warning_message = "Custom `synchrony_sizes` is deprecated; the `synchrony_metrics` will be computed using `synchrony_sizes = [2,4,8]`"
+        warnings.warn(warning_message, DeprecationWarning, stacklevel=2)
+
+    synchrony_sizes = np.array([2, 4, 8])
+
+    res = namedtuple("synchrony_metrics", [f"sync_spike_{size}" for size in synchrony_sizes])
 
     sorting = sorting_analyzer.sorting
+
+    if unit_ids is None:
+        unit_ids = sorting.unit_ids
 
     spike_counts = sorting.count_num_spikes_per_unit(outputs="dict")
 
     spikes = sorting.to_spike_vector()
     all_unit_ids = sorting.unit_ids
-    synchrony_counts = get_synchrony_counts(spikes, synchrony_sizes_np, all_unit_ids)
+    synchrony_counts = _get_synchrony_counts(spikes, synchrony_sizes, all_unit_ids)
 
     synchrony_metrics_dict = {}
-    for sync_idx, synchrony_size in enumerate(synchrony_sizes_np):
+    for sync_idx, synchrony_size in enumerate(synchrony_sizes):
         sync_id_metrics_dict = {}
         for i, unit_id in enumerate(all_unit_ids):
+            if unit_id not in unit_ids:
+                continue
             if spike_counts[unit_id] != 0:
                 sync_id_metrics_dict[unit_id] = synchrony_counts[sync_idx][i] / spike_counts[unit_id]
             else:
                 sync_id_metrics_dict[unit_id] = 0
         synchrony_metrics_dict[f"sync_spike_{synchrony_size}"] = sync_id_metrics_dict
 
-    if np.all(unit_ids == None) or (len(unit_ids) == len(all_unit_ids)):
-        return res(**synchrony_metrics_dict)
-    else:
-        reduced_synchrony_metrics_dict = {}
-        for key in synchrony_metrics_dict:
-            reduced_synchrony_metrics_dict[key] = {
-                unit_id: synchrony_metrics_dict[key][unit_id] for unit_id in unit_ids
-            }
-        return res(**reduced_synchrony_metrics_dict)
+    return res(**synchrony_metrics_dict)
 
 
-_default_params["synchrony"] = dict(synchrony_sizes=(2, 4, 8))
+_default_params["synchrony"] = dict()
 
 
-def compute_firing_ranges(sorting_analyzer, bin_size_s=5, percentiles=(5, 95), unit_ids=None, **kwargs):
+def compute_firing_ranges(sorting_analyzer, bin_size_s=5, percentiles=(5, 95), unit_ids=None):
     """
     Calculate firing range, the range between the 5th and 95th percentiles of the firing rates distribution
     computed in non-overlapping time bins.
@@ -1024,6 +1041,7 @@ def compute_drift_metrics(
         spike_locations_by_unit = {}
         for unit_id in unit_ids:
             unit_index = sorting.id_to_index(unit_id)
+            # TODO @alessio this is very slow this sjould be done with spike_vector_to_indices() in code
             spike_mask = spikes["unit_index"] == unit_index
             spike_locations_by_unit[unit_id] = spike_locations[spike_mask]
 
@@ -1062,8 +1080,9 @@ def compute_drift_metrics(
 
     # reference positions are the medians across segments
     reference_positions = np.zeros(len(unit_ids))
-    for unit_ind, unit_id in enumerate(unit_ids):
-        reference_positions[unit_ind] = np.median(spike_locations_by_unit[unit_id][direction])
+    for i, unit_id in enumerate(unit_ids):
+        unit_ind = sorting.id_to_index(unit_id)
+        reference_positions[i] = np.median(spike_locations_by_unit[unit_id][direction])
 
     # now compute median positions and concatenate them over segments
     median_position_segments = None
@@ -1085,10 +1104,11 @@ def compute_drift_metrics(
             spikes_in_bin = spikes_in_segment[i0:i1]
             spike_locations_in_bin = spike_locations_in_segment[i0:i1][direction]
 
-            for unit_ind in np.arange(len(unit_ids)):
+            for i, unit_id in enumerate(unit_ids):
+                unit_ind = sorting.id_to_index(unit_id)
                 mask = spikes_in_bin["unit_index"] == unit_ind
                 if np.sum(mask) >= min_spikes_per_interval:
-                    median_positions[unit_ind, bin_index] = np.median(spike_locations_in_bin[mask])
+                    median_positions[i, bin_index] = np.median(spike_locations_in_bin[mask])
         if median_position_segments is None:
             median_position_segments = median_positions
         else:
@@ -1096,8 +1116,8 @@ def compute_drift_metrics(
 
     # finally, compute deviations and drifts
     position_diffs = median_position_segments - reference_positions[:, None]
-    for unit_ind, unit_id in enumerate(unit_ids):
-        position_diff = position_diffs[unit_ind]
+    for i, unit_id in enumerate(unit_ids):
+        position_diff = position_diffs[i]
         if np.any(np.isnan(position_diff)):
             # deal with nans: if more than 50% nans --> set to nan
             if np.sum(np.isnan(position_diff)) > min_fraction_valid_intervals * len(position_diff):
@@ -1377,6 +1397,7 @@ def _compute_violations(obs_viol, firing_rate, spike_count, ref_period_dur, cont
 
 
 if HAVE_NUMBA:
+    import numba
 
     @numba.jit(nopython=True, nogil=True, cache=False)
     def _compute_nb_violations_numba(spike_train, t_r):
@@ -1425,6 +1446,8 @@ def compute_sd_ratio(
     In this case, noise refers to the global voltage trace on the same channel as the best channel of the unit.
     (ideally (not implemented yet), the noise would be computed outside of spikes from the unit itself).
 
+    TODO: Take jitter into account.
+
     Parameters
     ----------
     sorting_analyzer : SortingAnalyzer
@@ -1438,17 +1461,18 @@ def compute_sd_ratio(
         and will make a rough estimation of what that impact is (and remove it).
     unit_ids : list or None, default: None
         The list of unit ids to compute this metric. If None, all units are used.
-    **kwargs:
+    **kwargs : dict, default: {}
         Keyword arguments for computing spike amplitudes and extremum channel.
-    TODO: Take jitter into account.
 
     Returns
     -------
     num_spikes : dict
         The number of spikes, across all segments, for each unit ID.
     """
-    import numba
-    from ..curation.curation_tools import _find_duplicated_spikes_keep_first_iterative
+    from spikeinterface.curation.curation_tools import _find_duplicated_spikes_keep_first_iterative
+
+    kwargs, job_kwargs = split_job_kwargs(kwargs)
+    job_kwargs = fix_job_kwargs(job_kwargs)
 
     sorting = sorting_analyzer.sorting
 
@@ -1476,7 +1500,7 @@ def compute_sd_ratio(
         return {unit_id: np.nan for unit_id in unit_ids}
 
     noise_levels = get_noise_levels(
-        sorting_analyzer.recording, return_scaled=sorting_analyzer.return_scaled, method="std"
+        sorting_analyzer.recording, return_scaled=sorting_analyzer.return_scaled, method="std", **job_kwargs
     )
     best_channels = get_template_extremum_channel(sorting_analyzer, outputs="index", **kwargs)
     n_spikes = sorting.count_num_spikes_per_unit()
@@ -1537,3 +1561,10 @@ def compute_sd_ratio(
             sd_ratio[unit_id] = unit_std / std_noise
 
     return sd_ratio
+
+
+_default_params["sd_ratio"] = dict(
+    censored_period_ms=4.0,
+    correct_for_drift=True,
+    correct_for_template_itself=True,
+)

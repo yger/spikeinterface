@@ -49,10 +49,13 @@ def test_gh_curation():
     Test curation using GitHub URI.
     """
     sorting = generate_sorting(num_units=10)
+    unit_ids_as_int = [id for id in range(sorting.get_num_units())]
+    sorting = sorting.rename_units(new_unit_ids=unit_ids_as_int)
+
     # curated link:
     # https://figurl.org/f?v=npm://@fi-sci/figurl-sortingview@12/dist&d=sha1://058ab901610aa9d29df565595a3cc2a81a1b08e5
     gh_uri = "gh://SpikeInterface/spikeinterface/main/src/spikeinterface/curation/tests/sv-sorting-curation.json"
-    sorting_curated_gh = apply_sortingview_curation(sorting, uri_or_json=gh_uri, verbose=True)
+    sorting_curated_gh = apply_sortingview_curation(sorting, uri_or_json=gh_uri)
 
     assert len(sorting_curated_gh.unit_ids) == 9
     assert 1, 2 in sorting_curated_gh.unit_ids
@@ -76,12 +79,14 @@ def test_sha1_curation():
     Test curation using SHA1 URI.
     """
     sorting = generate_sorting(num_units=10)
+    unit_ids_as_int = [id for id in range(sorting.get_num_units())]
+    sorting = sorting.rename_units(new_unit_ids=unit_ids_as_int)
 
     # from SHA1
     # curated link:
     # https://figurl.org/f?v=npm://@fi-sci/figurl-sortingview@12/dist&d=sha1://058ab901610aa9d29df565595a3cc2a81a1b08e5
     sha1_uri = "sha1://449a428e8824eef9ad9bcc3241e45a2cee02d381"
-    sorting_curated_sha1 = apply_sortingview_curation(sorting, uri_or_json=sha1_uri, verbose=True)
+    sorting_curated_sha1 = apply_sortingview_curation(sorting, uri_or_json=sha1_uri)
     # print(f"From SHA: {sorting_curated_sha1}")
 
     assert len(sorting_curated_sha1.unit_ids) == 9
@@ -105,11 +110,13 @@ def test_json_curation():
     Test curation using a JSON file.
     """
     sorting = generate_sorting(num_units=10)
+    unit_ids_as_int = [id for id in range(sorting.get_num_units())]
+    sorting = sorting.rename_units(new_unit_ids=unit_ids_as_int)
 
     # from curation.json
     json_file = parent_folder / "sv-sorting-curation.json"
     # print(f"Sorting: {sorting.get_unit_ids()}")
-    sorting_curated_json = apply_sortingview_curation(sorting, uri_or_json=json_file, verbose=True)
+    sorting_curated_json = apply_sortingview_curation(sorting, uri_or_json=json_file)
 
     assert len(sorting_curated_json.unit_ids) == 9
     assert 1, 2 in sorting_curated_json.unit_ids
@@ -142,11 +149,11 @@ def test_false_positive_curation():
     times = np.int_(np.sort(np.random.uniform(0, num_timepoints, num_spikes)))
     labels = np.random.randint(1, num_units + 1, size=num_spikes)
 
-    sorting = se.NumpySorting.from_times_labels(times, labels, sampling_frequency)
+    sorting = se.NumpySorting.from_samples_and_labels(times, labels, sampling_frequency)
     # print("Sorting: {}".format(sorting.get_unit_ids()))
 
     json_file = parent_folder / "sv-sorting-curation-false-positive.json"
-    sorting_curated_json = apply_sortingview_curation(sorting, uri_or_json=json_file, verbose=True)
+    sorting_curated_json = apply_sortingview_curation(sorting, uri_or_json=json_file)
     # print("Curated:", sorting_curated_json.get_unit_ids())
 
     # Assertions
@@ -168,7 +175,7 @@ def test_label_inheritance_int():
     times = np.int_(np.sort(np.random.uniform(0, num_timepoints, num_spikes)))
     labels = np.random.randint(1, 1 + num_units, size=num_spikes)  # 7 units: 1 to 7
 
-    sorting = se.NumpySorting.from_times_labels(times, labels, sampling_frequency)
+    sorting = se.NumpySorting.from_samples_and_labels(times, labels, sampling_frequency)
 
     json_file = parent_folder / "sv-sorting-curation-int.json"
     sorting_merge = apply_sortingview_curation(sorting, uri_or_json=json_file)
@@ -190,17 +197,13 @@ def test_label_inheritance_int():
     assert not sorting_merge.get_unit_property(unit_id=10, key="noise")
     assert sorting_merge.get_unit_property(unit_id=10, key="accept")
 
-    # Assertions for exclude_labels
+    # Assertions for exclude_labels should all be False
     sorting_exclude_noise = apply_sortingview_curation(sorting, uri_or_json=json_file, exclude_labels=["noise"])
-    # print(f"Exclude noise: {sorting_exclude_noise.get_unit_ids()}")
-    assert 9 not in sorting_exclude_noise.get_unit_ids()
+    assert np.all(~sorting_exclude_noise.get_property("noise"))
 
     # Assertions for include_labels
     sorting_include_accept = apply_sortingview_curation(sorting, uri_or_json=json_file, include_labels=["accept"])
-    # print(f"Include accept: {sorting_include_accept.get_unit_ids()}")
-    assert 8 not in sorting_include_accept.get_unit_ids()
-    assert 9 not in sorting_include_accept.get_unit_ids()
-    assert 10 in sorting_include_accept.get_unit_ids()
+    assert np.all(sorting_include_accept.get_property("accept"))
 
 
 def test_label_inheritance_str():
@@ -214,12 +217,12 @@ def test_label_inheritance_str():
     times = np.int_(np.sort(np.random.uniform(0, num_timepoints, num_spikes)))
     labels = np.random.choice(["a", "b", "c", "d", "e", "f", "g"], size=num_spikes)
 
-    sorting = se.NumpySorting.from_times_labels(times, labels, sampling_frequency)
+    sorting = se.NumpySorting.from_samples_and_labels(times, labels, sampling_frequency)
     # print(f"Sorting: {sorting.get_unit_ids()}")
 
     # Apply curation
     json_file = parent_folder / "sv-sorting-curation-str.json"
-    sorting_merge = apply_sortingview_curation(sorting, uri_or_json=json_file, verbose=True)
+    sorting_merge = apply_sortingview_curation(sorting, uri_or_json=json_file)
 
     # Assertions for merged units
     # print(f"Merge only: {sorting_merge.get_unit_ids()}")
@@ -238,24 +241,34 @@ def test_label_inheritance_str():
     assert not sorting_merge.get_unit_property(unit_id="e-f", key="noise")
     assert sorting_merge.get_unit_property(unit_id="e-f", key="accept")
 
-    # Assertions for exclude_labels
+    # Assertions for exclude_labels should all be False
     sorting_exclude_noise = apply_sortingview_curation(sorting, uri_or_json=json_file, exclude_labels=["noise"])
-    # print(f"Exclude noise: {sorting_exclude_noise.get_unit_ids()}")
-    assert "c-d" not in sorting_exclude_noise.get_unit_ids()
+    assert np.all(~sorting_exclude_noise.get_property("noise"))
 
     # Assertions for include_labels
     sorting_include_accept = apply_sortingview_curation(sorting, uri_or_json=json_file, include_labels=["accept"])
-    # print(f"Include accept: {sorting_include_accept.get_unit_ids()}")
-    assert "a-b" not in sorting_include_accept.get_unit_ids()
-    assert "c-d" not in sorting_include_accept.get_unit_ids()
-    assert "e-f" in sorting_include_accept.get_unit_ids()
+    assert np.all(sorting_include_accept.get_property("accept"))
+
+
+def test_json_no_merge_curation():
+    """
+    Test curation with no merges using a JSON file.
+    """
+    sorting = generate_sorting(num_units=10)
+    unit_ids_as_int = [id for id in range(sorting.get_num_units())]
+    sorting = sorting.rename_units(new_unit_ids=unit_ids_as_int)
+
+    json_file = parent_folder / "sv-sorting-curation-no-merge.json"
+    sorting_curated = apply_sortingview_curation(sorting, uri_or_json=json_file)
 
 
 if __name__ == "__main__":
     # generate_sortingview_curation_dataset()
-    test_sha1_curation()
+    # test_sha1_curation()
+
     test_gh_curation()
     test_json_curation()
     test_false_positive_curation()
     test_label_inheritance_int()
     test_label_inheritance_str()
+    test_json_no_merge_curation()

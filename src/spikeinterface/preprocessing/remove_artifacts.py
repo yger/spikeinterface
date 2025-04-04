@@ -4,7 +4,7 @@ import warnings
 
 import numpy as np
 
-from spikeinterface.core.core_tools import define_function_from_class
+from spikeinterface.core.core_tools import define_function_handling_dict_from_class
 
 from .basepreprocessor import BasePreprocessor, BasePreprocessorSegment
 from spikeinterface.core import NumpySorting, estimate_templates
@@ -91,8 +91,6 @@ class RemoveArtifactsRecording(BasePreprocessor):
         The recording extractor after artifact removal
     """
 
-    name = "remove_artifacts"
-
     def __init__(
         self,
         recording,
@@ -170,7 +168,9 @@ class RemoveArtifactsRecording(BasePreprocessor):
                 assert (
                     ms_before is not None and ms_after is not None
                 ), f"ms_before/after should not be None for mode {mode}"
-                sorting = NumpySorting.from_times_labels(list_triggers, list_labels, recording.get_sampling_frequency())
+                sorting = NumpySorting.from_samples_and_labels(
+                    list_triggers, list_labels, recording.get_sampling_frequency()
+                )
 
                 nbefore = int(ms_before * recording.sampling_frequency / 1000.0)
                 nafter = int(ms_after * recording.sampling_frequency / 1000.0)
@@ -262,11 +262,6 @@ class RemoveArtifactsRecordingSegment(BasePreprocessorSegment):
         else:
             traces = self.parent_recording_segment.get_traces(start_frame, end_frame, channel_indices)
         traces = traces.copy()
-
-        if start_frame is None:
-            start_frame = 0
-        if end_frame is None:
-            end_frame = self.get_num_samples()
 
         mask = (self.triggers >= start_frame) & (self.triggers < end_frame)
         triggers = self.triggers[mask] - start_frame
@@ -451,4 +446,6 @@ class RemoveArtifactsRecordingSegment(BasePreprocessorSegment):
 
 
 # function for API
-remove_artifacts = define_function_from_class(source_class=RemoveArtifactsRecording, name="remove_artifacts")
+remove_artifacts = define_function_handling_dict_from_class(
+    source_class=RemoveArtifactsRecording, name="remove_artifacts"
+)

@@ -5,8 +5,8 @@ import inspect
 global default_backend_
 default_backend_ = "matplotlib"
 
-from ..core import SortingAnalyzer, BaseSorting
-from ..core.waveforms_extractor_backwards_compatibility import MockWaveformExtractor
+from spikeinterface.core import SortingAnalyzer, BaseSorting
+from spikeinterface.core.waveforms_extractor_backwards_compatibility import MockWaveformExtractor
 
 
 def get_default_plotter_backend():
@@ -139,7 +139,7 @@ class BaseWidget:
             if not sorting_analyzer.has_extension(extension):
                 raise_error = True
                 error_msg += (
-                    f"The {extension} waveform extension is required for this widget. "
+                    f"The {extension} sorting analyzer extension is required for this widget. "
                     f"Run the `sorting_analyzer.compute('{extension}', ...)` to compute it.\n"
                 )
         if raise_error:

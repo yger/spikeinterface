@@ -4,7 +4,7 @@ import warnings
 
 import numpy as np
 
-from ..core import BaseRecording
+from spikeinterface.core import BaseRecording
 from .base import BaseWidget, to_attr
 from .utils import get_some_colors, array_to_image
 
@@ -52,6 +52,8 @@ class TracesWidget(BaseWidget):
         If dict, keys should be the same as recording keys
     scale : float, default: 1
         Scale factor for the traces
+    vspacing_factor : float, default: 1.5
+        Vertical spacing between channels as a multiple of maximum channel amplitude
     with_colorbar : bool, default: True
         When mode is "map", a colorbar is added
     tile_size : int, default: 1500
@@ -82,6 +84,7 @@ class TracesWidget(BaseWidget):
         tile_size=1500,
         seconds_per_row=0.2,
         scale=1,
+        vspacing_factor=1.5,
         with_colorbar=True,
         add_legend=True,
         backend=None,
@@ -104,7 +107,7 @@ class TracesWidget(BaseWidget):
             )
 
         if order_channel_by_depth and rec0.has_channel_location():
-            from ..preprocessing import depth_order
+            from spikeinterface.preprocessing import depth_order
 
             rec0 = depth_order(rec0)
             recordings = {k: depth_order(rec) for k, rec in recordings.items()}
@@ -142,7 +145,7 @@ class TracesWidget(BaseWidget):
         fs = rec0.get_sampling_frequency()
         if time_range is None:
             time_range = (t_start, t_start + 1.0)
-        time_range = np.array(time_range)
+        time_range = np.array(time_range, dtype=np.float64)
         if time_range[1] > t_end:
             warnings.warn(
                 "You have selected a time after the end of the segment. The range will be clipped to " f"{t_end}"
@@ -168,7 +171,7 @@ class TracesWidget(BaseWidget):
         traces0 = list_traces[0]
         mean_channel_std = np.mean(np.std(traces0, axis=0))
         max_channel_amp = np.max(np.max(np.abs(traces0), axis=0))
-        vspacing = max_channel_amp * 1.5
+        vspacing = max_channel_amp * vspacing_factor
 
         if rec0.get_channel_groups() is None:
             color_groups = False
@@ -601,10 +604,10 @@ class TracesWidget(BaseWidget):
     def plot_sortingview(self, data_plot, **backend_kwargs):
         import sortingview.views as vv
         from .utils_sortingview import handle_display_and_url
+        import importlib.util
 
-        try:
-            import pyvips
-        except ImportError:
+        spec = importlib.util.find_spec("pyvips")
+        if spec is None:
             raise ImportError("To use `plot_traces()` in sortingview you need the pyvips package.")
 
         dp = to_attr(data_plot)
@@ -639,7 +642,7 @@ class TracesWidget(BaseWidget):
 
     def plot_ephyviewer(self, data_plot, **backend_kwargs):
         import ephyviewer
-        from ..preprocessing import depth_order
+        from spikeinterface.preprocessing import depth_order
 
         dp = to_attr(data_plot)
 

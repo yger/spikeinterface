@@ -1,7 +1,9 @@
 import os
+import platform
 import pytest
 from pathlib import Path
 import shutil
+from packaging.version import parse
 
 from spikeinterface import generate_ground_truth_recording
 from spikeinterface.sorters import run_sorter
@@ -19,14 +21,18 @@ def generate_recording():
     return _generate_recording()
 
 
+@pytest.mark.xfail(
+    platform.system() == "Windows" and parse(platform.python_version()) > parse("3.12"),
+    reason="3rd parth threadpoolctl issue: OSError('GetModuleFileNameEx failed')",
+)
 def test_run_sorter_local(generate_recording, create_cache_folder):
     recording = generate_recording
     cache_folder = create_cache_folder
 
-    sorter_params = {"detect_threshold": 4.9}
+    sorter_params = {"detection": {"detect_threshold": 4.9}}
 
     sorting = run_sorter(
-        "tridesclous",
+        "tridesclous2",
         recording,
         output_folder=cache_folder / "sorting_tdc_local",
         remove_existing_folder=True,

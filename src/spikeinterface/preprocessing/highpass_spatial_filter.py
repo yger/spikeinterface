@@ -4,8 +4,8 @@ import numpy as np
 
 from .basepreprocessor import BasePreprocessor, BasePreprocessorSegment
 from .filter import fix_dtype
-from ..core import order_channels_by_depth, get_chunk_with_margin
-from ..core.core_tools import define_function_from_class
+from spikeinterface.core import order_channels_by_depth, get_chunk_with_margin
+from spikeinterface.core.core_tools import define_function_handling_dict_from_class
 
 
 class HighpassSpatialFilterRecording(BasePreprocessor):
@@ -63,8 +63,6 @@ class HighpassSpatialFilterRecording(BasePreprocessor):
     International Brain Laboratory et al. (2022). Spike sorting pipeline for the International Brain Laboratory.
     https://www.internationalbrainlab.com/repro-ephys
     """
-
-    name = "highpass_spatial_filter"
 
     def __init__(
         self,
@@ -247,7 +245,7 @@ class HighPassSpatialFilterSegment(BasePreprocessorSegment):
 
 
 # function for API
-highpass_spatial_filter = define_function_from_class(
+highpass_spatial_filter = define_function_handling_dict_from_class(
     source_class=HighpassSpatialFilterRecording, name="highpass_spatial_filter"
 )
 
