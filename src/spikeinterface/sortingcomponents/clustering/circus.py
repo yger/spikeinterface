@@ -55,19 +55,12 @@ class CircusClustering:
             "recursive_depth": 3,
             "returns_split_count": True,
         },
-<<<<<<< HEAD
-        "radius_um": 50,
-        "n_svd": [5, 2],
-        "ms_before": 1,
-        "ms_after": 1,
-=======
         "radius_um": 100,
         "n_svd": 5,
         "few_waveforms": None,
         "ms_before": 0.5,
         "ms_after": 0.5,
         "noise_threshold": 4,
->>>>>>> e9b39ef400bce4bef9e6f5048660753ed759c331
         "rank": 5,
         "noise_levels": None,
         "tmp_folder": None,
@@ -121,13 +114,6 @@ class CircusClustering:
         hanning = np.concatenate((hanning_before[:nbefore], hanning_after[nafter:]))
         wfs *= hanning
 
-<<<<<<< HEAD
-        wfs = few_wfs[:, :, 0]
-        norms = np.linalg.norm(wfs, axis=1)
-        wfs /= norms[:, None]
-
-=======
->>>>>>> e9b39ef400bce4bef9e6f5048660753ed759c331
         from sklearn.decomposition import TruncatedSVD
 
         tsvd = TruncatedSVD(params["n_svd"])

@@ -157,9 +157,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
         ## We need to whiten before the template matching step, to boost the results
         # TODO add , regularize=True chen ready
-<<<<<<< HEAD
-        recording_w = whiten(recording_f, mode="local", radius_um=radius_um, dtype="float32", regularize=True)
-=======
         whitening_kwargs = params["whitening"].copy()
         whitening_kwargs["dtype"] = "float32"
         whitening_kwargs["regularize"] = whitening_kwargs.get("regularize", False)
@@ -167,7 +164,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             whitening_kwargs["regularize"] = False
         if whitening_kwargs["regularize"]:
             whitening_kwargs["regularize_kwargs"] = {"method": "LedoitWolf"}
->>>>>>> e9b39ef400bce4bef9e6f5048660753ed759c331
 
         recording_w = whiten(recording_f, **whitening_kwargs)
         noise_levels = get_noise_levels(recording_w, return_scaled=False, **job_kwargs)

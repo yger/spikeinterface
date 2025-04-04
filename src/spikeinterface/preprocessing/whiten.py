@@ -7,7 +7,6 @@ from spikeinterface.core.core_tools import define_function_handling_dict_from_cl
 
 from spikeinterface.core import get_random_data_chunks, get_channel_distances
 from .filter import fix_dtype
-from ..core.globals import get_global_job_kwargs
 
 
 class WhitenRecording(BasePreprocessor):
