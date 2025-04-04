@@ -250,21 +250,9 @@ class LocalFeatureClustering:
         if flatten_features.shape[1] > n_pca_features:
             from sklearn.decomposition import PCA
 
-<<<<<<< HEAD
-            if scale_n_pca_by_depth:
-                tsvd = PCA(n_pca_features * recursion_level, whiten=True)
-                norms = np.linalg.norm(flatten_features, axis=1)
-                flatten_features /=  norms[:, None]
-            else:
-                tsvd = PCA(n_pca_features, whiten=True)
-                norms = np.linalg.norm(flatten_features, axis=1)
-                flatten_features /=  norms[:, None]
-
-=======
             # from sklearn.decomposition import TruncatedSVD
             # tsvd = TruncatedSVD(n_pca_features)
             tsvd = PCA(n_pca_features, whiten=True)
->>>>>>> e9b39ef400bce4bef9e6f5048660753ed759c331
             final_features = tsvd.fit_transform(flatten_features)
             del tsvd
         else:
