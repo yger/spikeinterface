@@ -6,10 +6,9 @@ import shutil
 import numpy as np
 
 from spikeinterface.core import NumpySorting
-from spikeinterface.core.job_tools import fix_job_kwargs, split_job_kwargs
+from spikeinterface.core.job_tools import fix_job_kwargs
 from spikeinterface.core.recording_tools import get_noise_levels
 from spikeinterface.core.template import Templates
-from spikeinterface.core.waveform_tools import estimate_templates
 from spikeinterface.preprocessing import common_reference, whiten, bandpass_filter, correct_motion
 from spikeinterface.sortingcomponents.tools import (
     cache_preprocessing,
@@ -44,7 +43,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "merging": {"max_distance_um": 50},
         "clustering": {"method": "graph_clustering", 
                        "method_kwargs" : dict()},
-        "matching": {"method": "circus-omp-svd", 
+        "matching": {"method": "wobble", 
                      "method_kwargs" : dict()},
         "apply_preprocessing": True,
         "apply_motion_correction": True,
