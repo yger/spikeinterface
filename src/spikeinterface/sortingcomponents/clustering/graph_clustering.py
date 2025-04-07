@@ -157,12 +157,6 @@ class GraphClustering:
             peak_labels = np.array(clusters.membership)
             _remove_small_cluster(peak_labels, min_size=1)
 
-        elif clustering_method == "igraph-label-propagation":
-            import igraph
-            graph = igraph.Graph.Weighted_Adjacency(distances.tocoo(), mode='directed',)
-            clusters = graph.community_label_propagation()
-            peak_labels = np.array(clusters.membership)
-            _remove_small_cluster(peak_labels, min_size=1)
         elif clustering_method == "hdbscan":
             from hdbscan import HDBSCAN
 

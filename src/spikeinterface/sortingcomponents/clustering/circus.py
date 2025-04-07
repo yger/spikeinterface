@@ -23,7 +23,7 @@ from spikeinterface.sortingcomponents.waveforms.temporal_pca import TemporalPCAP
 from spikeinterface.sortingcomponents.waveforms.hanning_filter import HanningFilter
 from spikeinterface.core.template import Templates
 from spikeinterface.core.sparsity import compute_sparsity
-from spikeinterface.sortingcomponents.tools import remove_empty_templates, get_optimal_n_jobs
+from spikeinterface.sortingcomponents.tools import remove_empty_templates, _get_optimal_n_jobs
 from spikeinterface.sortingcomponents.clustering.peak_svd import extract_peaks_svd
 from spikeinterface.sortingcomponents.tools import extract_waveform_at_max_channel
 
@@ -60,7 +60,7 @@ class CircusClustering:
         "noise_levels": None,
         "tmp_folder": None,
         "verbose": True,
-        "memory_limit":0.25,
+        "memory_limit": 0.25,
         "debug": False,
     }
 
@@ -175,7 +175,7 @@ class CircusClustering:
 
         job_kwargs_local = job_kwargs.copy()
         ram_requested = recording.get_num_channels() * (nbefore + nafter) * len(unit_ids) * 4
-        job_kwargs_local = get_optimal_n_jobs(job_kwargs_local, ram_requested, params["memory_limit"])
+        job_kwargs_local = _get_optimal_n_jobs(job_kwargs_local, ram_requested, params["memory_limit"])
 
         templates_array = estimate_templates(
             recording,
@@ -222,7 +222,7 @@ class CircusClustering:
         if verbose:
             print("Found %d raw clusters, starting to clean with matching" % (len(templates.unit_ids)))
 
-        cleaning_job_kwargs = job_kwargs.copy()
+        cleaning_job_kwargs = job_kwargs_local.copy()
         cleaning_job_kwargs["progress_bar"] = False
         cleaning_params = params["cleaning_kwargs"].copy()
 
