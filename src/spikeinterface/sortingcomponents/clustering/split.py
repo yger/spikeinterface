@@ -121,10 +121,10 @@ def split_clusters(
             if recursive:
                 recursion_level = np.max(split_count[peak_indices])
                 if recursive_depth is not None:
-                    # stop reccursivity when recursive_depth is reach
+                    # stop recursivity when recursive_depth is reach
                     extra_ball = recursion_level < recursive_depth
                 else:
-                    # always reccursive
+                    # recursive always
                     extra_ball = True
 
                 if extra_ball:
@@ -210,8 +210,8 @@ class LocalFeatureClustering:
         waveforms_sparse_mask=None,
         min_size_split=25,
         n_pca_features=2,
+        projection_mode="tsvd",
         minimum_overlap_ratio=0.25,
-        projection_mode="pca",
     ):
         local_labels = np.zeros(peak_indices.size, dtype=np.int64)
 
@@ -258,11 +258,9 @@ class LocalFeatureClustering:
                 from sklearn.decomposition import TruncatedSVD
 
                 tsvd = TruncatedSVD(nb_dimensions)
-
             final_features = tsvd.fit_transform(flatten_features)
-            thr = np.percentile(tsvd.explained_variance_ratio_, 100*n_pca_features)
-            indices = tsvd.explained_variance_ratio_ > thr
-            final_features = final_features[:, indices]
+            n_explain = np.sum(np.cumsum(tsvd.explained_variance_ratio_) <= n_pca_features) + 1
+            final_features = final_features[:, :n_explain]
             n_pca_features = final_features.shape[1]
         elif isinstance(n_pca_features, int):
             if flatten_features.shape[1] > n_pca_features:
@@ -318,6 +316,7 @@ class LocalFeatureClustering:
             if final_features.shape[1] == 1:
                 final_features = np.hstack((final_features, np.zeros_like(final_features)))
 
+            sl = slice(None, None, 100)
             for k in np.unique(possible_labels):
                 mask = possible_labels == k
                 ax = axs[0]
@@ -348,6 +347,9 @@ class LocalFeatureClustering:
                 sorted_components = np.argsort(tsvd.explained_variance_ratio_)[::-1]
                 ax.plot(tsvd.explained_variance_ratio_[sorted_components], c="k")
                 del tsvd
+
+            ymin, ymax = ax.get_ylim()
+            ax.plot([n_pca_features, n_pca_features], [ymin, ymax], "k--")
 
             axs[0].set_title(f"{clusterer} level={recursion_level}")
             if not DEBUG:
