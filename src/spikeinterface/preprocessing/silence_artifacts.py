@@ -5,6 +5,7 @@ import numpy as np
 from spikeinterface.core.core_tools import define_function_handling_dict_from_class
 from spikeinterface.preprocessing.silence_periods import SilencedPeriodsRecording
 from spikeinterface.preprocessing.rectify import RectifyRecording
+from spikeinterface.preprocessing.common_reference import CommonReferenceRecording
 from spikeinterface.preprocessing.filter_gaussian import GaussianFilterRecording
 from spikeinterface.core.job_tools import split_job_kwargs, fix_job_kwargs
 from spikeinterface.core.recording_tools import get_noise_levels
@@ -22,11 +23,13 @@ class DetectThresholdCrossing(PeakDetector):
         recording,
         detect_threshold=5,
         noise_levels=None,
-        random_chunk_kwargs={},
+        seed=None,
+        random_slices_kwargs={},
     ):
         PeakDetector.__init__(self, recording, return_output=True)
         if noise_levels is None:
-            noise_levels = get_noise_levels(recording, return_scaled=False, **random_chunk_kwargs)
+            random_slices_kwargs.update({"seed": seed})
+            noise_levels = get_noise_levels(recording, return_scaled=False, random_slices_kwargs=random_slices_kwargs)
         self.abs_thresholds = noise_levels * detect_threshold
         self._dtype = np.dtype(base_peak_dtype + [("onset", "bool")])
 
@@ -37,8 +40,8 @@ class DetectThresholdCrossing(PeakDetector):
         return self._dtype
 
     def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
-        z = np.median(traces - self.abs_thresholds, 1)
-        threshold_mask = np.diff((z > 0) != 0, axis=0)
+        z = np.median(traces / self.abs_thresholds, 1)
+        threshold_mask = np.diff((z > 1) != 0, axis=0)
         indices = np.flatnonzero(threshold_mask)
         local_peaks = np.zeros(indices.size, dtype=self._dtype)
         local_peaks["sample_index"] = indices
@@ -65,40 +68,40 @@ def detect_onsets(recording, detect_threshold=5, min_duration_ms=50, **extra_kwa
         job_name="detect threshold crossings",
     )
 
+    order = np.lexsort((peaks["sample_index"], peaks["segment_index"]))
+    peaks = peaks[order]
+
     periods = []
     fs = recording.sampling_frequency
-    max_duration_samples = int(min_duration_ms*fs/1000)
+    max_duration_samples = int(min_duration_ms * fs / 1000)
     num_seg = recording.get_num_segments()
+
     for seg_index in range(num_seg):
         sub_periods = []
         mask = peaks["segment_index"] == 0
         sub_peaks = peaks[mask]
-        onsets = sub_peaks[sub_peaks["onset"]]
-        offsets = sub_peaks[~sub_peaks["onset"]]
+        if len(sub_peaks) > 0:
+            if not sub_peaks["onset"][0]:
+                local_peaks = np.zeros(1, dtype=np.dtype(base_peak_dtype + [("onset", "bool")]))
+                local_peaks["sample_index"] = 0
+                local_peaks["onset"] = True
+                sub_peaks = np.hstack((local_peaks, sub_peaks))
+            if sub_peaks["onset"][-1]:
+                local_peaks = np.zeros(1, dtype=np.dtype(base_peak_dtype + [("onset", "bool")]))
+                local_peaks["sample_index"] = recording.get_num_samples(seg_index)
+                local_peaks["onset"] = False
+                sub_peaks = np.hstack((sub_peaks, local_peaks))
 
-        onset_time = 0
-        offset_time = recording.get_num_samples(seg_index)
-
-        while onset_time < offset_time:
-            pass
-        
-        if len(onsets) == 0 and len(offsets) == 0:
-            periods.append([])
-            continue
-        elif len(onsets) > 0 and len(offsets) == 0:
-            offset = recording.get_num_samples(seg_index)
-            if (offset - onsets["sample_index"][0]) > max_duration_samples:
-                periods.append([( onsets["sample_index"][0], offset)])
-            continue
-
-        max_size = min(len(onsets), len(offsets))
-        np.where(onsets[:max_size])
-
-        for i in range(min(len(onsets), len(offsets))):
-            sub_periods += [(onsets["sample_index"][i], offsets["sample_index"][i])]
+            indices = np.flatnonzero(np.diff(sub_peaks["onset"]))
+            for i, j in zip(indices[:-1], indices[1:]):
+                if sub_peaks["onset"][i]:
+                    start = sub_peaks["sample_index"][i]
+                    end = sub_peaks["sample_index"][j]
+                    if end - start > max_duration_samples:
+                        sub_periods.append((start, end))
 
         periods.append(sub_periods)
-    #print(periods)
+
     return periods
 
 
@@ -133,7 +136,7 @@ class SilencedArtifactsRecording(SilencedPeriodsRecording):
         - "noise": The periods are filled with a gaussion noise that has the
                    same variance that the one in the recordings, on a per channel
                    basis
-    **random_chunk_kwargs : Keyword arguments for `spikeinterface.core.get_random_data_chunk()` function
+    **random_slices_kwargs : Keyword arguments for `spikeinterface.core.get_random_data_chunk()` function
 
     Returns
     -------
@@ -152,28 +155,33 @@ class SilencedArtifactsRecording(SilencedPeriodsRecording):
         noise_levels=None,
         seed=None,
         list_periods=None,
-        **random_chunk_kwargs,
+        **random_slices_kwargs,
     ):
 
         self.enveloppe = RectifyRecording(recording)
         self.enveloppe = GaussianFilterRecording(self.enveloppe, freq_min=None, freq_max=freq_max)
+        self.enveloppe = CommonReferenceRecording(self.enveloppe)
 
         if list_periods is None:
-            list_periods = detect_onsets(self.enveloppe, 
-                                         detect_threshold=detect_threshold, 
-                                         min_duration_ms=min_duration_ms,
-                                         **random_chunk_kwargs)
+            list_periods = detect_onsets(
+                self.enveloppe,
+                detect_threshold=detect_threshold,
+                min_duration_ms=min_duration_ms,
+                seed=seed,
+                **random_slices_kwargs,
+            )
+
             if verbose:
                 for i, periods in enumerate(list_periods):
                     total_time = np.sum([end - start for start, end in periods])
                     percentage = 100 * total_time / recording.get_num_samples(i)
                     print(f"{percentage}% of segment {i} has been flagged as artifactual")
 
-        if "enveloppe" in random_chunk_kwargs:
-            random_chunk_kwargs.pop("enveloppe")
+        if "enveloppe" in random_slices_kwargs:
+            random_slices_kwargs.pop("enveloppe")
 
         SilencedPeriodsRecording.__init__(
-            self, recording, list_periods, mode=mode, noise_levels=noise_levels, seed=seed, **random_chunk_kwargs
+            self, recording, list_periods, mode=mode, noise_levels=noise_levels, seed=seed, **random_slices_kwargs
         )
 
         self._kwargs.update(
@@ -188,4 +196,6 @@ class SilencedArtifactsRecording(SilencedPeriodsRecording):
 
 
 # function for API
-silence_artifacts = define_function_handling_dict_from_class(source_class=SilencedArtifactsRecording, name="silence_artifacts")
+silence_artifacts = define_function_handling_dict_from_class(
+    source_class=SilencedArtifactsRecording, name="silence_artifacts"
+)
