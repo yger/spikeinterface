@@ -359,7 +359,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 templates.to_zarr(folder_path=clustering_folder / "templates")
 
             ## We launch a OMP matching pursuit by full convolution of the templates and the raw traces
-            matching_method = params["matching"].get("method", "circus-omp_svd")
             matching_params = params["matching"].get("method_kwargs", dict())
             matching_params["templates"] = templates
 
