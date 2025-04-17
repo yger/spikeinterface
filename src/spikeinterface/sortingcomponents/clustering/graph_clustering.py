@@ -75,8 +75,6 @@ class GraphClustering:
         peaks_svd, sparse_mask, svd_model = extract_peaks_svd(
             recording,
             peaks,
-            ms_before=ms_before,
-            ms_after=ms_after,
             radius_um=radius_um,
             ms_before=ms_before,
             ms_after=ms_after,
