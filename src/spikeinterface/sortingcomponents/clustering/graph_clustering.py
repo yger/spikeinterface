@@ -82,6 +82,7 @@ class GraphClustering:
             ms_after=ms_after,
             motion_aware=motion_aware,
             motion=None,
+            seed=params["seed"],
             **params["extract_peaks_svd_kwargs"],
             # **job_kwargs
         )
