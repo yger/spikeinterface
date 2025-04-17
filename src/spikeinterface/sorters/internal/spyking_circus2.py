@@ -12,7 +12,7 @@ from spikeinterface.preprocessing import common_reference, whiten, bandpass_filt
 from spikeinterface.sortingcomponents.tools import (
     cache_preprocessing,
     get_shuffled_recording_slices,
-    set_optimal_chunk_size,
+    _set_optimal_chunk_size,
 )
 from spikeinterface.core.basesorting import minimum_spike_dtype
 from spikeinterface.core.sparsity import compute_sparsity
@@ -39,7 +39,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "apply_preprocessing": True,
         "templates_from_svd": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
-        "chunk_preprocessing": {"memory_limit": 0.01},
+        "chunk_preprocessing": {"memory_limit": None},
         "multi_units_only": False,
         "job_kwargs": {"n_jobs": 0.75},
         "seed": 42,
@@ -108,7 +108,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         job_kwargs = fix_job_kwargs(params["job_kwargs"])
         job_kwargs.update({"progress_bar": verbose})
         recording = cls.load_recording_from_folder(sorter_output_folder.parent, with_warnings=False)
-        job_kwargs = set_optimal_chunk_size(recording, job_kwargs, **params["chunk_preprocessing"])
+        if params["chunk_preprocessing"].get("memory_limit", None) is not None:
+            job_kwargs = _set_optimal_chunk_size(recording, job_kwargs, **params["chunk_preprocessing"])
 
         sampling_frequency = recording.get_sampling_frequency()
         num_channels = recording.get_num_channels()
@@ -436,7 +437,14 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                     sorting.save(folder=curation_folder)
                     # np.save(fitting_folder / "amplitudes", guessed_amplitudes)
 
+<<<<<<< HEAD
                 sorting = final_cleaning_circus(recording_w, sorting, templates, **merging_params, **job_kwargs)
+=======
+                final_analyzer = final_cleaning_circus(recording_w, sorting, templates, **merging_params, **job_kwargs)
+                final_analyzer.save_as(format="binary_folder", folder=sorter_output_folder / "final_analyzer")
+
+                sorting = final_analyzer.sorting
+>>>>>>> total_memory
 
                 if verbose:
                     print(f"Kept {len(sorting.unit_ids)} units after final merging")

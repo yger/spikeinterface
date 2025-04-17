@@ -247,7 +247,7 @@ def check_probe_for_drift_correction(recording, dist_x_max=60):
         return True
 
 
-def set_optimal_chunk_size(recording, job_kwargs, memory_limit=0.5, total_memory=None):
+def _set_optimal_chunk_size(recording, job_kwargs, memory_limit=0.5, total_memory=None):
     """
     Set the optimal chunk size for a job given the memory_limit and the number of jobs
 
@@ -298,7 +298,7 @@ def set_optimal_chunk_size(recording, job_kwargs, memory_limit=0.5, total_memory
     return job_kwargs
 
 
-def get_optimal_n_jobs(job_kwargs, ram_requested, memory_limit=0.25):
+def _get_optimal_n_jobs(job_kwargs, ram_requested, memory_limit=0.25):
     """
     Set the optimal chunk size for a job given the memory_limit and the number of jobs
 
@@ -323,7 +323,7 @@ def get_optimal_n_jobs(job_kwargs, ram_requested, memory_limit=0.25):
     if HAVE_PSUTIL:
         assert 0 < memory_limit < 1, "memory_limit should be in ]0, 1["
         memory_usage = memory_limit * psutil.virtual_memory().available
-        n_jobs = int(min(n_jobs, memory_usage // ram_requested))
+        n_jobs = max(1, int(min(n_jobs, memory_usage // ram_requested)))
         job_kwargs.update(dict(n_jobs=n_jobs))
     else:
         import warnings
