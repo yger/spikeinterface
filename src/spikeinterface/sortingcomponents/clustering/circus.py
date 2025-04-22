@@ -115,11 +115,7 @@ class CircusClustering:
 
         from sklearn.decomposition import TruncatedSVD
 
-<<<<<<< HEAD
         svd_model = TruncatedSVD(params["n_svd"], random_state=params["seed"])
-=======
-        svd_model = TruncatedSVD(params["n_svd"])
->>>>>>> main
         svd_model.fit(wfs)
         features_folder = tmp_folder / "tsvd_features"
         features_folder.mkdir(exist_ok=True)
@@ -132,10 +128,7 @@ class CircusClustering:
             svd_model=svd_model,
             radius_um=radius_um,
             folder=features_folder,
-<<<<<<< HEAD
             seed=params["seed"],
-=======
->>>>>>> main
             **job_kwargs,
         )
 
@@ -151,10 +144,7 @@ class CircusClustering:
         split_kwargs = params["split_kwargs"].copy()
         split_kwargs["neighbours_mask"] = neighbours_mask
         split_kwargs["waveforms_sparse_mask"] = sparse_mask
-<<<<<<< HEAD
         split_kwargs["seed"] = params["seed"]
-=======
->>>>>>> main
         split_kwargs["min_size_split"] = 2 * params["hdbscan_kwargs"].get("min_cluster_size", 50)
         split_kwargs["clusterer_kwargs"] = params["hdbscan_kwargs"]
 
