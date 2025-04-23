@@ -816,28 +816,20 @@ class OnlineClustering:
 
 
     def __call__(self, res):
-        from river import stream
         if self.tuple_mode is None:
             # first loop only
             self.tuple_mode = isinstance(res, tuple)
-
+        
         my_stream = []
         if res is not None:
             peaks = res[0]
             waveforms = res[1]
-            projections = res[2]
-            n_features = projections.shape[1]
-
-            for count, data in enumerate(projections):
-                my_stream += [list(data) + [waveforms[count]]]
-
-            feature_names = ['p_%d' %i for i in range(n_features)] + ['w']
-            
+            projections = res[2]            
             count = 0
-            for (x, _) in stream.iter_array(my_stream, feature_names=feature_names):
+            for x, w in zip(projections, waveforms):
                 global_frame = peaks["sample_index"][count] + self.count * self.chunk_size
                 time_in_s = global_frame/self.sampling_frequency
-                self.clusterer.learn_one(x, time_in_s, peaks["channel_index"][count])
+                self.clusterer.learn_one(x, w, time_in_s, peaks["channel_index"][count])
                 count += 1
         #print(self.clusterer.n_clusters)
         #self.clusterer.get_templates().to_zarr(self.folder_path / f'{self.count}')

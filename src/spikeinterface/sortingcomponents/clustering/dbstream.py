@@ -191,11 +191,7 @@ class DBSTREAM(base.Clusterer):
         gaussian_neighborhood = np.exp(-(distance **2) / (2 * (sigma**2)))
         return gaussian_neighborhood
 
-    def _update(self, x, time_stamp, peak_channel):
-
-        # First we catch the sparse waveforms and turn data into numpy arrays
-        w = x.pop('w')
-        x = np.array(list(x.values()), dtype=np.float32)
+    def _update(self, x, w, time_stamp, peak_channel):
 
         # Algorithm 1 of Michael Hahsler and Matthew Bolanos
         neighbor_clusters = self._find_fixed_radius_nn(x)
@@ -415,8 +411,8 @@ class DBSTREAM(base.Clusterer):
             self._centers = {i: self._clusters[i].center for i in self._clusters.keys()}
             self._waveforms = {i: self._clusters[i].waveforms for i in self._clusters.keys()}
 
-    def learn_one(self, x, time_stamp, peak_channel):
-        self._update(x, time_stamp, peak_channel)
+    def learn_one(self, data, waveforms, time_stamp, peak_channel):
+        self._update(data, waveforms, time_stamp, peak_channel)
 
         #if self._time_stamp % self.cleanup_interval == 0:
         if self._time_stamp // self.cleanup_interval > self.last_cleanup:
