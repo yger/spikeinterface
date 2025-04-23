@@ -803,6 +803,7 @@ class OnlineClustering:
 
     def __init__(self, **kwargs):
         self.tuple_mode = None
+        self.outputs = []
         from spikeinterface.sortingcomponents.clustering.dbstream import DBSTREAM
         params = self._default_params.copy()
         params.update(kwargs)
@@ -829,14 +830,30 @@ class OnlineClustering:
             for x, w in zip(projections, waveforms):
                 global_frame = peaks["sample_index"][count] + self.count * self.chunk_size
                 time_in_s = global_frame/self.sampling_frequency
-                self.clusterer.learn_one(x, w, time_in_s, peaks["channel_index"][count])
+                self.clusterer.learn_one(x, w, time_in_s, peaks[count])
                 count += 1
         #print(self.clusterer.n_clusters)
         #self.clusterer.get_templates().to_zarr(self.folder_path / f'{self.count}')
         self.count += 1
+        #self.outputs.append([res[0]])
 
     def finalize_buffers(self, squeeze_output=False):
-        return self.clusterer
+        # concatenate
+        if self.tuple_mode:
+            # list of tuple of numpy array
+            outs_concat = ()
+            for output_step in zip(*self.outputs):
+                outs_concat += (np.concatenate(output_step, axis=0),)
+
+            if len(outs_concat) == 1 and squeeze_output:
+                # when tuple size ==1  then remove the tuple
+                return outs_concat[0], self.clusterer
+            else:
+                # always a tuple even of size 1
+                return outs_concat, self.clusterer
+        else:
+            # list of numpy array
+            return np.concatenate(self.outputs), self.clusterer
 
 
 class GatherToNpy:

@@ -12,6 +12,9 @@ from spikeinterface.core import get_channel_distances
 from spikeinterface.core.sparsity import compute_sparsity
 from spikeinterface.sortingcomponents.tools import remove_empty_templates
 
+from spikeinterface.core.node_pipeline import (
+    base_peak_dtype
+)
 
 class DBSTREAM(base.Clusterer):
     r"""DBSTREAM
@@ -191,10 +194,11 @@ class DBSTREAM(base.Clusterer):
         gaussian_neighborhood = np.exp(-(distance **2) / (2 * (sigma**2)))
         return gaussian_neighborhood
 
-    def _update(self, x, w, time_stamp, peak_channel):
+    def _update(self, x, w, time_stamp, peak):
 
         # Algorithm 1 of Michael Hahsler and Matthew Bolanos
         neighbor_clusters = self._find_fixed_radius_nn(x)
+        peak_channel = peak['channel_index']
         waveforms_channels = self.neighbours_mask[peak_channel]
         full_w = np.zeros((w.shape[0], self.recording.get_num_channels()), dtype=np.float32)
         full_w[:, waveforms_channels] = w[:, :np.sum(waveforms_channels)]
@@ -202,13 +206,21 @@ class DBSTREAM(base.Clusterer):
         if len(neighbor_clusters) < 1:
             if len(self._micro_clusters) > 0:
                 self._micro_clusters[max(self._micro_clusters.keys()) + 1] = DBSTREAMMicroCluster(
-                    x=x, waveforms=full_w, waveforms_channels=waveforms_channels,
-                    last_update=self._time_stamp, weight=1,
+                    x=x, 
+                    waveforms=full_w, 
+                    waveforms_channels=waveforms_channels,
+                    last_update=self._time_stamp, 
+                    peak = peak,
+                    weight=1,
                 )
             else:
                 self._micro_clusters[0] = DBSTREAMMicroCluster(
-                    x=x, waveforms=full_w, waveforms_channels=waveforms_channels,
-                    last_update=self._time_stamp, weight=1,
+                    x=x, 
+                    waveforms=full_w, 
+                    waveforms_channels=waveforms_channels,
+                    peak = peak,
+                    last_update=self._time_stamp, 
+                    weight=1,
                 )
         else:
             # update existing micro clusters
@@ -227,7 +239,7 @@ class DBSTREAM(base.Clusterer):
 
                 # Update the center (i) with overlapping keys (j)
                 amplitude = self._gaussian_neighborhood(x, self._micro_clusters[i].center)
-                self._micro_clusters[i].update(x, full_w, waveforms_channels, amplitude)
+                self._micro_clusters[i].update(x, full_w, waveforms_channels, amplitude, peak)
                 self._micro_clusters[i].last_update = self._time_stamp
 
                 # update shared density
@@ -411,8 +423,8 @@ class DBSTREAM(base.Clusterer):
             self._centers = {i: self._clusters[i].center for i in self._clusters.keys()}
             self._waveforms = {i: self._clusters[i].waveforms for i in self._clusters.keys()}
 
-    def learn_one(self, data, waveforms, time_stamp, peak_channel):
-        self._update(data, waveforms, time_stamp, peak_channel)
+    def learn_one(self, data, waveforms, time_stamp, peak):
+        self._update(data, waveforms, time_stamp, peak)
 
         #if self._time_stamp % self.cleanup_interval == 0:
         if self._time_stamp // self.cleanup_interval > self.last_cleanup:
@@ -504,16 +516,29 @@ class DBSTREAM(base.Clusterer):
 
         return templates
 
+    def get_peaks_and_labels(self):
+        self._cleanup()
+        self._recluster()
+        peak_labels = np.zeros(0, dtype=int)
+        peaks = np.zeros(0, dtype=base_peak_dtype)
+        for count, key in enumerate(self._waveforms.keys()):
+            peaks = np.concatenate((peaks, self._clusters[key].all_peaks), axis=0)
+            peak_labels = np.concatenate((peak_labels,  len(self._clusters[key].all_peaks) * [key]))
+        order = np.lexsort((peaks["sample_index"], peaks["segment_index"]))
+        peaks = peaks[order]
+        peak_labels = peak_labels[order]
+        return peaks, peak_labels
 
 class DBSTREAMMicroCluster(metaclass=ABCMeta):
     """DBStream Micro-cluster class"""
 
-    def __init__(self, x=None, waveforms=None, waveforms_channels=None, last_update=None, weight=None):
+    def __init__(self, x=None, waveforms=None, waveforms_channels=None, last_update=None, peak=None, weight=None):
         self.center = x
         self.waveforms = waveforms
         self.waveforms_channels = waveforms_channels
         self.last_update = last_update
         self.weight = weight
+        self.all_peaks = np.array([peak], dtype=base_peak_dtype)
 
     def _common_indices(self, waveforms_channels):
         common_indices = self.waveforms_channels * waveforms_channels
@@ -528,12 +553,14 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
                                           + cluster.waveforms[:, common_indices]*cluster.weight)/denominator
         self.waveforms_channels = self.waveforms_channels | cluster.waveforms_channels
         self.weight = denominator
+        self.all_peaks = np.concatenate((self.all_peaks, cluster.all_peaks), axis=0)
 
-    def update(self, x, waveforms, waveforms_channels, amplitude):
+    def update(self, x, waveforms, waveforms_channels, amplitude, peak):
         self.center += amplitude*(x - self.center)
         common_indices, inds_2_only = self._common_indices(waveforms_channels)
         self.waveforms[:, common_indices] += amplitude*(waveforms[:, common_indices] - self.waveforms[:, common_indices])
         self.waveforms[:, inds_2_only] = waveforms[:, inds_2_only]
         self.waveforms_channels = self.waveforms_channels | waveforms_channels
+        self.all_peaks = np.concatenate((self.all_peaks, [peak]), axis=0)
         
         
