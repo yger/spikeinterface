@@ -559,7 +559,7 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
         self.center += amplitude*(x - self.center)
         common_indices, inds_2_only = self._common_indices(waveforms_channels)
         self.waveforms[:, common_indices] += amplitude*(waveforms[:, common_indices] - self.waveforms[:, common_indices])
-        self.waveforms[:, inds_2_only] = waveforms[:, inds_2_only]
+        self.waveforms[:, inds_2_only] = amplitude*waveforms[:, inds_2_only]
         self.waveforms_channels = self.waveforms_channels | waveforms_channels
         self.all_peaks = np.concatenate((self.all_peaks, [peak]), axis=0)
         
