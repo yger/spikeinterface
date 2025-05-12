@@ -121,10 +121,14 @@ def split_clusters(
             if recursive:
                 recursion_level = np.max(split_count[peak_indices])
                 if recursive_depth is not None:
-                    # stop reccursivity when recursive_depth is reach
+                    # stop recursivity when recursive_depth is reach
                     extra_ball = recursion_level < recursive_depth
                 else:
+<<<<<<< HEAD
                     # always reccursive
+=======
+                    # recursive always
+>>>>>>> main
                     extra_ball = True
 
                 if extra_ball:
@@ -203,12 +207,13 @@ class LocalFeatureClustering:
         recursion_level=1,
         debug_folder=None,
         clusterer="hdbscan",
+        clusterer_kwargs={"min_cluster_size": 25, "min_samples": 5},
         feature_name="sparse_tsvd",
         neighbours_mask=None,
         waveforms_sparse_mask=None,
-        clusterer_kwargs={"min_cluster_size": 25},
         min_size_split=25,
         n_pca_features=2,
+        projection_mode="tsvd",
         minimum_overlap_ratio=0.25,
         projection_mode="pca",
         percentile_variance_explained=None,
@@ -247,6 +252,7 @@ class LocalFeatureClustering:
 
         is_split = False
 
+<<<<<<< HEAD
         if percentile_variance_explained is not None:
             nb_dimensions = min(flatten_features.shape[0], flatten_features.shape[1])
             if projection_mode == "pca":
@@ -264,6 +270,24 @@ class LocalFeatureClustering:
             final_features = final_features[:, indices]
             n_pca_features = final_features.shape[1]
         else:
+=======
+        if isinstance(n_pca_features, float):
+            assert 0 < n_pca_features < 1, "n_components should be in ]0, 1["
+            nb_dimensions = min(flatten_features.shape[0], flatten_features.shape[1])
+            if projection_mode == "pca":
+                from sklearn.decomposition import PCA
+
+                tsvd = PCA(nb_dimensions, whiten=True)
+            elif projection_mode == "tsvd":
+                from sklearn.decomposition import TruncatedSVD
+
+                tsvd = TruncatedSVD(nb_dimensions)
+            final_features = tsvd.fit_transform(flatten_features)
+            n_explain = np.sum(np.cumsum(tsvd.explained_variance_ratio_) <= n_pca_features) + 1
+            final_features = final_features[:, :n_explain]
+            n_pca_features = final_features.shape[1]
+        elif isinstance(n_pca_features, int):
+>>>>>>> main
             if flatten_features.shape[1] > n_pca_features:
                 if projection_mode == "pca":
                     from sklearn.decomposition import PCA
@@ -282,7 +306,7 @@ class LocalFeatureClustering:
         if clusterer == "hdbscan":
             from hdbscan import HDBSCAN
 
-            clust = HDBSCAN(**clusterer_kwargs)
+            clust = HDBSCAN(**clusterer_kwargs, core_dist_n_jobs=1)
             clust.fit(final_features)
             possible_labels = clust.labels_
             is_split = np.setdiff1d(possible_labels, [-1]).size > 1
@@ -292,6 +316,10 @@ class LocalFeatureClustering:
             min_dip = clusterer_kwargs.get("min_dip", 1.5)
             dipscore, cutpoint = isocut5(final_features[:, 0])
             possible_labels = np.zeros(final_features.shape[0])
+<<<<<<< HEAD
+=======
+            min_dip = clusterer_kwargs.get("min_dip", 1.5)
+>>>>>>> main
             if dipscore > min_dip:
                 mask = final_features[:, 0] > cutpoint
                 if np.sum(mask) > min_cluster_size and np.sum(~mask):
@@ -318,6 +346,10 @@ class LocalFeatureClustering:
             if final_features.shape[1] == 1:
                 final_features = np.hstack((final_features, np.zeros_like(final_features)))
 
+<<<<<<< HEAD
+=======
+            sl = slice(None, None, 100)
+>>>>>>> main
             for k in np.unique(possible_labels):
                 mask = possible_labels == k
                 ax = axs[0]
@@ -348,6 +380,12 @@ class LocalFeatureClustering:
                 sorted_components = np.argsort(tsvd.explained_variance_ratio_)[::-1]
                 ax.plot(tsvd.explained_variance_ratio_[sorted_components], c="k")
                 del tsvd
+<<<<<<< HEAD
+=======
+
+            ymin, ymax = ax.get_ylim()
+            ax.plot([n_pca_features, n_pca_features], [ymin, ymax], "k--")
+>>>>>>> main
 
             axs[0].set_title(f"{clusterer} level={recursion_level}")
             if not DEBUG:

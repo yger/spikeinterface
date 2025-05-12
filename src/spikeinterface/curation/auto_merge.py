@@ -13,8 +13,8 @@ try:
 except ImportError:
     HAVE_NUMBA = False
 
-from ..core import SortingAnalyzer
-from ..qualitymetrics import compute_refrac_period_violations, compute_firing_rates
+from spikeinterface.core import SortingAnalyzer
+from spikeinterface.qualitymetrics import compute_refrac_period_violations, compute_firing_rates
 
 from .mergeunitssorting import MergeUnitsSorting
 from .curation_tools import resolve_merging_graph
@@ -372,6 +372,30 @@ def compute_merge_unit_groups(
 
 
 def resolve_pairs(existing_merges, new_merges):
+    """
+    Convenient function used to resolve nested merges when merging units recursively. This is mostly only
+    used internally by auto_merge_units, to get a condensed representation of all the merges that
+    have been done. Thus, one can use the plot_potential_merge widget written by Alessio to visualize
+    the merges that have been done.
+
+    Parameters
+    ----------
+
+    existing_merges : dict
+        The keys are the unit ids and the values are the list of unit ids to merge with
+    new_merges : dict
+        The keys are the new units ids that are merged, and the values are the list of unit ids to merge with
+
+    Returns
+    -------
+
+    resolved_merges : dict
+        The keys are the unit_ids, and the values are the list of unit_ids to merge with, solving the potential
+        nested merges.
+
+
+    """
+
     if existing_merges is None:
         return new_merges.copy()
     else:
@@ -390,98 +414,83 @@ def resolve_pairs(existing_merges, new_merges):
         return resolved_merges
 
 
-def auto_merge_units_internal(
+def _auto_merge_units_single_iteration(
     sorting_analyzer: SortingAnalyzer,
     compute_merge_kwargs: dict = {},
     apply_merge_kwargs: dict = {},
-    recursive: bool = False,
     extra_outputs: bool = False,
     force_copy: bool = True,
+    raise_error: bool = False,
     **job_kwargs,
 ) -> SortingAnalyzer:
     """
-    Compute merge unit groups and apply it on a SortingAnalyzer.
+    Compute merge unit groups and apply it on a SortingAnalyzer. Used by auto_merge_units, see documentation there.
     Internally uses `compute_merge_unit_groups()`
 
     Parameters
     ----------
+
     sorting_analyzer : SortingAnalyzer
-        The SortingAnalyzer
+        The SortingAnalyzer to be merged
     compute_merge_kwargs : dict
-        The params that should be given to auto_merge_units
+        The parameters to be passed to compute_merge_unit_groups()
     apply_merge_kwargs : dict
-        The paramaters that should be used while merging units after each preset
-    recursive : bool, default: False
-        If True, then merges are performed recursively until no more merges can be performed, given the
-        compute_merge_kwargs
+        The parameters to be passed to merge_units()
     extra_outputs : bool, default: False
-        If True, additional list of merges applied, and dictionary (`outs`) with processed data are returned.
-    force_copy : boolean, default: True
-        When new extensions are computed, the default is to make a copy of the analyzer, to avoid overwriting
-        already computed extensions. False if you want to overwrite
+        If True, additional outputs are returned
+    force_copy : bool, default: True
+        If True, the sorting_analyzer is copied before applying the merges
+    raise_error : bool, default: False
+        If True, an error is raised if the merges can not be done. If False, a warning is issued.
 
     Returns
     -------
     sorting_analyzer:
         The new sorting analyzer where all the merges from all the presets have been applied
 
-    merges, outs:
+    resolved_merges, merge_unit_groups, outs:
         Returned only when extra_outputs=True
         A list with the merges performed, and dictionaries that contains data for debugging and plotting.
-        Note that if recursive, then you are receiving list of lists (for all merges and outs at every step)
     """
 
     if force_copy:
         # To avoid erasing the extensions of the user
         sorting_analyzer = sorting_analyzer.copy()
 
-    if not recursive:
-        merge_unit_groups = compute_merge_unit_groups(
-            sorting_analyzer, **compute_merge_kwargs, extra_outputs=extra_outputs, force_copy=False, **job_kwargs
+    merge_unit_groups = compute_merge_unit_groups(
+        sorting_analyzer, **compute_merge_kwargs, extra_outputs=extra_outputs, force_copy=False, **job_kwargs
+    )
+
+    if extra_outputs:
+        merge_unit_groups, outs = merge_unit_groups
+
+    if len(merge_unit_groups) > 0:
+        merging_mode = apply_merge_kwargs.get("merging_mode", "soft")
+        sparsity_overlap = apply_merge_kwargs.get("sparsity_overlap", 0.75)
+        mergeable = sorting_analyzer.are_units_mergeable(
+            merge_unit_groups, merging_mode=merging_mode, sparsity_overlap=sparsity_overlap
         )
+        ## Removes units that can not be merged
+        for merge_unit_group, is_mergeable in mergeable.items():
+            if not is_mergeable:
+                if raise_error:
+                    raise ValueError(
+                        f"Units {merge_unit_group} can not be merged with the current sparsity_overlap. Merging is stopped"
+                    )
+                else:
+                    warnings.warn(
+                        f"Units {merge_unit_group} can not be merged with the current sparsity_overlap. Merging is skipped",
+                    )
+                    merge_unit_groups.remove(list(merge_unit_group))
 
-        if extra_outputs:
-            merge_unit_groups, outs = merge_unit_groups
-
-        merged_units = len(merge_unit_groups) > 0
-        if merged_units:
-            merged_analyzer, new_unit_ids = sorting_analyzer.merge_units(
-                merge_unit_groups, return_new_unit_ids=True, **apply_merge_kwargs, **job_kwargs
-            )
-        else:
-            merged_analyzer = sorting_analyzer
-            new_unit_ids = []
-
-        resolved_merges = {key: value for (key, value) in zip(new_unit_ids, merge_unit_groups)}
+        merged_analyzer, new_unit_ids = sorting_analyzer.merge_units(
+            merge_unit_groups, return_new_unit_ids=True, **apply_merge_kwargs, **job_kwargs
+        )
     else:
-        merged_units = True
         merged_analyzer = sorting_analyzer
+        new_unit_ids = []
 
-        if extra_outputs:
-            all_merging_groups = []
-            resolved_merges = {}
-            all_outs = []
-
-        while merged_units:
-            merge_unit_groups = compute_merge_unit_groups(
-                merged_analyzer, **compute_merge_kwargs, extra_outputs=extra_outputs, force_copy=False, **job_kwargs
-            )
-
-            if extra_outputs:
-                merge_unit_groups, outs = merge_unit_groups
-
-            merged_units = len(merge_unit_groups) > 0
-
-            if merged_units:
-                merged_analyzer, new_unit_ids = merged_analyzer.merge_units(
-                    merge_unit_groups, return_new_unit_ids=True, **apply_merge_kwargs, **job_kwargs
-                )
-
-                if extra_outputs:
-                    all_merging_groups += [merge_unit_groups]
-                    new_merges = {key: value for (key, value) in zip(new_unit_ids, merge_unit_groups)}
-                    resolved_merges = resolve_pairs(resolved_merges, new_merges)
-                    all_outs += [outs]
+    resolved_merges = {key: value for (key, value) in zip(new_unit_ids, merge_unit_groups)}
 
     if extra_outputs:
         return merged_analyzer, resolved_merges, merge_unit_groups, outs
@@ -682,16 +691,23 @@ def auto_merge_units(
     presets: list | None = ["similarity_correlograms"],
     steps_params: dict = None,
     steps: list[str] | None = None,
-    apply_merge_kwargs: dict = {},
     recursive: bool = False,
+    censor_ms=None,
+    sparsity_overlap=0.75,
+    merging_mode="soft",
+    new_id_strategy="append",
+    raise_error: bool = False,
     extra_outputs: bool = False,
     force_copy: bool = True,
     **job_kwargs,
 ) -> SortingAnalyzer:
     """
-    Wrapper to conveniently be able to launch several presets for auto_merge_units in a row, as a list.
+    Automatically finds and apply merges.
+    This function enables one to launch several merging presets in sequence and also to apply each
+    step recursively.
     Merges are applied sequentially or until no more merges are done, one preset at a time, and extensions
-    are not recomputed thanks to the merging units.
+    are not recomputed thanks to the merging units. Internally, the function uses _auto_merge_units_single_iteration()
+    that is called for every preset and/or combinations of steps
 
     Parameters
     ----------
@@ -701,15 +717,27 @@ def auto_merge_units(
         A single preset or a list of presets, that should be applied iteratively to the data
     steps_params : dict or list of dict, default None
         The params that should be used for the steps or presets. Should be a single dict if only one steps,
-        or a list of dict is multiples steps (same size as presets)
+        or a list of dict if multiples steps (same size as presets)
     steps : list or list of list, default None
         The list of steps that should be applied. If list of list is provided, then these lists will be applied
         iteratively. Mutually exclusive with presets
-    apply_merge_kwargs : dict
-        The paramaters that should be used while merging units after each preset
     recursive : bool, default: False
         If True, then each presets of the list is applied until no further merges can be done, before trying
         the next one
+    censor_ms : None or float, default: None
+        When merging units, any spikes violating this refractory period will be discarded.
+    merging_mode : "soft" | "hard", default: "soft"
+        How merges are performed. In the "soft" mode, merges will be approximated, with no smart merging
+        of the extension data.
+    sparsity_overlap : float, default 0.75
+        The percentage of overlap that units should share in order to accept merges. If this criteria is not
+        achieved, soft merging will not be performed.
+    new_id_strategy : "append" | "take_first", default: "append"
+            The strategy that should be used, if `new_unit_ids` is None, to create new unit_ids.
+                * "append" : new_units_ids will be added at the end of max(sorting.unit_ids)
+                * "take_first" : new_unit_ids will be the first unit_id of every list of merges
+    raise_error : bool, default: False
+        If True, an error is raised if the merges can not be done. Otherwise, warning are displayed
     extra_outputs : bool, default: False
         If True, additional list of merges applied at every preset, and dictionary (`outs`) with processed data are returned.
     force_copy : boolean, default: True
@@ -720,8 +748,9 @@ def auto_merge_units(
     with default parameters if not present (i.e. correlograms, template_similarity, ...) If you want to
     have a finer control on these values, please precompute the extensions before applying the auto_merge
 
-    If you have errors on sparsity_threshold, this is because you are trying to perform soft_merges for units
-    that are barely overlapping. While in theory this should
+    If you have errors on sparsity_overlap, this is because you are trying to perform soft_merges for units
+    that are barely overlapping. While in theory this should not happen, if this is the case, it means that either
+    you are trying to perform too aggressive merges (and thus check params), and/or that you should switch to hard merges.
 
     Returns
     -------
@@ -742,8 +771,15 @@ def auto_merge_units(
         to_be_launched = presets
         launch_mode = "presets"
     elif steps is not None:
+        all_lists = np.all([isinstance(el, list) for el in steps])
         to_be_launched = steps
+        if not all_lists:
+            to_be_launched = [to_be_launched]
         launch_mode = "steps"
+
+    if launch_mode == "steps":
+        if not isinstance(steps_params, list):
+            steps_params = [steps_params]
 
     if steps_params is not None:
         assert len(steps_params) == len(to_be_launched), f"steps params should have the same size as {launch_mode}"
@@ -758,6 +794,13 @@ def auto_merge_units(
     if force_copy:
         sorting_analyzer = sorting_analyzer.copy()
 
+    apply_merge_kwargs = {
+        "censor_ms": censor_ms,
+        "sparsity_overlap": sparsity_overlap,
+        "merging_mode": merging_mode,
+        "new_id_strategy": new_id_strategy,
+    }
+
     for to_launch, params in zip(to_be_launched, steps_params):
 
         if launch_mode == "presets":
@@ -766,22 +809,29 @@ def auto_merge_units(
             compute_merge_kwargs = {"steps": to_launch}
 
         compute_merge_kwargs.update({"steps_params": params})
-        # print(compute_merge_kwargs)
-        sorting_analyzer = auto_merge_units_internal(
-            sorting_analyzer,
-            compute_merge_kwargs,
-            apply_merge_kwargs=apply_merge_kwargs,
-            recursive=recursive,
-            extra_outputs=extra_outputs,
-            force_copy=False,
-            **job_kwargs,
-        )
+        found_merges = True
 
-        if extra_outputs:
-            sorting_analyzer, new_merges, merge_unit_groups, outs = sorting_analyzer
-            all_merging_groups += [merge_unit_groups]
-            resolved_merges = resolve_pairs(resolved_merges, new_merges)
-            all_outs += [outs]
+        while found_merges:
+            num_units = len(sorting_analyzer.unit_ids)
+            sorting_analyzer = _auto_merge_units_single_iteration(
+                sorting_analyzer,
+                compute_merge_kwargs,
+                apply_merge_kwargs=apply_merge_kwargs,
+                extra_outputs=extra_outputs,
+                raise_error=raise_error,
+                force_copy=False,
+                **job_kwargs,
+            )
+
+            if extra_outputs:
+                sorting_analyzer, new_merges, merge_unit_groups, outs = sorting_analyzer
+                all_merging_groups += [merge_unit_groups]
+                resolved_merges = resolve_pairs(resolved_merges, new_merges)
+                all_outs += [outs]
+            if not recursive:
+                found_merges = False
+            else:
+                found_merges = len(sorting_analyzer.unit_ids) < num_units
 
     if extra_outputs:
         return sorting_analyzer, resolved_merges, merge_unit_groups, all_outs

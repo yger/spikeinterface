@@ -2,7 +2,6 @@ from .drift_tools import (
     move_dense_templates,
     interpolate_templates,
     DriftingTemplates,
-    SharedMemoryDriftingTemplates,
     InjectDriftingTemplatesRecording,
     make_linear_displacement,
 )
@@ -32,7 +31,7 @@ from .template_database import (
 )
 
 # expose the core generate functions
-from ..core.generate import (
+from spikeinterface.core.generate import (
     generate_recording,
     generate_sorting,
     generate_snippets,

@@ -1,12 +1,10 @@
-import json
 import warnings
-from pathlib import Path
 
 import numpy as np
-import spikeinterface
 from spikeinterface.core.core_tools import check_json
 
 
+<<<<<<< HEAD
 class Motion:
     """
     Motion of the tissue relative the probe.
@@ -236,6 +234,8 @@ class Motion:
         )
 
 
+=======
+>>>>>>> main
 def get_spatial_windows(
     contact_depths,
     spatial_bin_centers,
@@ -577,6 +577,7 @@ def make_3d_motion_histograms(
         motion_histograms = np.log2(1 + motion_histograms)
 
     return motion_histograms, temporal_bin_edges, spatial_bin_edges
+<<<<<<< HEAD
 
 
 def ensure_time_bins(time_bin_centers_s=None, time_bin_edges_s=None):
@@ -630,3 +631,5 @@ def ensure_time_bins(time_bin_centers_s=None, time_bin_edges_s=None):
 
 def ensure_time_bin_edges(time_bin_centers_s=None, time_bin_edges_s=None):
     return ensure_time_bins(time_bin_centers_s, time_bin_edges_s)[1]
+=======
+>>>>>>> main

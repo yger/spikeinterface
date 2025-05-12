@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 from spikeinterface.sortingcomponents.matching import find_spikes_from_templates
 from spikeinterface.core import NumpySorting
 from spikeinterface.comparison import CollisionGTComparison, compare_sorter_to_ground_truth
@@ -9,7 +11,7 @@ from spikeinterface.widgets import (
 )
 
 import numpy as np
-from .benchmark_base import Benchmark, BenchmarkStudy
+from .benchmark_base import Benchmark, BenchmarkStudy, MixinStudyUnitCount
 from spikeinterface.core.basesorting import minimum_spike_dtype
 
 
@@ -51,7 +53,7 @@ class MatchingBenchmark(Benchmark):
     _result_key_saved = [("gt_collision", "pickle"), ("gt_comparison", "pickle")]
 
 
-class MatchingStudy(BenchmarkStudy):
+class MatchingStudy(BenchmarkStudy, MixinStudyUnitCount):
 
     benchmark_class = MatchingBenchmark
 
@@ -77,6 +79,16 @@ class MatchingStudy(BenchmarkStudy):
 
         return plot_performances_comparison(self, **kwargs)
 
+    def plot_performances_vs_depth_and_snr(self, *args, **kwargs):
+        from .benchmark_plot_tools import plot_performances_vs_depth_and_snr
+
+        return plot_performances_vs_depth_and_snr(self, *args, **kwargs)
+
+    def plot_performances_ordered(self, *args, **kwargs):
+        from .benchmark_plot_tools import plot_performances_ordered
+
+        return plot_performances_ordered(self, *args, **kwargs)
+
     def plot_collisions(self, case_keys=None, figsize=None):
         if case_keys is None:
             case_keys = list(self.cases.keys())
@@ -97,27 +109,21 @@ class MatchingStudy(BenchmarkStudy):
 
         return fig
 
-    def get_count_units(self, case_keys=None, well_detected_score=None, redundant_score=None, overmerged_score=None):
-        import pandas as pd
+    def plot_unit_counts(self, case_keys=None, **kwargs):
+        from .benchmark_plot_tools import plot_unit_counts
 
-        if case_keys is None:
-            case_keys = list(self.cases.keys())
+        return plot_unit_counts(self, case_keys, **kwargs)
 
-        if isinstance(case_keys[0], str):
-            index = pd.Index(case_keys, name=self.levels)
-        else:
-            index = pd.MultiIndex.from_tuples(case_keys, names=self.levels)
+    def plot_unit_losses(self, *args, **kwargs):
+        from .benchmark_plot_tools import plot_performance_losses
 
-        columns = ["num_gt", "num_sorter", "num_well_detected"]
-        comp = self.get_result(case_keys[0])["gt_comparison"]
-        if comp.exhaustive_gt:
-            columns.extend(["num_false_positive", "num_redundant", "num_overmerged", "num_bad"])
-        count_units = pd.DataFrame(index=index, columns=columns, dtype=int)
+        warnings.warn("plot_unit_losses() is now plot_performance_losses()")
+        return plot_performance_losses(self, *args, **kwargs)
 
-        for key in case_keys:
-            comp = self.get_result(key)["gt_comparison"]
-            assert comp is not None, "You need to do study.run_comparisons() first"
+    def plot_performance_losses(self, *args, **kwargs):
+        from .benchmark_plot_tools import plot_performance_losses
 
+<<<<<<< HEAD
             gt_sorting = comp.sorting1
             sorting = comp.sorting2
 
@@ -174,3 +180,6 @@ class MatchingStudy(BenchmarkStudy):
         # if count == 2:
         #    ax.legend()
         return fig
+=======
+        return plot_performance_losses(self, *args, **kwargs)
+>>>>>>> main
