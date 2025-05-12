@@ -531,6 +531,7 @@ def plot_performances_vs_snr(
             ax.plot(xfit, sigmoid(xfit, *popt), color=color)
 
         ax.set_ylim(-0.05, 1.05)
+        ax.set_xlabel('snr')
 
         if show_legend and (count == len(performance_names) - 1):
             ax.legend()
@@ -610,11 +611,13 @@ def plot_performances_ordered(
             val = np.sort(val)[::-1]
             ax.plot(val, label=label, c=color)
 
-        ax.set_title(performance_name)
+        ax.set_ylabel(performance_name)
         if show_legend and (count == len(performance_names) - 1):
             ax.legend(bbox_to_anchor=(0.05, 0.05), loc="lower left", framealpha=0.8)
+        ax.set_xlabel('# units')
 
     despine(axs)
+    
 
     return fig
 
