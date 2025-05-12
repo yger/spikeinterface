@@ -479,6 +479,8 @@ def plot_performances_vs_snr(
 
     if axs is None:
         fig, axs = plt.subplots(ncols=ncols, nrows=nrows, figsize=figsize, squeeze=True)
+        if ncols == 1 and nrows == 1:
+            axs = [axs]
     else:
         assert len(axs) == len(performance_names), "axs should have the same number of axes as performance_names"
         fig = axs[0].get_figure()
@@ -692,6 +694,7 @@ def plot_performances_comparison(
     performance_colors={"accuracy": "g", "recall": "b", "precision": "r"},
     levels_to_keep=None,
     ylim=(-0.1, 1.1),
+    axs=None
 ):
     """
     Plot performances comparison for a study.
@@ -712,6 +715,8 @@ def plot_performances_comparison(
         A list of levels to keep. Performances are aggregated by these levels.
     ylim : tuple, default: (-0.1, 1.1)
         The y-axis limits.
+    axs : matplotlib.axes.Axes | None, default: None
+        The axs to use for plotting. Should be the same size as (num_methods - 1)**2.
 
     Returns
     -------
@@ -722,7 +727,7 @@ def plot_performances_comparison(
 
     if case_keys is None:
         case_keys = list(study.cases.keys())
-    case_keys, labels = study.get_grouped_keys_mapping(levels_to_group_by=levels_to_keep)
+    case_keys, labels = study.get_grouped_keys_mapping(cases=case_keys, levels_to_group_by=levels_to_keep)
 
     num_methods = len(case_keys)
     assert num_methods >= 2, "plot_performances_comparison need at least 2 cases!"
@@ -731,7 +736,12 @@ def plot_performances_comparison(
         [key in performance_colors for key in performance_names]
     ), f"performance_colors must have a color for each performance name: {performance_names}"
 
-    fig, axs = plt.subplots(ncols=num_methods - 1, nrows=num_methods - 1, figsize=figsize, squeeze=False)
+    if axs is None:
+        fig, axs = plt.subplots(ncols=num_methods - 1, nrows=num_methods - 1, figsize=figsize, squeeze=False)
+    else:
+        assert axs.shape == (num_methods - 1, num_methods - 1), "axs should have the same shape as (num_methods - 1, num_methods - 1)"
+        fig = axs[0, 0].get_figure()
+
     for i, key1 in enumerate(case_keys):
         for j, key2 in enumerate(case_keys):
             if i < j:
@@ -748,9 +758,10 @@ def plot_performances_comparison(
                         comp2 = study.get_result(sub_key2)["gt_comparison"]
 
                         for performance_name, color in performance_colors.items():
-                            perf1 = comp1.get_performance()[performance_name]
-                            perf2 = comp2.get_performance()[performance_name]
-                            ax.scatter(perf2, perf1, marker=".", label=performance_name, color=color)
+                            if performance_name in performance_names:
+                                perf1 = comp1.get_performance()[performance_name]
+                                perf2 = comp2.get_performance()[performance_name]
+                                ax.scatter(perf2, perf1, marker=".", label=performance_name, color=color)
 
                 ax.plot([0, 1], [0, 1], "k--", alpha=0.5)
                 ax.set_ylim(ylim)
