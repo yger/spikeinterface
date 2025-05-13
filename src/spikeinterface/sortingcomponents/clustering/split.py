@@ -248,6 +248,8 @@ class LocalFeatureClustering:
 
         is_split = False
 
+        import warnings
+
         if isinstance(n_pca_features, float):
             assert 0 < n_pca_features < 1, "n_components should be in ]0, 1["
             nb_dimensions = min(flatten_features.shape[0], flatten_features.shape[1])
@@ -281,9 +283,10 @@ class LocalFeatureClustering:
 
         if clusterer == "hdbscan":
             from hdbscan import HDBSCAN
-
             clust = HDBSCAN(**clusterer_kwargs, core_dist_n_jobs=1)
-            clust.fit(final_features)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                clust.fit(final_features)
             possible_labels = clust.labels_
             is_split = np.setdiff1d(possible_labels, [-1]).size > 1
             del clust
