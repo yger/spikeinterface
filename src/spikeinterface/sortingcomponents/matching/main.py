@@ -9,13 +9,6 @@ import numpy as np
 from spikeinterface.core.job_tools import fix_job_kwargs
 from spikeinterface.core.node_pipeline import run_node_pipeline
 
-spike_dtype = [
-    ("sample_index", "int64"),
-    ("channel_index", "int64"),
-    ("cluster_index", "int64"),
-    ("amplitude", "float64"),
-    ("segment_index", "int64"),
-]
 
 def find_spikes_from_templates(
     recording, method="naive", method_kwargs={}, extra_outputs=False, verbose=False, **job_kwargs
@@ -55,7 +48,7 @@ def find_spikes_from_templates(
     nodes = [node0]
     assert "templates" in method_kwargs, "You must provide templates in method_kwargs"
     if len(method_kwargs["templates"].unit_ids) == 0:
-        return np.zeros(0, dtype=spike_dtype)
+        return np.zeros(0, dtype=node0.get_dtype())
 
     spikes = run_node_pipeline(
         recording,
