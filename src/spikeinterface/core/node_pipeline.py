@@ -821,7 +821,6 @@ class OnlineClustering:
             # first loop only
             self.tuple_mode = isinstance(res, tuple)
         
-        my_stream = []
         if res is not None:
             peaks = res[0]
             waveforms = res[1]

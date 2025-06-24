@@ -282,6 +282,7 @@ class DBSTREAM(base.Clusterer):
         # inactive clusters and shared density entries from memory
         micro_clusters = copy.deepcopy(self._micro_clusters)
         for i, micro_cluster_i in self._micro_clusters.items():
+            #print(micro_cluster_i.weight, len(micro_cluster_i.all_peaks))
             try:
                 value = 2 ** (
                     -self.fading_factor * (self._time_stamp - micro_cluster_i.last_update)
@@ -289,6 +290,7 @@ class DBSTREAM(base.Clusterer):
             except OverflowError:
                 continue
 
+            #print(micro_cluster_i.weight * value, self.weight_weak)
             if micro_cluster_i.weight * value < self.weight_weak:
                 micro_clusters.pop(i)
                 self.s.pop(i, None)
@@ -528,6 +530,12 @@ class DBSTREAM(base.Clusterer):
         peaks = peaks[order]
         peak_labels = peak_labels[order]
         return peaks, peak_labels
+
+    def get_sorting(self):
+        peaks, peak_labels = self.get_peaks_and_labels()
+        from spikeinterface.core import NumpySorting
+        sorting = NumpySorting.from_samples_and_labels(peaks['sample_index'], peak_labels, self.recording.get_sampling_frequency())
+        return sorting
 
 class DBSTREAMMicroCluster(metaclass=ABCMeta):
     """DBStream Micro-cluster class"""
