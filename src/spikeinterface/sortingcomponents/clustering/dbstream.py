@@ -177,15 +177,28 @@ class DBSTREAM(base.Clusterer):
         self.channel_distance = get_channel_distances(recording)
         self.neighbours_mask = self.channel_distance <= radius_um
 
-    @staticmethod
-    def _distance(point_a, point_b):
+    def _distance(self, point_a, point_b):
+        #print(len(point_a), len(point_b))
         return np.linalg.norm(point_a - point_b)/np.sqrt(len(point_a))
 
-    def _find_fixed_radius_nn(self, x):
+    def _find_fixed_radius_nn(self, x, position_x):
         fixed_radius_nn = {}
         for i in self._micro_clusters.keys():
-            if self._distance(self._micro_clusters[i].center, x) < self.clustering_threshold:
-                fixed_radius_nn[i] = self._micro_clusters[i]
+            y = self.micro_clusters[i].ptps
+            position_i = np.dot(y, self.contact_locations[self.micro_clusters[i].waveforms_channels])/y.sum()
+            
+            if np.linalg.norm(position_i - position_x) > 20:
+                return np.inf
+
+            local_distance = self._distance(self._micro_clusters[i].center, x)
+            if local_distance < self.clustering_threshold:
+                if len(fixed_radius_nn) == 0:
+                    fixed_radius_nn[i] = self._micro_clusters[i]
+                    best_dist = local_distance
+                else:
+                    if local_distance < best_dist:
+                        fixed_radius_nn = {i: self._micro_clusters[i]}
+                        best_dist = local_distance
         return fixed_radius_nn  
 
     def _gaussian_neighborhood(self, point_a, point_b):
@@ -197,11 +210,14 @@ class DBSTREAM(base.Clusterer):
     def _update(self, x, w, time_stamp, peak):
 
         # Algorithm 1 of Michael Hahsler and Matthew Bolanos
-        neighbor_clusters = self._find_fixed_radius_nn(x)
         peak_channel = peak['channel_index']
         waveforms_channels = self.neighbours_mask[peak_channel]
+        position_x = np.dot(x, self.contact_locations[waveforms_channels])/x.sum()
+        neighbor_clusters = self._find_fixed_radius_nn(x, position_x)
+        
         full_w = np.zeros((w.shape[0], self.recording.get_num_channels()), dtype=np.float32)
         full_w[:, waveforms_channels] = w[:, :np.sum(waveforms_channels)]
+        self._time_stamp = time_stamp
 
         if len(neighbor_clusters) < 1:
             if len(self._micro_clusters) > 0:
@@ -225,6 +241,7 @@ class DBSTREAM(base.Clusterer):
         else:
             # update existing micro clusters
             current_centers = {}
+            #print(len(neighbor_clusters))
             for i in neighbor_clusters.keys():
                 current_centers[i] = self._micro_clusters[i].center
                 self._micro_clusters[i].weight = (
@@ -274,8 +291,6 @@ class DBSTREAM(base.Clusterer):
                             # revert centers of mc_i and mc_j to previous positions
                             self._micro_clusters[i].center = current_centers[i]
                             self._micro_clusters[j].center = current_centers[j]
-
-        self._time_stamp = time_stamp
 
     def _cleanup(self):
         # Algorithm 2 of Michael Hahsler and Matthew Bolanos: Cleanup process to remove
@@ -429,9 +444,10 @@ class DBSTREAM(base.Clusterer):
         self._update(data, waveforms, time_stamp, peak)
 
         #if self._time_stamp % self.cleanup_interval == 0:
-        if self._time_stamp // self.cleanup_interval > self.last_cleanup:
+        if time_stamp // self.cleanup_interval > self.last_cleanup:
             self._cleanup()
-            self.last_cleanup = self._time_stamp // self.cleanup_interval
+            print(len(self.clusters))
+            self.last_cleanup = time_stamp // self.cleanup_interval
 
         self.clustering_is_up_to_date = False
 
@@ -548,15 +564,18 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
         self.weight = weight
         self.all_peaks = np.array([peak], dtype=base_peak_dtype)
 
+    @property
+    def ptps(self):
+        return np.ptp(self.waveforms[:, self.waveforms_channels], axis=0)
+    
     def _common_indices(self, waveforms_channels):
         common_indices = self.waveforms_channels * waveforms_channels
-        inds_2_only = ~self.waveforms_channels * waveforms_channels 
-        return common_indices, inds_2_only
+        return common_indices
 
     def merge(self, cluster):
         denominator = self.weight + cluster.weight
         self.center = (self.center * self.weight + cluster.center*cluster.weight)/denominator
-        common_indices, _ = self._common_indices(cluster.waveforms_channels)
+        common_indices = self._common_indices(cluster.waveforms_channels)
         self.waveforms[:, common_indices] = (self.waveforms[:, common_indices] * self.weight 
                                           + cluster.waveforms[:, common_indices]*cluster.weight)/denominator
         self.waveforms_channels = self.waveforms_channels | cluster.waveforms_channels
@@ -565,10 +584,9 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
 
     def update(self, x, waveforms, waveforms_channels, amplitude, peak):
         self.center += amplitude*(x - self.center)
-        common_indices, inds_2_only = self._common_indices(waveforms_channels)
+        common_indices = self._common_indices(waveforms_channels)
         self.waveforms[:, common_indices] += amplitude*(waveforms[:, common_indices] - self.waveforms[:, common_indices])
-        self.waveforms[:, inds_2_only] = amplitude*waveforms[:, inds_2_only]
+        self.waveforms[:, ~common_indices] = amplitude*waveforms[:, ~common_indices]
         self.waveforms_channels = self.waveforms_channels | waveforms_channels
         self.all_peaks = np.concatenate((self.all_peaks, [peak]), axis=0)
-        
         

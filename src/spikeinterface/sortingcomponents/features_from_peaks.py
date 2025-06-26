@@ -117,30 +117,40 @@ class AmplitudeFeature(PipelineNode):
 
 class PeakToPeakFeature(PipelineNode):
     def __init__(
-        self, recording, name="ptp_feature", return_output=True, parents=None, radius_um=150.0, all_channels=True
+        self, recording, name="ptp_feature", return_output=True, parents=None, radius_um=100.0, sparse=True,
     ):
         PipelineNode.__init__(self, recording, return_output=return_output, parents=parents)
 
         self.contact_locations = recording.get_channel_locations()
+        self.num_channels = recording.get_num_channels()
         self.channel_distance = get_channel_distances(recording)
         self.neighbours_mask = self.channel_distance <= radius_um
-        self.all_channels = all_channels
-        self._kwargs.update(dict(radius_um=radius_um, all_channels=all_channels))
+        self._kwargs.update(dict(radius_um=radius_um, sparse=sparse))
         self._dtype = recording.get_dtype()
+        self.sparse = sparse
+        self.max_num_chans = np.max(np.sum(self.neighbours_mask, axis=1))
 
     def get_dtype(self):
         return self._dtype
 
     def compute(self, traces, peaks, waveforms):
-        if self.all_channels:
-            all_ptps = np.ptp(waveforms, axis=1)
+        if self.sparse:
+            all_ptps = np.zeros((peaks.size, self.max_num_chans), dtype=self._dtype)
         else:
-            all_ptps = np.zeros(peaks.size)
-            for main_chan in np.unique(peaks["channel_index"]):
-                (idx,) = np.nonzero(peaks["channel_index"] == main_chan)
-                (chan_inds,) = np.nonzero(self.neighbours_mask[main_chan])
-                wfs = waveforms[idx][:, :, chan_inds]
-                all_ptps[idx] = np.max(np.ptp(wfs, axis=1))
+            all_ptps = np.zeros((peaks.size, self.num_channels), dtype=self._dtype)
+
+        for main_chan in np.unique(peaks["channel_index"]):
+            (idx,) = np.nonzero(peaks["channel_index"] == main_chan)
+            (chan_inds,) = np.nonzero(self.neighbours_mask[main_chan])
+            data = waveforms[idx]
+
+            if self.sparse:    
+                data = data[:, :, :len(chan_inds)]
+            else:
+                data = data[:, :, chan_inds]
+            
+            all_ptps[idx, :len(chan_inds)] = np.ptp(data, axis=1)
+                                          
         return all_ptps
 
 
