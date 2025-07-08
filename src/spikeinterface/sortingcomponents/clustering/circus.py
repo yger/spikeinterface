@@ -153,6 +153,12 @@ class CircusClustering:
         split_kwargs["seed"] = params["seed"]
         split_kwargs["min_size_split"] = 2 * params["hdbscan_kwargs"].get("min_cluster_size", 50)
         split_kwargs["clusterer_kwargs"] = params["hdbscan_kwargs"]
+        
+        # split_kwargs = dict(
+        #     clusterer="isosplit6",
+        #     neighbours_mask=neighbours_mask,
+        #     waveforms_sparse_mask=sparse_mask,
+        # )
 
         if params["debug"]:
             debug_folder = tmp_folder / "split"
@@ -205,7 +211,7 @@ class CircusClustering:
             )
 
         if params["do_merge"]:
-            peak_labels, merge_template_array, new_unit_ids = merge_peak_labels_from_templates(
+            peak_labels, merge_template_array, merge_sparsity_mask, new_unit_ids = merge_peak_labels_from_templates(
                 peaks, peak_labels, templates.unit_ids,
                 templates.templates_array, sparse_mask2,
                 **params["merge_kwargs"]
@@ -271,4 +277,10 @@ class CircusClustering:
             if verbose:
                 print("Kept %d raw clusters" % len(labels))
 
-        return labels, peak_labels, svd_model, peaks_svd, sparse_mask
+
+        more_outs = dict(
+            svd_model=svd_model,
+            peaks_svd=peaks_svd,
+            peak_svd_sparse_mask=sparse_mask,
+        )
+        return labels, peak_labels, more_outs

@@ -35,13 +35,15 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
         "clustering": {"method": "circus-clustering", "method_kwargs": dict()},
-        "matching": {"method": "circus-omp-svd", "method_kwargs": dict()},
+        # "matching": {"method": "circus-omp-svd", "method_kwargs": dict()},
+        "matching": {"method": "wobble", "method_kwargs": dict()},
         "apply_preprocessing": True,
         "templates_from_svd": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
         "chunk_preprocessing": {"memory_limit": None},
         "multi_units_only": False,
-        "job_kwargs": {"n_jobs": 0.75},
+        # "job_kwargs": {"n_jobs": 0.75},
+        "job_kwargs": {"n_jobs": None},
         "seed": 42,
         "deterministic_peaks_detection": False,
         "debug": False,
@@ -341,9 +343,10 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                     ms_after,
                     **job_kwargs,
                 )
-            elif len(outputs) == 5:
-                _, peak_labels, svd_model, svd_features, sparsity_mask = outputs
+            else :
                 from spikeinterface.sortingcomponents.clustering.tools import get_templates_from_peaks_and_svd
+                # _, peak_labels, svd_model, svd_features, sparsity_mask = outputs
+                _, peak_labels, more_outs = outputs
 
                 templates, _ = get_templates_from_peaks_and_svd(
                     recording_w,
@@ -351,9 +354,9 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                     peak_labels,
                     ms_before,
                     ms_after,
-                    svd_model,
-                    svd_features,
-                    sparsity_mask,
+                    more_outs["svd_model"],
+                    more_outs["peaks_svd"],
+                    more_outs["peak_svd_sparse_mask"],
                     operator="median",
                 )
 
