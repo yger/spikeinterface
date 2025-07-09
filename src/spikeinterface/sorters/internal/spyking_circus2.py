@@ -304,7 +304,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 clustering_params["templates_from_svd"] = templates_from_svd
                 clustering_params["tmp_folder"] = sorter_output_folder / "clustering"
                 clustering_params["debug"] = debug
-                clustering_params["noise_threshold"] = detection_params.get("detect_threshold", 4)
+                clustering_params["noise_threshold"] = detection_params.get("detect_threshold", 4)/2
             elif clustering_method == "graph_clustering":
                 clustering_params = {
                     "ms_before": ms_before,
