@@ -24,7 +24,7 @@ class CircusClustering:
     """
 
     _default_params = {
-        "clusterer" : "isosplit6",
+        "clusterer" : "hdbscan",
         "clusterer_kwargs": {
             "min_cluster_size": 20,
             "cluster_selection_epsilon": 0.5,
@@ -50,7 +50,6 @@ class CircusClustering:
         "remove_small_snr": True,
         "seed": None,
         "noise_threshold": 2,
-        "rank": 5,
         "templates_from_svd": True,
         "noise_levels": None,
         "tmp_folder": None,
