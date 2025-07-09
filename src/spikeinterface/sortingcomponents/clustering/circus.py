@@ -67,21 +67,15 @@ class CircusClustering:
     @classmethod
     def main_function(cls, recording, peaks, params, job_kwargs=dict()):
 
-        assert params["clusterer"] in ["isosplit6", "hdbscan"], "Circus clustering only supports isosplit6 or hdbscan"
-        if params["clusterer"] == 'hdbscan':
+        clusterer = params.get("clusterer", "hdbscan")
+        assert clusterer in ["isosplit6", "hdbscan", "isocut5"], "Circus clustering only supports isosplit6, isocut5 or hdbscan"
+        if clusterer in ["isosplit6", "hdbscan"]:
             try:
-                import hdbscan
-                HAVE_HDBSCAN = True
+                __import__(clusterer)
+                HAVE_CLUSTERER = True
             except:
-                HAVE_HDBSCAN = False
-            assert HAVE_HDBSCAN, "using hdbscan as a clusterer needs hdbscan to be installed"
-        elif params["clusterer"] == 'isosplit6':
-            try:
-                import isosplit6
-                HAVE_ISOSPLIT6 = True
-            except:
-                HAVE_ISOSPLIT6 = False
-            assert HAVE_ISOSPLIT6, "using isosplit6 as a clusterer needs isosplit6 to be installed"
+                HAVE_CLUSTERER = False
+            assert HAVE_CLUSTERER, f"using {clusterer} as a clusterer needs {clusterer} to be installed"
 
         d = params
         verbose = d["verbose"]
