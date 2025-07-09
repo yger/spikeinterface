@@ -285,7 +285,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             if verbose:
                 print("Kept %d peaks for clustering" % len(selected_peaks))
 
-            clustering_method = params["clustering"].get("method", "graph_clustering")
+            clustering_method = params["clustering"].get("method", "circus-clustering")
             clustering_params = params["clustering"].get("method_kwargs", dict())
 
             if clustering_method == "circus-clustering":

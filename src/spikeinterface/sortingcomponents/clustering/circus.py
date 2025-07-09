@@ -24,7 +24,7 @@ class CircusClustering:
     """
 
     _default_params = {
-        "clusterer" : "hdbscan",
+        "clusterer" : "hdbscan",  # 'isosplit6', 'hdbscan', 'isocut5'
         "clusterer_kwargs": {
             "min_cluster_size": 20,
             "cluster_selection_epsilon": 0.5,
