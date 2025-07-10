@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# """Sorting components: clustering"""
+import importlib
 from pathlib import Path
 
 import numpy as np
@@ -55,7 +55,7 @@ class CircusClustering:
         "few_waveforms": None,
         "ms_before": 2.0,
         "ms_after": 2.0,
-        "remove_small_snr": True,
+        "remove_small_snr": False,
         "seed": None,
         "noise_threshold": 2,
         "templates_from_svd": True,
@@ -78,12 +78,9 @@ class CircusClustering:
         clusterer = params.get("clusterer", "hdbscan")
         assert clusterer in ["isosplit6", "hdbscan", "isocut5"], "Circus clustering only supports isosplit6, isocut5 or hdbscan"
         if clusterer in ["isosplit6", "hdbscan"]:
-            try:
-                __import__(clusterer)
-                HAVE_CLUSTERER = True
-            except:
-                HAVE_CLUSTERER = False
-            assert HAVE_CLUSTERER, f"using {clusterer} as a clusterer needs {clusterer} to be installed"
+            have_dep = importlib.util.find_spec(clusterer)
+            if not have_dep:
+                raise RuntimeError(f"using {clusterer} as a clusterer needs {clusterer} to be installed")
 
         d = params
         verbose = d["verbose"]
