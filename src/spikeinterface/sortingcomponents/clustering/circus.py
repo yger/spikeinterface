@@ -20,7 +20,15 @@ from spikeinterface.sortingcomponents.tools import extract_waveform_at_max_chann
 
 class CircusClustering:
     """
-    hdblocalscan clustering on peak_locations previously done by localize_peaks()
+    Circus clustering is based on several local clustering achieved with a 
+    divide-and-conquer strategy. It uses the `hdbscan` or `isosplit6` clustering algorithms to
+    perform the local clusterings with an iterative and greedy strategy. 
+    More precisely, it first extracts waveforms from the recording,
+    then performs a Truncated SVD to reduce the dimensionality of the waveforms.
+    For every peak, it extracts the SVD features and performs local clustering, grouping the peaks
+    by channel indices. The clustering is done recursively, and the clusters are merged
+    based on a similarity metric. The final output is a set of labels for each peak,
+    indicating the cluster to which it belongs.
     """
 
     _default_params = {
