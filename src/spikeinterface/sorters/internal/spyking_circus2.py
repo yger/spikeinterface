@@ -34,18 +34,18 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "apply_motion_correction": True,
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
-        "clustering": {"method": "circus-clustering", "method_kwargs": dict(remove_small_snr=True)},
-        "matching": {"method": "circus-omp-svd", "method_kwargs": dict()},
-        #"matching": {"method": "wobble", "method_kwargs": dict()},
+        "clustering": {"method": "circus-clustering", "method_kwargs": dict()},
+        #"matching": {"method": "circus-omp-svd", "method_kwargs": dict()},
+        "matching": {"method": "wobble", "method_kwargs": dict()},
         "apply_preprocessing": True,
         "templates_from_svd": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
         "chunk_preprocessing": {"memory_limit": None},
         "multi_units_only": False,
-        "job_kwargs": {"n_jobs": 0.5},
+        "job_kwargs": {},
         "seed": 42,
         "deterministic_peaks_detection": False,
-        "debug": False,
+        "debug": True,
     }
 
     handle_multi_segment = True
