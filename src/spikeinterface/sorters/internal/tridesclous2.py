@@ -29,7 +29,7 @@ class Tridesclous2Sorter(ComponentsBasedSorter):
     _default_params = {
         "apply_preprocessing": True,
         "apply_motion_correction": False,
-        "motion_correction": {"preset": "nonrigid_fast_and_accurate"},
+        "motion_correction": {"preset": "dredge_fast"},
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
         "waveforms": {
             "ms_before": 0.5,
