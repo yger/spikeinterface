@@ -45,7 +45,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "job_kwargs": {},
         "seed": 42,
         "deterministic_peaks_detection": False,
-        "debug": True,
+        "debug": False,
     }
 
     handle_multi_segment = True
