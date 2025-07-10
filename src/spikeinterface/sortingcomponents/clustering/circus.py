@@ -32,7 +32,7 @@ class CircusClustering:
     """
 
     _default_params = {
-        "clusterer" : "isosplit6",  # 'isosplit6', 'hdbscan', 'isocut5'
+        "clusterer" : "hdbscan",  # 'isosplit6', 'hdbscan', 'isocut5'
         "clusterer_kwargs": {
             "min_cluster_size": 20,
             "cluster_selection_epsilon": 0.5,
@@ -53,8 +53,8 @@ class CircusClustering:
         "neighbors_radius_um": 50,
         "n_svd": 5,
         "few_waveforms": None,
-        "ms_before": 2.0,
-        "ms_after": 2.0,
+        "ms_before": 2,
+        "ms_after": 2,
         "remove_small_snr": False,
         "seed": None,
         "noise_threshold": 2,
