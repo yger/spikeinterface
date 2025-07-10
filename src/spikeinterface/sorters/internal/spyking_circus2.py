@@ -25,7 +25,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "general": {"ms_before": 2, "ms_after": 2, "radius_um": 100},
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25},
         "filtering": {"freq_min": 150, "freq_max": 7000, "ftype": "bessel", "filter_order": 2, "margin_ms": 10},
-        "whitening": {"mode": "local", "regularize": False},
+        "whitening": {"mode": "local", "regularize": True},
         "detection": {"method": "matched_filtering", "method_kwargs": dict(peak_sign="neg", detect_threshold=5)},
         "selection": {
             "method": "uniform",
@@ -301,6 +301,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 clustering_params["ms_after"] = ms_after
                 clustering_params["verbose"] = verbose
                 clustering_params["seed"] = seed
+                clustering_params["remove_small_snr"] = True
                 clustering_params["templates_from_svd"] = templates_from_svd
                 clustering_params["tmp_folder"] = sorter_output_folder / "clustering"
                 clustering_params["debug"] = debug
