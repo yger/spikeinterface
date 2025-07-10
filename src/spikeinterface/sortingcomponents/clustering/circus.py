@@ -32,7 +32,7 @@ class CircusClustering:
     """
 
     _default_params = {
-        "clusterer" : "hdbscan",  # 'isosplit6', 'hdbscan', 'isocut5'
+        "clusterer" : "isosplit6",  # 'isosplit6', 'hdbscan', 'isocut5'
         "clusterer_kwargs": {
             "min_cluster_size": 20,
             "cluster_selection_epsilon": 0.5,
@@ -214,15 +214,6 @@ class CircusClustering:
                 operator="median",
             )
 
-        sparsity = compute_sparsity(templates, noise_levels=params["noise_levels"], **params["sparsity"])
-        templates = templates.to_sparse(sparsity)
-        valid_templates = sparsity.mask.sum(axis=1) > 0
-        old_unit_ids = templates.unit_ids.copy()
-        mask = np.isin(peak_labels, old_unit_ids[~valid_templates])
-        peak_labels[mask] = -1
-        templates = templates.select_units(templates.unit_ids[valid_templates])
-        templates = templates.to_dense()
-
         if params["do_merge"]:
             peak_labels, merge_template_array, merge_sparsity_mask, new_unit_ids = merge_peak_labels_from_templates(
                 peaks, peak_labels, templates.unit_ids,
@@ -242,7 +233,11 @@ class CircusClustering:
             )
 
         if params["remove_small_snr"] :
-            sparsity = compute_sparsity(templates, method="snr", noise_levels=params["noise_levels"], threshold=params["noise_threshold"])
+            sparsity = compute_sparsity(templates, 
+                                        method="snr", 
+                                        amplitude_mode="peak_to_peak",
+                                        noise_levels=params["noise_levels"], 
+                                        threshold=params["noise_threshold"])
             valid_templates = sparsity.mask.sum(axis=1) > 0
             old_unit_ids = templates.unit_ids.copy()
             mask = np.isin(peak_labels, old_unit_ids[~valid_templates])
