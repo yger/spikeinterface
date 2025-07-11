@@ -35,7 +35,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
         "clustering": {"method": "circus-clustering", "method_kwargs": dict(remove_small_snr=True)},
-        "matching": {"method": "wobble", "method_kwargs": dict()},
+        "matching": {"method": "circus-omp-svd", "method_kwargs": dict()},
         #"matching": {"method": "wobble", "method_kwargs": dict()},
         "apply_preprocessing": True,
         "templates_from_svd": True,
