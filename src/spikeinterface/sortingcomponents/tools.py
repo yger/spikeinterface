@@ -464,7 +464,8 @@ def clean_templates(templates,
                     noise_levels=None, 
                     min_snr=None, 
                     max_jitter_ms=None, 
-                    remove_empty=True):
+                    remove_empty=True, 
+                    remove_mean=False):
     """
     Clean a Templates object by removing empty units and applying sparsity if provided.
     """
@@ -505,5 +506,24 @@ def clean_templates(templates,
                                     threshold=min_snr)
         to_select = templates.unit_ids[np.where(sparsity.mask.sum(axis=1) > 0)[0]]
         templates = templates.select_units(to_select)
+
+    ## We remove the mean of the templates
+    if remove_mean:
+        templates_array = templates.get_dense_templates().copy()
+        templates_array -= templates_array.mean(axis=(1, 2))[:, None, None]
+        sparsity = templates.sparsity
+        if sparsity is not None:
+            templates_array = sparsity.sparsify_templates(templates_array)
+        
+        templates = Templates(
+                  templates_array=templates_array,
+                  sampling_frequency=templates.sampling_frequency,
+                  nbefore=templates.nbefore,
+                  sparsity_mask=templates.sparsity_mask,
+                  channel_ids=templates.channel_ids,
+                  unit_ids=templates.unit_ids,
+                  probe=templates.probe,
+                  is_scaled=templates.is_scaled,
+        )
 
     return templates
