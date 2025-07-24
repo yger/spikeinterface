@@ -1314,7 +1314,7 @@ if HAVE_NUMBA:
 
         return border_low, border_high, p_low, p_high
 
-    @numba.jit(nopython=True, nogil=True, cache=False)
+    @numba.jit(nopython=True, nogil=True, cache=False, parallel=True)
     def compute_nb_violations(spike_train, max_time) -> float:
         """
         Computes the number of refractory period violations in a spike train.
@@ -1340,7 +1340,7 @@ if HAVE_NUMBA:
         n_violations_low = 0
         n_violations_high = 0
 
-        for i in range(len(spike_train) - 1):
+        for i in numba.prange(len(spike_train) - 1):
             for j in range(i + 1, len(spike_train)):
                 diff = spike_train[j] - spike_train[i]
 
@@ -1355,7 +1355,7 @@ if HAVE_NUMBA:
 
         return n_violations + p_high * n_violations_high + p_low * n_violations_low
 
-    @numba.jit(nopython=True, nogil=True, cache=False)
+    @numba.jit(nopython=True, nogil=True, cache=False, parallel=True)
     def compute_nb_coincidence(spike_train1, spike_train2, max_time) -> float:
         """
         Computes the number of coincident spikes between two spike trains.
@@ -1384,7 +1384,7 @@ if HAVE_NUMBA:
         n_coincident_high = 0
 
         start_j = 0
-        for i in range(len(spike_train1)):
+        for i in numba.prange(len(spike_train1)):
             for j in range(start_j, len(spike_train2)):
                 diff = spike_train1[i] - spike_train2[j]
 
