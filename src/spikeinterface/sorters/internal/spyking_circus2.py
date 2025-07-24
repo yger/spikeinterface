@@ -365,7 +365,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 templates,
                 noise_levels=noise_levels,
                 min_snr=detection_params.get("detect_threshold", 5),
-                max_jitter_ms=0.5,
+                max_jitter_ms=0.1,
                 remove_empty=True,
             )
 
