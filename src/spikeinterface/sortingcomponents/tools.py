@@ -17,6 +17,7 @@ from spikeinterface.core.sortinganalyzer import create_sorting_analyzer
 from spikeinterface.core.sparsity import ChannelSparsity
 from spikeinterface.core.sparsity import compute_sparsity
 from spikeinterface.core.analyzer_extension_core import ComputeTemplates
+from spikeinterface.core.template_tools import get_template_extremum_channel_peak_shift
 
 
 def make_multi_method_doc(methods, ident="    "):
@@ -464,8 +465,7 @@ def clean_templates(templates,
                     noise_levels=None, 
                     min_snr=None, 
                     max_jitter_ms=None, 
-                    remove_empty=True, 
-                    remove_mean=False):
+                    remove_empty=True):
     """
     Clean a Templates object by removing empty units and applying sparsity if provided.
     """
@@ -488,7 +488,7 @@ def clean_templates(templates,
     ## We keep only units with a max jitter
     if max_jitter_ms is not None:
         max_jitter = int(max_jitter_ms * templates.sampling_frequency / 1000.0)
-        from spikeinterface.core.template_tools import get_template_extremum_channel_peak_shift
+        
         shifts = get_template_extremum_channel_peak_shift(templates)
         to_select = []
         for unit_id in templates.unit_ids:
@@ -506,24 +506,5 @@ def clean_templates(templates,
                                     threshold=min_snr)
         to_select = templates.unit_ids[np.where(sparsity.mask.sum(axis=1) > 0)[0]]
         templates = templates.select_units(to_select)
-
-    ## We remove the mean of the templates
-    if remove_mean:
-        templates_array = templates.get_dense_templates().copy()
-        templates_array -= templates_array.mean(axis=(1, 2))[:, None, None]
-        sparsity = templates.sparsity
-        if sparsity is not None:
-            templates_array = sparsity.sparsify_templates(templates_array)
-        
-        templates = Templates(
-                  templates_array=templates_array,
-                  sampling_frequency=templates.sampling_frequency,
-                  nbefore=templates.nbefore,
-                  sparsity_mask=templates.sparsity_mask,
-                  channel_ids=templates.channel_ids,
-                  unit_ids=templates.unit_ids,
-                  probe=templates.probe,
-                  is_scaled=templates.is_scaled,
-        )
 
     return templates
