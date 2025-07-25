@@ -365,9 +365,6 @@ def set_properties_after_merging(
     for key in prop_keys:
         parent_values = sorting_pre_merge.get_property(key)
 
-        if parent_values.dtype.kind not in BaseExtractor.default_missing_property_values:
-            continue
-
         # propagate keep values
         shape = (len(sorting_post_merge.unit_ids),) + parent_values.shape[1:]
         new_values = np.empty(shape=shape, dtype=parent_values.dtype)
