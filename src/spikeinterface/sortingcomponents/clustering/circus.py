@@ -224,8 +224,9 @@ class CircusClustering:
                 channel_ids=recording.channel_ids,
                 unit_ids=new_unit_ids,
                 probe=recording.get_probe(),
-                is_scaled=False
+                is_in_uV=False
             )
+
 
 
         labels = templates.unit_ids
