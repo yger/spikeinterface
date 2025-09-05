@@ -107,7 +107,7 @@ class ByChannelPeakDetector(PeakDetector):
         local_peaks["amplitude"] = peak_amplitude
         local_peaks["segment_index"] = segment_index
 
-        return local_peaks
+        return (local_peaks,)
     
 
 class ByChannelTorchPeakDetector(PeakDetector):
@@ -153,7 +153,7 @@ class ByChannelTorchPeakDetector(PeakDetector):
             raise ModuleNotFoundError('"by_channel_torch" needs torch which is not installed')
 
         import torch.cuda
-
+        PeakDetector.__init__(self, recording, return_output=True)
         assert peak_sign in ("both", "neg", "pos")
         self.peak_sign = peak_sign
         if device is None:
@@ -187,7 +187,7 @@ class ByChannelTorchPeakDetector(PeakDetector):
             local_peaks["amplitude"] = peak_amplitude
             local_peaks["segment_index"] = segment_index
 
-        return local_peaks
+        return (local_peaks,)
 
 if HAVE_TORCH:
     import torch

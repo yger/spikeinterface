@@ -1,5 +1,4 @@
-from .base import PeakDetectorWrapper
-
+import numpy as np
 import importlib.util
 
 numba_spec = importlib.util.find_spec("numba")
@@ -8,9 +7,12 @@ if numba_spec is not None:
 else:
     HAVE_NUMBA = False
 
+from spikeinterface.core.node_pipeline import (
+    PeakDetector,
+)
 from spikeinterface.core.recording_tools import get_noise_levels, get_channel_distances
 
-class LocallyExclusivePeakDetector(PeakDetectorWrapper):
+class LocallyExclusivePeakDetector(PeakDetector):
     """Detect peaks using the "locally exclusive" method."""
 
     name = "locally_exclusive"
@@ -24,9 +26,8 @@ class LocallyExclusivePeakDetector(PeakDetectorWrapper):
     """
     )
 
-    @classmethod
-    def check_params(
-        cls,
+    def __init__(
+        self,
         recording,
         peak_sign="neg",
         detect_threshold=5,
@@ -38,21 +39,18 @@ class LocallyExclusivePeakDetector(PeakDetectorWrapper):
         if not HAVE_NUMBA:
             raise ModuleNotFoundError('"locally_exclusive" needs numba which is not installed')
 
-        # args = DetectPeakByChannel.check_params(
-        #     recording,
-        #     peak_sign=peak_sign,
-        #     detect_threshold=detect_threshold,
-        #     exclude_sweep_ms=exclude_sweep_ms,
-        #     noise_levels=noise_levels,
-        #     random_chunk_kwargs=random_chunk_kwargs,
-        # )
+        PeakDetector.__init__(self, recording, return_output=True)
 
         assert peak_sign in ("both", "neg", "pos")
         if noise_levels is None:
-            noise_levels = get_noise_levels(recording, return_in_uV=False, **random_chunk_kwargs)
-        abs_thresholds = noise_levels * detect_threshold
-        exclude_sweep_size = int(exclude_sweep_ms * recording.get_sampling_frequency() / 1000.0)
-
+            self.noise_levels = get_noise_levels(recording, return_in_uV=False, **random_chunk_kwargs)
+        else:
+            self.noise_levels = noise_levels
+        self.abs_thresholds = self.noise_levels * detect_threshold
+        self.exclude_sweep_size = int(exclude_sweep_ms * recording.get_sampling_frequency() / 1000.0)
+        self.radius_um = radius_um
+        self.detect_threshold = detect_threshold
+        self.peak_sign = peak_sign
         # if remove_median:
 
         #     chunks = get_random_data_chunks(recording, return_in_uV=False, concatenated=True, **random_chunk_kwargs)
@@ -62,47 +60,51 @@ class LocallyExclusivePeakDetector(PeakDetectorWrapper):
         # else:
         #     medians = None
 
-        channel_distance = get_channel_distances(recording)
-        neighbours_mask = channel_distance <= radius_um
-        return (peak_sign, abs_thresholds, exclude_sweep_size, neighbours_mask)
+        self.channel_distance = get_channel_distances(recording)
+        self.neighbours_mask = self.channel_distance <= radius_um
 
-    @classmethod
-    def get_method_margin(cls, *args):
-        exclude_sweep_size = args[2]
-        return exclude_sweep_size
+    def get_trace_margin(self):
+        return self.exclude_sweep_size
 
-    @classmethod
-    def detect_peaks(cls, traces, peak_sign, abs_thresholds, exclude_sweep_size, neighbours_mask):
+    def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
         assert HAVE_NUMBA, "You need to install numba"
 
         # if medians is not None:
         #     traces = traces - medians
 
-        traces_center = traces[exclude_sweep_size:-exclude_sweep_size, :]
+        traces_center = traces[self.exclude_sweep_size:-self.exclude_sweep_size, :]
 
-        if peak_sign in ("pos", "both"):
-            peak_mask = traces_center > abs_thresholds[None, :]
+        if self.peak_sign in ("pos", "both"):
+            peak_mask = traces_center > self.abs_thresholds[None, :]
             peak_mask = _numba_detect_peak_pos(
-                traces, traces_center, peak_mask, exclude_sweep_size, abs_thresholds, peak_sign, neighbours_mask
+                traces, traces_center, peak_mask, self.exclude_sweep_size, self.abs_thresholds, self.peak_sign, self.neighbours_mask
             )
 
-        if peak_sign in ("neg", "both"):
-            if peak_sign == "both":
+        if self.peak_sign in ("neg", "both"):
+            if self.peak_sign == "both":
                 peak_mask_pos = peak_mask.copy()
 
-            peak_mask = traces_center < -abs_thresholds[None, :]
+            peak_mask = traces_center < -self.abs_thresholds[None, :]
             peak_mask = _numba_detect_peak_neg(
-                traces, traces_center, peak_mask, exclude_sweep_size, abs_thresholds, peak_sign, neighbours_mask
+                traces, traces_center, peak_mask, self.exclude_sweep_size, self.abs_thresholds, self.peak_sign, self.neighbours_mask
             )
 
-            if peak_sign == "both":
+            if self.peak_sign == "both":
                 peak_mask = peak_mask | peak_mask_pos
 
         # Find peaks and correct for time shift
         peak_sample_ind, peak_chan_ind = np.nonzero(peak_mask)
-        peak_sample_ind += exclude_sweep_size
+        peak_sample_ind += self.exclude_sweep_size
 
-        return peak_sample_ind, peak_chan_ind
+        peak_amplitude = traces[peak_sample_ind, peak_chan_ind]
+
+        local_peaks = np.zeros(peak_sample_ind.size, dtype=self.get_dtype())
+        local_peaks["sample_index"] = peak_sample_ind
+        local_peaks["channel_index"] = peak_chan_ind
+        local_peaks["amplitude"] = peak_amplitude
+        local_peaks["segment_index"] = segment_index
+
+        return (local_peaks,)
 
 if HAVE_NUMBA:
     import numba
