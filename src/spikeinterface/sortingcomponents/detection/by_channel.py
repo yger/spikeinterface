@@ -109,7 +109,7 @@ class ByChannelPeakDetector(PeakDetector):
         return (local_peaks,)
     
 
-class ByChannelTorchPeakDetector(PeakDetector):
+class ByChannelTorchPeakDetector(ByChannelPeakDetector):
     """Detect peaks using the "by channel" method with pytorch."""
 
     name = "by_channel_torch"
@@ -152,25 +152,20 @@ class ByChannelTorchPeakDetector(PeakDetector):
             raise ModuleNotFoundError('"by_channel_torch" needs torch which is not installed')
 
         import torch.cuda
-        PeakDetector.__init__(self, recording, return_output=True)
-        assert peak_sign in ("both", "neg", "pos")
-        self.peak_sign = peak_sign
+        ByChannelPeakDetector.__init__(self, 
+                                       recording, 
+                                       peak_sign,
+                                       detect_threshold,
+                                       exclude_sweep_ms,
+                                       noise_levels,
+                                       random_chunk_kwargs)
+        
         if device is None:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
             self.device = device
-
-        if noise_levels is None:
-            self.noise_levels = get_noise_levels(recording, return_in_uV=False, **random_chunk_kwargs)
-        else:
-            self.noise_levels = noise_levels
-        self.abs_thresholds = self.noise_levels * detect_threshold
-        self.exclude_sweep_size = int(exclude_sweep_ms * recording.get_sampling_frequency() / 1000.0)
         self.return_tensor = return_tensor
-        self.detect_threshold = detect_threshold
 
-    def get_trace_margin(self):
-        return self.exclude_sweep_size
 
     def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
         peak_sample_ind, peak_chan_ind, peak_amplitude = _torch_detect_peaks(

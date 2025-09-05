@@ -13,6 +13,16 @@ from spikeinterface.core.node_pipeline import (
 from spikeinterface.core.recording_tools import get_noise_levels, get_channel_distances
 from spikeinterface.sortingcomponents.detection.by_channel import ByChannelTorchPeakDetector, _torch_detect_peaks as _torch_detect_peaks
 
+torch_spec = importlib.util.find_spec("torch")
+if torch_spec is not None:
+    torch_nn_functional_spec = importlib.util.find_spec("torch.nn")
+    if torch_nn_functional_spec is not None:
+        HAVE_TORCH = True
+    else:
+        HAVE_TORCH = False
+else:
+    HAVE_TORCH = False
+
 class LocallyExclusivePeakDetector(PeakDetector):
     """Detect peaks using the "locally exclusive" method."""
 
@@ -192,7 +202,6 @@ class LocallyExclusiveTorchPeakDetector(ByChannelTorchPeakDetector):
         import torch
         
         ByChannelTorchPeakDetector.__init__(self, 
-                                            recording, 
                                             recording,
                                             peak_sign,
                                             detect_threshold,
@@ -217,9 +226,10 @@ class LocallyExclusiveTorchPeakDetector(ByChannelTorchPeakDetector):
 
     def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
         peak_sample_ind, peak_chan_ind, peak_amplitude =  _torch_detect_peaks(
-            traces, self.peak_sign, self.abs_thresholds, self.exclude_sweep_size, self.neighbor_idxs, self.device
+            traces, self.peak_sign, self.abs_thresholds, self.exclude_sweep_size, self.neighbours_idxs, self.device
         )
-        if not self.return_tensor and isinstance(peak_sample_ind, torch.Tensor) and isinstance(peak_chan_ind, torch.Tensor):
+
+        if not self.return_tensor:
             peak_sample_ind = np.array(peak_sample_ind.cpu())
             peak_chan_ind = np.array(peak_chan_ind.cpu())
             peak_amplitude = np.array(peak_amplitude.cpu())
