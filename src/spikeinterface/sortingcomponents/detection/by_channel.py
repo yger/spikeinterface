@@ -1,7 +1,12 @@
-from .base import PeakDetectorWrapper
-from spikeinterface.core.recording_tools import get_noise_levels
+ols import get_noise_levels
 import importlib.util
 import numpy as np
+
+from spikeinterface.core.node_pipeline import (
+    PeakDetector,
+)
+
+from spikeinterface.core.recording_tools import get_noise_levels
 
 torch_spec = importlib.util.find_spec("torch")
 if torch_spec is not None:
@@ -14,7 +19,8 @@ else:
     HAVE_TORCH = False
 
 
-class ByChannelPeakDetector(PeakDetectorWrapper):
+
+class ByChannelPeakDetector(PeakDetector):
     """Detect peaks using the "by channel" method."""
 
     name = "by_channel"
@@ -37,9 +43,8 @@ class ByChannelPeakDetector(PeakDetectorWrapper):
         Only used if noise_levels is None
     """
 
-    @classmethod
-    def check_params(
-        cls,
+    def __init__(
+        self,
         recording,
         peak_sign="neg",
         detect_threshold=5,
@@ -47,56 +52,65 @@ class ByChannelPeakDetector(PeakDetectorWrapper):
         noise_levels=None,
         random_chunk_kwargs={},
     ):
+        PeakDetector.__init__(self, recording, return_output=True)
         assert peak_sign in ("both", "neg", "pos")
 
         if noise_levels is None:
-            noise_levels = get_noise_levels(recording, return_in_uV=False, **random_chunk_kwargs)
-        abs_thresholds = noise_levels * detect_threshold
-        exclude_sweep_size = int(exclude_sweep_ms * recording.get_sampling_frequency() / 1000.0)
+            self.noise_levels = get_noise_levels(recording, return_in_uV=False, **random_chunk_kwargs)
+        else:
+            self.noise_levels = noise_levels
+        self.abs_thresholds = self.noise_levels * detect_threshold
+        self.exclude_sweep_size = int(exclude_sweep_ms * recording.get_sampling_frequency() / 1000.0)
+        self.peak_sign = peak_sign
+        self.detect_threshold = detect_threshold
 
-        return (peak_sign, abs_thresholds, exclude_sweep_size)
-
-    @classmethod
-    def get_method_margin(cls, *args):
-        exclude_sweep_size = args[2]
-        return exclude_sweep_size
-
-    @classmethod
-    def detect_peaks(cls, traces, peak_sign, abs_thresholds, exclude_sweep_size):
-        traces_center = traces[exclude_sweep_size:-exclude_sweep_size, :]
+    def get_trace_margin(self):
+        return self.exclude_sweep_size
+    
+    def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
+    
+        traces_center = traces[self.exclude_sweep_size:-self.exclude_sweep_size, :]
         length = traces_center.shape[0]
 
-        if peak_sign in ("pos", "both"):
-            peak_mask = traces_center > abs_thresholds[None, :]
-            for i in range(exclude_sweep_size):
+        if self.peak_sign in ("pos", "both"):
+            peak_mask = traces_center > self.abs_thresholds[None, :]
+            for i in range(self.exclude_sweep_size):
                 peak_mask &= traces_center > traces[i : i + length, :]
                 peak_mask &= (
-                    traces_center >= traces[exclude_sweep_size + i + 1 : exclude_sweep_size + i + 1 + length, :]
+                    traces_center >= traces[self.exclude_sweep_size + i + 1 : self.exclude_sweep_size + i + 1 + length, :]
                 )
 
-        if peak_sign in ("neg", "both"):
-            if peak_sign == "both":
+        if self.peak_sign in ("neg", "both"):
+            if self.peak_sign == "both":
                 peak_mask_pos = peak_mask.copy()
 
-            peak_mask = traces_center < -abs_thresholds[None, :]
-            for i in range(exclude_sweep_size):
+            peak_mask = traces_center < -self.abs_thresholds[None, :]
+            for i in range(self.exclude_sweep_size):
                 peak_mask &= traces_center < traces[i : i + length, :]
                 peak_mask &= (
-                    traces_center <= traces[exclude_sweep_size + i + 1 : exclude_sweep_size + i + 1 + length, :]
+                    traces_center <= traces[self.exclude_sweep_size + i + 1 : self.exclude_sweep_size + i + 1 + length, :]
                 )
 
-            if peak_sign == "both":
+            if self.peak_sign == "both":
                 peak_mask = peak_mask | peak_mask_pos
 
         # find peaks
         peak_sample_ind, peak_chan_ind = np.nonzero(peak_mask)
         # correct for time shift
-        peak_sample_ind += exclude_sweep_size
+        peak_sample_ind += self.exclude_sweep_size
+        
+        peak_amplitude = traces[peak_sample_ind, peak_chan_ind]
 
-        return peak_sample_ind, peak_chan_ind
+        local_peaks = np.zeros(peak_sample_ind.size, dtype=self.get_dtype())
+        local_peaks["sample_index"] = peak_sample_ind
+        local_peaks["channel_index"] = peak_chan_ind
+        local_peaks["amplitude"] = peak_amplitude
+        local_peaks["segment_index"] = segment_index
+
+        return local_peaks
     
 
-class DetectPeakByChannelTorch(PeakDetectorWrapper):
+class ByChannelTorchPeakDetector(PeakDetector):
     """Detect peaks using the "by channel" method with pytorch."""
 
     name = "by_channel_torch"
@@ -123,9 +137,8 @@ class DetectPeakByChannelTorch(PeakDetectorWrapper):
         Only used if noise_levels is None.
     """
 
-    @classmethod
-    def check_params(
-        cls,
+    def __init__(
+        self,
         recording,
         peak_sign="neg",
         detect_threshold=5,
@@ -142,30 +155,39 @@ class DetectPeakByChannelTorch(PeakDetectorWrapper):
         import torch.cuda
 
         assert peak_sign in ("both", "neg", "pos")
+        self.peak_sign = peak_sign
         if device is None:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            self.device = device
 
         if noise_levels is None:
-            noise_levels = get_noise_levels(recording, return_in_uV=False, **random_chunk_kwargs)
-        abs_thresholds = noise_levels * detect_threshold
-        exclude_sweep_size = int(exclude_sweep_ms * recording.get_sampling_frequency() / 1000.0)
+            self.noise_levels = get_noise_levels(recording, return_in_uV=False, **random_chunk_kwargs)
+        else:
+            self.noise_levels = noise_levels
+        self.abs_thresholds = self.noise_levels * detect_threshold
+        self.exclude_sweep_size = int(exclude_sweep_ms * recording.get_sampling_frequency() / 1000.0)
+        self.return_tensor = return_tensor
+        self.detect_threshold = detect_threshold
 
-        return (peak_sign, abs_thresholds, exclude_sweep_size, device, return_tensor)
+    def get_trace_margin(self):
+        return self.exclude_sweep_size
 
-    @classmethod
-    def get_method_margin(cls, *args):
-        exclude_sweep_size = args[2]
-        return exclude_sweep_size
-
-    @classmethod
-    def detect_peaks(cls, traces, peak_sign, abs_thresholds, exclude_sweep_size, device, return_tensor):
-        sample_inds, chan_inds = _torch_detect_peaks(
-            traces, peak_sign, abs_thresholds, exclude_sweep_size, None, device
+    def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
+        peak_sample_ind, peak_chan_ind, peak_amplitude = _torch_detect_peaks(
+            traces, self.peak_sign, self.abs_thresholds, self.exclude_sweep_size, None, self.device
         )
-        if not return_tensor:
-            sample_inds = np.array(sample_inds.cpu())
-            chan_inds = np.array(chan_inds.cpu())
-        return sample_inds, chan_inds
+        if not self.return_tensor:
+            peak_sample_ind = np.array(peak_sample_ind.cpu())
+            peak_chan_ind = np.array(peak_chan_ind.cpu())
+            peak_amplitude = np.array(peak_amplitude.cpu())
+            local_peaks = np.zeros(peak_sample_ind.size, dtype=self.get_dtype())
+            local_peaks["sample_index"] = peak_sample_ind
+            local_peaks["channel_index"] = peak_chan_ind
+            local_peaks["amplitude"] = peak_amplitude
+            local_peaks["segment_index"] = segment_index
+
+        return local_peaks
 
 if HAVE_TORCH:
     import torch
@@ -294,4 +316,4 @@ if HAVE_TORCH:
             channel_indices = channel_indices[deduplication_indices]
             amplitudes = amplitudes[deduplication_indices]
 
-        return sample_indices, channel_indices
+        return sample_indices, channel_indices, amplitudes
