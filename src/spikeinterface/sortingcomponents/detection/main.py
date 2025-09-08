@@ -6,7 +6,11 @@ from .method_list import *
 
 from spikeinterface.core.job_tools import (
     split_job_kwargs,
+    fix_job_kwargs,
+    _shared_job_kwargs_doc
 )
+
+from .tools import make_multi_method_doc
 
 from spikeinterface.core.node_pipeline import (
     run_node_pipeline,
@@ -55,6 +59,7 @@ def detect_peaks(
         If None (default), the function iterates over the entire duration of the recording.
 
     {method_doc}
+    
     {job_doc}
 
     Returns
@@ -73,6 +78,7 @@ def detect_peaks(
     method_class = detection_methods[method]
 
     method_kwargs, job_kwargs = split_job_kwargs(kwargs)
+    job_kwargs = fix_job_kwargs(job_kwargs)
     job_kwargs["mp_context"] = method_class.preferred_mp_context
 
     node0 = method_class(recording, **method_kwargs)
@@ -112,3 +118,7 @@ def detect_peaks(
         recording_slices=recording_slices,
     )
     return outs
+
+
+method_doc = make_multi_method_doc(list(detection_methods.values()))
+detect_peaks.__doc__ = detect_peaks.__doc__.format(method_doc=method_doc, job_doc=_shared_job_kwargs_doc)

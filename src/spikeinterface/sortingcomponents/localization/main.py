@@ -7,6 +7,7 @@ from .tools import make_multi_method_doc
 
 from spikeinterface.core.job_tools import (
     split_job_kwargs,
+    fix_job_kwargs,
     _shared_job_kwargs_doc
 )
 
@@ -49,6 +50,7 @@ def localize_peaks(recording, peaks, method="center_of_mass", ms_before=0.5, ms_
         The dtype depends on the method. ("x", "y") or ("x", "y", "z", "alpha").
     """
     method_kwargs, job_kwargs = split_job_kwargs(kwargs)
+    job_kwargs = fix_job_kwargs(job_kwargs)
 
     assert (
         method in localization_methods

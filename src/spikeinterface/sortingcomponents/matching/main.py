@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-from threadpoolctl import threadpool_limits
 import numpy as np
+
+from .method_list import *
 
 # from spikeinterface.core.job_tools import ChunkRecordingExecutor, fix_job_kwargs
 # from spikeinterface.core import get_chunk_with_margin
+
+from spikeinterface.core.job_tools import (
+    split_job_kwargs,
+    _shared_job_kwargs_doc
+)
 
 from spikeinterface.core.job_tools import fix_job_kwargs
 from spikeinterface.core.node_pipeline import run_node_pipeline
@@ -13,12 +19,10 @@ from spikeinterface.core.node_pipeline import run_node_pipeline
 def find_spikes_from_templates(
     recording,
     method="naive",
-    method_kwargs={},
     extra_outputs=False,
     gather_mode="memory",
     gather_kwargs=None,
-    verbose=False,
-    **job_kwargs,
+    **kwargs,
 ) -> np.ndarray | tuple[np.ndarray, dict]:
     """Find spike from a recording from given templates.
 
@@ -36,10 +40,10 @@ def find_spikes_from_templates(
         If "memory" then the output is gathered in memory, if "npy" then the output is gathered on disk
     gather_kwargs : dict, optional
         The kwargs for the gather method
-    verbose : Bool, default: False
-        If True, output is verbose
-    **job_kwargs : keyword arguments
-        Parameters for ChunkRecordingExecutor
+
+    {method_doc}
+
+    {job_doc}
 
     Returns
     -------
@@ -52,6 +56,7 @@ def find_spikes_from_templates(
 
     assert method in matching_methods, f"Method {method} is not supported. Choose from {matching_methods}"
 
+    method_kwargs, job_kwargs = split_job_kwargs(kwargs)
     job_kwargs = fix_job_kwargs(job_kwargs)
 
     method_class = matching_methods[method]
@@ -84,3 +89,7 @@ def find_spikes_from_templates(
         return spikes, outputs
     else:
         return spikes
+
+
+method_doc = make_multi_method_doc(list(matching_methods.values()))
+find_spikes_from_templates.__doc__ = find_spikes_from_templates.__doc__.format(method_doc=method_doc, job_doc=_shared_job_kwargs_doc)
