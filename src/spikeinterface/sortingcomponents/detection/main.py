@@ -68,7 +68,7 @@ def detect_peaks(
 
     """
 
-    assert method in detection_methods
+    assert method in detection_methods, f"Method {method} is not supported. Choose from {detection_methods}"
 
     method_class = detection_methods[method]
 

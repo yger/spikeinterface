@@ -50,7 +50,7 @@ def find_spikes_from_templates(
     """
     from spikeinterface.sortingcomponents.matching.method_list import matching_methods
 
-    assert method in matching_methods, f"The 'method' {method} is not valid. Use a method from {matching_methods}"
+    assert method in matching_methods, f"Method {method} is not supported. Choose from {matching_methods}"
 
     job_kwargs = fix_job_kwargs(job_kwargs)
 
