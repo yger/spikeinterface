@@ -86,7 +86,6 @@ class LocalizeMonopolarTriangulation(LocalizeBase):
         peak_locations = np.zeros(peaks.size, dtype=self._dtype)
 
         for i, peak in enumerate(peaks):
-            sample_index = peak["sample_index"]
             chan_mask = self.neighbours_mask[peak["channel_index"], :]
             chan_inds = np.flatnonzero(chan_mask)
             local_contact_locations = self.contact_locations[chan_inds, :]

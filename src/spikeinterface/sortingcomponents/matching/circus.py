@@ -118,9 +118,10 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
 
     IMPORTANT NOTE: small chunks are more efficient for such Peeler,
     consider using 100ms chunk
+    """
 
-    Parameters
-    ----------
+    name = "circus-omp-svd"
+    params_doc = """
     amplitude : tuple
         (Minimal, Maximal) amplitudes allowed for every template
     max_failures : int
@@ -140,7 +141,6 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
     shared_memory : bool, default True
         If True, the overlaps are stored in shared memory, which is more efficient when
         using numerous cores
-    -----
     """
 
     _more_output_keys = [
@@ -157,8 +157,6 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
     def __init__(
         self,
         recording,
-        return_output=True,
-        parents=None,
         templates=None,
         amplitudes=[0.6, np.inf],
         stop_criteria="max_failures",

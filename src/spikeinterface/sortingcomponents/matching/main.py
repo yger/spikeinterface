@@ -18,6 +18,7 @@ from spikeinterface.core.node_pipeline import run_node_pipeline
 
 def find_spikes_from_templates(
     recording,
+    templates,
     method="naive",
     extra_outputs=False,
     gather_mode="memory",
@@ -30,6 +31,8 @@ def find_spikes_from_templates(
     ----------
     recording : RecordingExtractor
         The recording extractor object
+    templates : Templates
+        The Templates that should be look for in the data
     method : "naive" | "tridesclous" | "circus" | "circus-omp" | "wobble", default: "naive"
         Which method to use for template matching
     method_kwargs : dict, optional
@@ -60,11 +63,14 @@ def find_spikes_from_templates(
     job_kwargs = fix_job_kwargs(job_kwargs)
 
     method_class = matching_methods[method]
+
+    if len(templates.unit_ids) == 0:
+        return np.zeros(0, dtype=node0.get_dtype())
+    else:
+        method_kwargs.update({"templates" : templates})
+
     node0 = method_class(recording, **method_kwargs)
     nodes = [node0]
-    assert "templates" in method_kwargs, "You must provide templates in method_kwargs"
-    if len(method_kwargs["templates"].unit_ids) == 0:
-        return np.zeros(0, dtype=node0.get_dtype())
 
     gather_kwargs = gather_kwargs or {}
     names = ["spikes"]

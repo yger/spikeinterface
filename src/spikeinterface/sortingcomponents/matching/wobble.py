@@ -352,15 +352,24 @@ class WobbleMatch(BaseTemplateMatching):
     - "peaks" are considered spikes if their amplitude clears the threshold parameter
     """
 
-    # default_params = {
-    #     "templates": None,
-    # }
+    name = "wobble"
+    params_doc = """
+    templates : 
+    parameters : 
+    
+    engine : string in ["numpy", "torch", "auto"]. Default "auto"
+        The engine to use for the convolutions
+    torch_device : string in ["cpu", "cuda", None]. Default "cpu"
+        Controls torch device if the torch engine is selected
+    shared_memory : bool, default True
+        If True, the overlaps are stored in shared memory, which is more efficient when
+        using numerous cores
+    """
+
 
     def __init__(
         self,
         recording,
-        return_output=True,
-        parents=None,
         templates=None,
         parameters={},
         engine="numpy",

@@ -21,6 +21,7 @@ def detect_peaks(
     method="locally_exclusive",
     pipeline_nodes=None,
     gather_mode="memory",
+    gather_kwargs=None,
     folder=None,
     names=None,
     skip_after_n_peaks=None,
@@ -45,7 +46,8 @@ def detect_peaks(
         How to gather the results:
         * "memory": results are returned as in-memory numpy arrays
         * "npy": results are stored to .npy files in `folder`
-
+    gather_kwargs : dict, optional
+        The kwargs for the gather method
     folder : str or Path
         If gather_mode is "npy", the folder where the files are created.
     names : list
@@ -116,6 +118,7 @@ def detect_peaks(
         names=names,
         skip_after_n_peaks=skip_after_n_peaks,
         recording_slices=recording_slices,
+        **gather_kwargs
     )
     return outs
 
