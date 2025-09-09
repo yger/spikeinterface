@@ -353,6 +353,7 @@ class WobbleMatch(BaseTemplateMatching):
     """
 
     name = "wobble"
+    full_convolution = True
     params_doc = """
     templates : 
     parameters : 

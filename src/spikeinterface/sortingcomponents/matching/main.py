@@ -64,6 +64,9 @@ def find_spikes_from_templates(
 
     method_class = matching_methods[method]
 
+    #if method_class.full_convolution:
+    #   Maybe we need to automatically adjust the temporal chunks given templates and n_processes
+
     if len(templates.unit_ids) == 0:
         return np.zeros(0, dtype=node0.get_dtype())
     else:

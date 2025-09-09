@@ -5,18 +5,33 @@ from __future__ import annotations
 
 import numpy as np
 from spikeinterface.core import get_noise_levels, get_channel_distances
-from spikeinterface.sortingcomponents.peak_detection import DetectPeakLocallyExclusive
+from spikeinterface.sortingcomponents.detection.locally_exclusive import LocallyExclusivePeakDetector
 
 
 from .base import BaseTemplateMatching, _base_matching_dtype
 
 
 class NaiveMatching(BaseTemplateMatching):
+
+    name = "naive"
+    params_doc = """
+    peak_sign : 'neg' | 'pos' | 'both'
+        The peak sign to use for detection
+    exclude_sweep_ms : float
+        The exclusion window (in ms) around a detected peak to exclude other peaks on neighboring channels
+    detect_threshold : float
+        The threshold for peak detection in term of k x MAD
+    noise_levels : None | array
+        If None the noise levels are estimated using random chunks of the recording. If array it should be an array of size (num_channels,) with the noise level of each channel
+    radius_um : float
+        The radius to define the neighborhood between channels in micrometers
+    random_chunk_kwargs : dict
+        The kwargs for get_noise_levels if noise_levels is None
+    """
+
     def __init__(
         self,
         recording,
-        return_output=True,
-        parents=None,
         templates=None,
         peak_sign="neg",
         exclude_sweep_ms=0.1,
@@ -40,6 +55,12 @@ class NaiveMatching(BaseTemplateMatching):
         self.nbefore = self.templates.nbefore
         self.nafter = self.templates.nafter
         self.margin = max(self.nbefore, self.nafter)
+        self.peak_detector = LocallyExclusivePeakDetector(
+            peak_sign=self.peak_sign,
+            abs_threholds=self.abs_threholds,
+            exclude_sweep_size=self.exclude_sweep_size,
+            neighbours_mask=self.neighbours_mask,
+        )
 
     def get_trace_margin(self):
         return self.margin
@@ -50,8 +71,9 @@ class NaiveMatching(BaseTemplateMatching):
             peak_traces = traces[self.margin : -self.margin, :]
         else:
             peak_traces = traces
-        peak_sample_ind, peak_chan_ind = DetectPeakLocallyExclusive.detect_peaks(
-            peak_traces, self.peak_sign, self.abs_threholds, self.exclude_sweep_size, self.neighbours_mask
+
+        peak_sample_ind, peak_chan_ind = self.peak_detector.compute(
+            peak_traces, start_frame, end_frame, segment_index, self.margin
         )
         peak_sample_ind += self.margin
 
@@ -69,6 +91,6 @@ class NaiveMatching(BaseTemplateMatching):
             cluster_index = np.argmin(dist)
 
             spikes["cluster_index"][i] = cluster_index
-            spikes["amplitude"][i] = 0.0
+            spikes["amplitude"][i] = 1.0
 
         return spikes

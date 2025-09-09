@@ -42,6 +42,7 @@ class TridesclousPeeler(BaseTemplateMatching):
     """
 
     name = "tdc-peeler"
+    full_convolution = False
     params_doc = """
     templates : 
     parameters : 

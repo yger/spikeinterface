@@ -70,7 +70,6 @@ def compress_templates(
 
 
 def compute_overlaps(templates, num_samples, num_channels, sparsities):
-    import scipy.spatial
     import scipy
 
     num_templates = len(templates)
@@ -121,6 +120,7 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
     """
 
     name = "circus-omp-svd"
+    full_convolution = True
     params_doc = """
     amplitude : tuple
         (Minimal, Maximal) amplitudes allowed for every template
@@ -324,7 +324,6 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
         return self.margin
 
     def compute_matching(self, traces, start_frame, end_frame, segment_index):
-        import scipy.spatial
         import scipy
         from scipy import ndimage
 
