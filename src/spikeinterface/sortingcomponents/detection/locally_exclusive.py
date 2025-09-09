@@ -23,6 +23,12 @@ if torch_spec is not None:
 else:
     HAVE_TORCH = False
 
+opencl_spec = importlib.util.find_spec("pyopencl")
+if opencl_spec is not None:
+    HAVE_PYOPENCL = True
+else:
+    HAVE_PYOPENCL = False
+
 from .by_channel import ByChannelPeakDetector
 
 class LocallyExclusivePeakDetector(PeakDetector):
@@ -271,6 +277,9 @@ class LocallyExclusiveOpenCLPeakDetector(LocallyExclusivePeakDetector):
         random_chunk_kwargs={},
         opencl_context_kwargs={}
     ):
+        if not HAVE_PYOPENCL:
+            raise ModuleNotFoundError('"locally_exclusive_cl" needs pyopencl which is not installed')
+
         LocallyExclusivePeakDetector.__init__(self, 
                                             recording,
                                             peak_sign,
