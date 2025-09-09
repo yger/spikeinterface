@@ -36,6 +36,7 @@ class LocallyExclusivePeakDetector(PeakDetector):
 
     name = "locally_exclusive"
     engine = "numba"
+    need_noise_levels = True
     preferred_mp_context = None
     params_doc = (
         ByChannelPeakDetector.params_doc
@@ -185,6 +186,7 @@ class LocallyExclusiveTorchPeakDetector(ByChannelTorchPeakDetector):
 
     name = "locally_exclusive_torch"
     engine = "torch"
+    need_noise_levels = True
     preferred_mp_context = "spawn"
     params_doc = (
         ByChannelPeakDetector.params_doc

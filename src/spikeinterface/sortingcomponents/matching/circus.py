@@ -121,6 +121,7 @@ class CircusOMPSVDPeeler(BaseTemplateMatching):
 
     name = "circus-omp-svd"
     full_convolution = True
+    need_noise_levels = False
     params_doc = """
     amplitude : tuple
         (Minimal, Maximal) amplitudes allowed for every template

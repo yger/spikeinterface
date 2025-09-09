@@ -24,6 +24,7 @@ class ByChannelPeakDetector(PeakDetector):
 
     name = "by_channel"
     engine = "numpy"
+    need_noise_levels = True
     preferred_mp_context = None
     params_doc = """
     peak_sign: "neg" | "pos" | "both", default: "neg"
@@ -115,6 +116,7 @@ class ByChannelTorchPeakDetector(ByChannelPeakDetector):
     name = "by_channel_torch"
     engine = "torch"
     preferred_mp_context = "spawn"
+    need_noise_levels = True
     params_doc = """
     peak_sign: "neg" | "pos" | "both", default: "neg"
         Sign of the peak

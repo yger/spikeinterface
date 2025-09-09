@@ -14,6 +14,7 @@ from .base import BaseTemplateMatching, _base_matching_dtype
 class NaiveMatching(BaseTemplateMatching):
 
     name = "naive"
+    need_noise_levels = True
     params_doc = """
     peak_sign : 'neg' | 'pos' | 'both'
         The peak sign to use for detection
