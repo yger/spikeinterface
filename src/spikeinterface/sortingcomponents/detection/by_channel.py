@@ -226,7 +226,7 @@ if HAVE_TORCH:
         traces = traces[exclude_sweep_size:-exclude_sweep_size, :]
         num_samples, num_channels = traces.shape
         dtype = torch.float32
-        empty_return_value = (torch.tensor([], dtype=dtype), torch.tensor([], dtype=dtype))
+        empty_return_value = (torch.tensor([], dtype=dtype), torch.tensor([], dtype=dtype), torch.tensor([], dtype=dtype))
 
         # The function uses maxpooling to look for maximum
         if peak_sign == "neg":
