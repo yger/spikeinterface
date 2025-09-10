@@ -77,9 +77,11 @@ class NaiveMatching(BaseTemplateMatching):
         else:
             peak_traces = traces
 
-        peak_sample_ind, peak_chan_ind = self.peak_detector.compute(
+        (local_peaks, ) = self.peak_detector.compute(
             peak_traces, start_frame, end_frame, segment_index, self.margin
         )
+        peak_sample_ind = local_peaks["sample_index"]
+        peak_chan_ind = local_peaks["channel_index"]
         peak_sample_ind += self.margin
 
         spikes = np.zeros(peak_sample_ind.size, dtype=_base_matching_dtype)
