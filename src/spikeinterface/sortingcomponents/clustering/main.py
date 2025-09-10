@@ -30,7 +30,10 @@ def find_clusters_from_peaks(recording, peaks, method="stupid", extra_outputs=Fa
         Keyword arguments for the chosen method
     extra_outputs : bool, default: False
         If True then debug is also return
-    {}
+    
+    {method_doc}
+
+    {job_doc}
 
     Returns
     -------
