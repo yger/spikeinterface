@@ -11,7 +11,7 @@ from spikeinterface.core.node_pipeline import (
     PeakDetector,
 )
 from spikeinterface.core.recording_tools import get_noise_levels, get_channel_distances
-from spikeinterface.sortingcomponents.peak_detection.by_channel import ByChannelTorchPeakDetector, _torch_detect_peaks as _torch_detect_peaks
+from spikeinterface.sortingcomponents.peak_detection.by_channel import ByChannelTorchPeakDetector
 
 torch_spec = importlib.util.find_spec("torch")
 if torch_spec is not None:
@@ -211,8 +211,6 @@ class LocallyExclusiveTorchPeakDetector(ByChannelTorchPeakDetector):
         if not HAVE_TORCH:
             raise ModuleNotFoundError('"by_channel_torch" needs torch which is not installed')
         
-        import torch
-        
         ByChannelTorchPeakDetector.__init__(self, 
                                             recording,
                                             peak_sign,
@@ -238,6 +236,7 @@ class LocallyExclusiveTorchPeakDetector(ByChannelTorchPeakDetector):
         return self.exclude_sweep_size
 
     def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
+        from spikeinterface.sortingcomponents.peak_detection.by_channel import _torch_detect_peaks
         peak_sample_ind, peak_chan_ind, peak_amplitude =  _torch_detect_peaks(
             traces, self.peak_sign, self.abs_thresholds, self.exclude_sweep_size, self.neighbours_idxs, self.device
         )

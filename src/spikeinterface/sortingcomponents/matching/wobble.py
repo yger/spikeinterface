@@ -3,18 +3,19 @@ from __future__ import annotations
 import numpy as np
 from dataclasses import dataclass
 from typing import List, Tuple, Optional
-
+import importlib.util
 
 from .base import BaseTemplateMatching, _base_matching_dtype
-from spikeinterface.core.template import Templates
 
-try:
-    import torch
-    import torch.nn.functional as F
 
-    HAVE_TORCH = True
-    from torch.nn.functional import conv1d
-except ImportError:
+torch_spec = importlib.util.find_spec("torch")
+if torch_spec is not None:
+    torch_nn_functional_spec = importlib.util.find_spec("torch.nn")
+    if torch_nn_functional_spec is not None:
+        HAVE_TORCH = True
+    else:
+        HAVE_TORCH = False
+else:
     HAVE_TORCH = False
 
 

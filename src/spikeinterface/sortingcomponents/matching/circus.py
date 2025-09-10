@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-
+import importlib.util
 import numpy as np
 
 spike_dtype = [
@@ -13,13 +13,14 @@ spike_dtype = [
     ("segment_index", "int64"),
 ]
 
-try:
-    import torch
-    import torch.nn.functional as F
-
-    HAVE_TORCH = True
-    from torch.nn.functional import conv1d
-except ImportError:
+torch_spec = importlib.util.find_spec("torch")
+if torch_spec is not None:
+    torch_nn_functional_spec = importlib.util.find_spec("torch.nn")
+    if torch_nn_functional_spec is not None:
+        HAVE_TORCH = True
+    else:
+        HAVE_TORCH = False
+else:
     HAVE_TORCH = False
 
 from .base import BaseTemplateMatching
