@@ -6,6 +6,6 @@ from .grid import LocalizeGridConvolution
 
 localization_methods = {
     "center_of_mass": LocalizeCenterOfMass,
-    "monopolar": LocalizeMonopolarTriangulation,
+    "monopolar_triangulation": LocalizeMonopolarTriangulation,
     "grid_convolution": LocalizeGridConvolution,
 }

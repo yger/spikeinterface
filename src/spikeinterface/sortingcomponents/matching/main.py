@@ -15,6 +15,8 @@ from spikeinterface.core.job_tools import (
 from spikeinterface.core.job_tools import fix_job_kwargs
 from spikeinterface.core.node_pipeline import run_node_pipeline
 
+from ..tools import make_multi_method_doc
+
 
 def find_spikes_from_templates(
     recording,
@@ -57,7 +59,7 @@ def find_spikes_from_templates(
     """
     from spikeinterface.sortingcomponents.matching.method_list import matching_methods
 
-    assert method in matching_methods, f"Method {method} is not supported. Choose from {matching_methods}"
+    assert method in matching_methods, f"Method {method} is not supported. Choose from {matching_methods.keys()}"
 
     method_kwargs, job_kwargs = split_job_kwargs(kwargs)
     job_kwargs = fix_job_kwargs(job_kwargs)

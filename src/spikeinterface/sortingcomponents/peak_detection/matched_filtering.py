@@ -21,27 +21,29 @@ if numba_spec is not None:
 else:
     HAVE_NUMBA = False
 
+from .by_channel import ByChannelPeakDetector
+
 class MatchedFilteringPeakDetector(PeakDetector):
     """Detect peaks using the 'matched_filtering' method."""
 
     name = "matched_filtering"
     engine = "numba"
     preferred_mp_context = None
-    # params_doc = (
-    #     DetectPeakByChannel.params_doc
-    #     + """
-    # radius_um : float
-    #     The radius to use to select neighbour channels for locally exclusive detection.
-    # prototype : array
-    #     The canonical waveform of action potentials
-    # ms_before : float
-    #     The time in ms before the maximial value of the absolute prototype
-    # weight_method : dict
-    #     Parameter that should be provided to the get_convolution_weights() function
-    #     in order to know how to estimate the positions. One argument is mode that could
-    #     be either gaussian_2d (KS like) or exponential_3d (default)
-    # """
-    # )
+    params_doc = (
+        ByChannelPeakDetector.params_doc
+        + """
+    radius_um : float
+        The radius to use to select neighbour channels for locally exclusive detection.
+    prototype : array
+        The canonical waveform of action potentials
+    ms_before : float
+        The time in ms before the maximial value of the absolute prototype
+    weight_method : dict
+        Parameter that should be provided to the get_convolution_weights() function
+        in order to know how to estimate the positions. One argument is mode that could
+        be either gaussian_2d (KS like) or exponential_3d (default)
+    """
+    )
 
     def __init__(
         self,

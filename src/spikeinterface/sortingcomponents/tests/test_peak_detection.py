@@ -9,11 +9,11 @@ import pytest
 from spikeinterface.sortingcomponents.peak_detection import detect_peaks
 
 from spikeinterface.core.node_pipeline import ExtractDenseWaveforms, ExtractSparseWaveforms
-from spikeinterface.sortingcomponents.peak_localization import LocalizeCenterOfMass
+from spikeinterface.sortingcomponents.peak_localization.center_of_mass import LocalizeCenterOfMass
 from spikeinterface.sortingcomponents.features_from_peaks import PeakToPeakFeature
 
 from spikeinterface.sortingcomponents.waveforms.temporal_pca import TemporalPCADenoising
-from spikeinterface.sortingcomponents.peak_detection import IterativePeakDetector
+from spikeinterface.sortingcomponents.peak_detection.iterative import IterativePeakDetector
 from spikeinterface.sortingcomponents.peak_detection import (
     DetectPeakByChannel,
     DetectPeakByChannelTorch,

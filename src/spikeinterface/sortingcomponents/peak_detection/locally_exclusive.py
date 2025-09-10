@@ -11,7 +11,7 @@ from spikeinterface.core.node_pipeline import (
     PeakDetector,
 )
 from spikeinterface.core.recording_tools import get_noise_levels, get_channel_distances
-from spikeinterface.sortingcomponents.detection.by_channel import ByChannelTorchPeakDetector, _torch_detect_peaks as _torch_detect_peaks
+from spikeinterface.sortingcomponents.peak_detection.by_channel import ByChannelTorchPeakDetector, _torch_detect_peaks as _torch_detect_peaks
 
 torch_spec = importlib.util.find_spec("torch")
 if torch_spec is not None:

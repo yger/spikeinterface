@@ -10,7 +10,7 @@ from spikeinterface.core.job_tools import (
     _shared_job_kwargs_doc
 )
 
-from .tools import make_multi_method_doc
+from ..tools import make_multi_method_doc
 
 from spikeinterface.core.node_pipeline import (
     run_node_pipeline,
@@ -21,7 +21,7 @@ def detect_peaks(
     method="locally_exclusive",
     pipeline_nodes=None,
     gather_mode="memory",
-    gather_kwargs=None,
+    gather_kwargs=dict(),
     folder=None,
     names=None,
     skip_after_n_peaks=None,
@@ -75,7 +75,7 @@ def detect_peaks(
 
     """
 
-    assert method in detection_methods, f"Method {method} is not supported. Choose from {detection_methods}"
+    assert method in detection_methods, f"Method {method} is not supported. Choose from {detection_methods.keys()}"
 
     method_class = detection_methods[method]
 
@@ -93,6 +93,7 @@ def detect_peaks(
     node0 = method_class(recording, **method_kwargs)
     nodes = [node0]
 
+    print(kwargs)
     job_name = f"detect peaks using {method}"
     if pipeline_nodes is None:
         squeeze_output = True

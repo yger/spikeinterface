@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 from .method_list import *
-from .tools import make_multi_method_doc
+from ..tools import make_multi_method_doc
 
 from spikeinterface.core.job_tools import (
     split_job_kwargs,
@@ -54,7 +54,7 @@ def localize_peaks(recording, peaks, method="center_of_mass", ms_before=0.5, ms_
 
     assert (
         method in localization_methods
-    ), f"Method {method} is not supported. Choose from {localization_methods}"
+    ), f"Method {method} is not supported. Choose from {localization_methods.keys()}"
 
     peak_retriever = PeakRetriever(recording, peaks)
     
@@ -68,7 +68,7 @@ def localize_peaks(recording, peaks, method="center_of_mass", ms_before=0.5, ms_
         assert isinstance(peak_retriever, (PeakRetriever, SpikeRetriever))
         # extract prototypes silently
 
-        from .tools import get_prototype_and_waveforms_from_peaks
+        from ..tools import get_prototype_and_waveforms_from_peaks
         job_kwargs["progress_bar"] = False
         method_kwargs["prototype"], _, _ = get_prototype_and_waveforms_from_peaks(
             recording, peaks=peak_retriever.peaks, ms_before=ms_before, ms_after=ms_after, **job_kwargs
