@@ -16,6 +16,8 @@ class GraphClustering:
     Then a classic algorithm like louvain or hdbscan is used.
     """
 
+    name = "graph-clustering"
+    params_doc = ""
     _default_params = {
         "radius_um": 100.0,
         "ms_before": 1.0,

@@ -17,7 +17,7 @@ clustering_methods = {
     #"random_projections": RandomProjectionClustering,
     #"iterative-hdbscan": IterHDBSCANClustering,
     #"iterative-isosplit": IterISOSPLITClustering,
-    #"graph-clustering": GraphClustering,
+    "graph-clustering": GraphClustering,
 }
 
 
