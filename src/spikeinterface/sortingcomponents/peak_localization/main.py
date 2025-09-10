@@ -20,7 +20,16 @@ from spikeinterface.core.node_pipeline import (
     ExtractDenseWaveforms,
 )
 
-def localize_peaks(recording, peaks, method="center_of_mass", ms_before=0.5, ms_after=0.5, **kwargs) -> np.ndarray:
+def localize_peaks(recording, 
+                   peaks, 
+                   method="center_of_mass", 
+                   ms_before=0.5, 
+                   ms_after=0.5, 
+                   gather_mode="memory",
+                   gather_kwargs=dict(),
+                   folder=None,
+                   names=None,
+                   **kwargs) -> np.ndarray:
     """Localize peak (spike) in 2D or 3D depending the method.
 
     When a probe is 2D then:
@@ -38,6 +47,16 @@ def localize_peaks(recording, peaks, method="center_of_mass", ms_before=0.5, ms_
         The number of milliseconds to include before the peak of the spike
     ms_after : float
         The number of milliseconds to include after the peak of the spike
+    gather_mode : str
+        How to gather the results:
+        * "memory": results are returned as in-memory numpy arrays
+        * "npy": results are stored to .npy files in `folder`
+    gather_kwargs : dict, optional
+        The kwargs for the gather method
+    folder : str or Path
+        If gather_mode is "npy", the folder where the files are created.
+    names : list
+        List of strings with file stems associated with returns.
 
     {method_doc}
 
@@ -82,8 +101,17 @@ def localize_peaks(recording, peaks, method="center_of_mass", ms_before=0.5, ms_
         localization_nodes
     ]
     
-    job_name = f"localize peaks using {method}"
-    peak_locations = run_node_pipeline(recording, pipeline_nodes, job_kwargs, job_name=job_name, squeeze_output=True)
+    job_name = f"localize peaks ({method})"
+    peak_locations = run_node_pipeline(recording, 
+                                       pipeline_nodes, 
+                                       job_kwargs, 
+                                       job_name=job_name, 
+                                       gather_mode=gather_mode,
+                                       squeeze_output=True,
+                                       names=names,
+                                       folder=folder,
+                                       **gather_kwargs,
+                                    )
 
     return peak_locations
 

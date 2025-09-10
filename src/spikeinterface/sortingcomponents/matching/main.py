@@ -24,6 +24,8 @@ def find_spikes_from_templates(
     method="naive",
     extra_outputs=False,
     gather_mode="memory",
+    names=None,
+    folder=None,
     gather_kwargs=None,
     **kwargs,
 ) -> np.ndarray | tuple[np.ndarray, dict]:
@@ -41,10 +43,16 @@ def find_spikes_from_templates(
         Keyword arguments for the chosen method
     extra_outputs : bool
         If True then a dict is also returned is also returned
-    gather_mode : "memory" | "npy", default: "memory"
-        If "memory" then the output is gathered in memory, if "npy" then the output is gathered on disk
+    gather_mode : str
+        How to gather the results:
+        * "memory": results are returned as in-memory numpy arrays
+        * "npy": results are stored to .npy files in `folder`
     gather_kwargs : dict, optional
         The kwargs for the gather method
+    folder : str or Path
+        If gather_mode is "npy", the folder where the files are created.
+    names : list
+        List of strings with file stems associated with returns.
 
     {method_doc}
 
@@ -95,6 +103,7 @@ def find_spikes_from_templates(
         gather_mode=gather_mode,
         squeeze_output=True,
         names=names,
+        folder=folder,
         **gather_kwargs,
     )
 
