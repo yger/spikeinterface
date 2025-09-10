@@ -21,6 +21,7 @@ from spikeinterface.sortingcomponents.peak_detection.by_channel import (
 from spikeinterface.sortingcomponents.peak_detection.locally_exclusive import (
     LocallyExclusivePeakDetector,
     LocallyExclusiveTorchPeakDetector,
+    LocallyExclusiveOpenCLPeakDetector
 )
 
 from spikeinterface.core.node_pipeline import run_node_pipeline
@@ -366,14 +367,16 @@ def test_detect_peaks_locally_exclusive_matched_filtering(recording, job_kwargs)
         ax.legend()
         plt.show()
 
-
 detection_classes = [
     ByChannelPeakDetector,
-    ByChannelTorchPeakDetector,
     LocallyExclusivePeakDetector,
-    LocallyExclusiveTorchPeakDetector,
 ]
 
+if HAVE_TORCH:
+    detection_classes += [ByChannelTorchPeakDetector, LocallyExclusiveTorchPeakDetector]
+
+if HAVE_PYOPENCL:
+    detection_classes += [LocallyExclusiveOpenCLPeakDetector]
 
 @pytest.mark.parametrize("detection_class", detection_classes)
 def test_peak_sign_consistency(recording, job_kwargs, detection_class):
