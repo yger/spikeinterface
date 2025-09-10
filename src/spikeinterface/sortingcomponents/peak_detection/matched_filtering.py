@@ -28,6 +28,7 @@ class MatchedFilteringPeakDetector(PeakDetector):
 
     name = "matched_filtering"
     engine = "numba"
+    need_noise_levels = False
     preferred_mp_context = None
     params_doc = (
         ByChannelPeakDetector.params_doc

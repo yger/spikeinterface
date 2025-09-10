@@ -14,11 +14,13 @@ from spikeinterface.sortingcomponents.features_from_peaks import PeakToPeakFeatu
 
 from spikeinterface.sortingcomponents.waveforms.temporal_pca import TemporalPCADenoising
 from spikeinterface.sortingcomponents.peak_detection.iterative import IterativePeakDetector
-from spikeinterface.sortingcomponents.peak_detection import (
-    DetectPeakByChannel,
-    DetectPeakByChannelTorch,
-    DetectPeakLocallyExclusive,
-    DetectPeakLocallyExclusiveTorch,
+from spikeinterface.sortingcomponents.peak_detection.by_channel import (
+    ByChannelPeakDetector,
+    ByChannelTorchPeakDetector,
+)
+from spikeinterface.sortingcomponents.peak_detection.locally_exclusive import (
+    LocallyExclusivePeakDetector,
+    LocallyExclusiveTorchPeakDetector,
 )
 
 from spikeinterface.core.node_pipeline import run_node_pipeline
@@ -128,7 +130,7 @@ def peak_detector_kwargs_fixture(recording):
 
 
 def test_iterative_peak_detection(recording, job_kwargs, pca_model_folder_path, peak_detector_kwargs):
-    peak_detector_node = DetectPeakLocallyExclusive(**peak_detector_kwargs)
+    peak_detector_node = LocallyExclusivePeakDetector(**peak_detector_kwargs)
 
     ms_before = 1.0
     ms_after = 1.0
@@ -167,7 +169,7 @@ def test_iterative_peak_detection(recording, job_kwargs, pca_model_folder_path, 
 
 
 def test_iterative_peak_detection_sparse(recording, job_kwargs, pca_model_folder_path, peak_detector_kwargs):
-    peak_detector_node = DetectPeakLocallyExclusive(**peak_detector_kwargs)
+    peak_detector_node = LocallyExclusivePeakDetector(**peak_detector_kwargs)
 
     ms_before = 1.0
     ms_after = 1.0
@@ -212,7 +214,7 @@ def test_iterative_peak_detection_sparse(recording, job_kwargs, pca_model_folder
 
 
 def test_iterative_peak_detection_thresholds(recording, job_kwargs, pca_model_folder_path, peak_detector_kwargs):
-    peak_detector_node = DetectPeakLocallyExclusive(**peak_detector_kwargs)
+    peak_detector_node = LocallyExclusivePeakDetector(**peak_detector_kwargs)
 
     ms_before = 1.0
     ms_after = 1.0
@@ -366,10 +368,10 @@ def test_detect_peaks_locally_exclusive_matched_filtering(recording, job_kwargs)
 
 
 detection_classes = [
-    DetectPeakByChannel,
-    DetectPeakByChannelTorch,
-    DetectPeakLocallyExclusive,
-    DetectPeakLocallyExclusiveTorch,
+    ByChannelPeakDetector,
+    ByChannelTorchPeakDetector,
+    LocallyExclusivePeakDetector,
+    LocallyExclusiveTorchPeakDetector,
 ]
 
 
@@ -390,7 +392,7 @@ def test_peak_sign_consistency(recording, job_kwargs, detection_class):
     # To account for exclusion of positive peaks that are to close to negative peaks.
     # This should be excluded by the detection method when is exclusive so using peak_sign="both" should
     # Generate less peaks in this case
-    if detection_class not in (DetectPeakByChannelTorch, DetectPeakLocallyExclusiveTorch):
+    if detection_class not in (ByChannelTorchPeakDetector, LocallyExclusiveTorchPeakDetector):
         # TODO later Torch do not pass this test
         assert (negative_peaks.size + positive_peaks.size) >= all_peaks.size
 
