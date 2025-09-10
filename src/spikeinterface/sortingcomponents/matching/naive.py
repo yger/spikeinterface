@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import numpy as np
 from spikeinterface.core import get_noise_levels, get_channel_distances
-from spikeinterface.sortingcomponents.detection.locally_exclusive import LocallyExclusivePeakDetector
+from spikeinterface.sortingcomponents.peak_detection.locally_exclusive import LocallyExclusivePeakDetector
 
 
 from .base import BaseTemplateMatching, _base_matching_dtype
@@ -47,20 +47,24 @@ class NaiveMatching(BaseTemplateMatching):
         self.templates_array = self.templates.get_dense_templates()
 
         if noise_levels is None:
-            noise_levels = get_noise_levels(recording, **random_chunk_kwargs, return_in_uV=False)
-        self.abs_threholds = noise_levels * detect_threshold
+            self.noise_levels = get_noise_levels(recording, **random_chunk_kwargs, return_in_uV=False)
+        else:
+            self.noise_levels = noise_levels
+        self.detect_threshold = detect_threshold
+        self.abs_thresholds = self.noise_levels * self.detect_threshold
         self.peak_sign = peak_sign
-        channel_distance = get_channel_distances(recording)
-        self.neighbours_mask = channel_distance < radius_um
-        self.exclude_sweep_size = int(exclude_sweep_ms * recording.get_sampling_frequency() / 1000.0)
+        self.exclude_sweep_ms = exclude_sweep_ms
         self.nbefore = self.templates.nbefore
         self.nafter = self.templates.nafter
+        self.radius_um = radius_um
         self.margin = max(self.nbefore, self.nafter)
         self.peak_detector = LocallyExclusivePeakDetector(
+            recording,
             peak_sign=self.peak_sign,
-            abs_threholds=self.abs_threholds,
-            exclude_sweep_size=self.exclude_sweep_size,
-            neighbours_mask=self.neighbours_mask,
+            detect_threshold=self.detect_threshold,
+            noise_levels=self.noise_levels,
+            radius_um = self.radius_um,
+            exclude_sweep_ms=self.exclude_sweep_ms,
         )
 
     def get_trace_margin(self):

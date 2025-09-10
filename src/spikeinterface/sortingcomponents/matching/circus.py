@@ -5,11 +5,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from spikeinterface.core import get_noise_levels
-from spikeinterface.sortingcomponents.peak_detection import DetectPeakByChannel
-from spikeinterface.core.template import Templates
-
-
 spike_dtype = [
     ("sample_index", "int64"),
     ("channel_index", "int64"),
