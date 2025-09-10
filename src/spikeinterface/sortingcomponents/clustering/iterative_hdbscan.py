@@ -17,7 +17,7 @@ from spikeinterface.sortingcomponents.clustering.merge import merge_peak_labels_
 from spikeinterface.sortingcomponents.tools import extract_waveform_at_max_channel
 
 
-class CircusClustering:
+class IterHDBSCANClustering:
     """
     Circus clustering is based on several local clustering achieved with a
     divide-and-conquer strategy. It uses the `hdbscan` or `isosplit6` clustering algorithms to
@@ -31,7 +31,7 @@ class CircusClustering:
     """
 
     _default_params = {
-        "clusterer": "hdbscan",  # 'isosplit6', 'hdbscan', 'isosplit'
+        "clusterer": "hdbscan",  # 'isosplit6', 'hdbscan', 'isocut5'
         "clusterer_kwargs": {
             "min_cluster_size": 20,
             "cluster_selection_epsilon": 0.5,
@@ -59,7 +59,7 @@ class CircusClustering:
         "templates_from_svd": True,
         "noise_levels": None,
         "tmp_folder": None,
-        "do_merge_with_templates": True,
+        "do_merge": True,
         "merge_kwargs": {
             "similarity_metric": "l1",
             "num_shifts": 3,
@@ -77,8 +77,8 @@ class CircusClustering:
         assert clusterer in [
             "isosplit6",
             "hdbscan",
-            "isosplit",
-        ], "Circus clustering only supports isosplit6, isosplit or hdbscan"
+            "isocut5",
+        ], "Circus clustering only supports isosplit6, isocut5 or hdbscan"
         if clusterer in ["isosplit6", "hdbscan"]:
             have_dep = importlib.util.find_spec(clusterer) is not None
             if not have_dep:
@@ -216,7 +216,7 @@ class CircusClustering:
                 operator="median",
             )
 
-        if params["do_merge_with_templates"]:
+        if params["do_merge"]:
             peak_labels, merge_template_array, merge_sparsity_mask, new_unit_ids = merge_peak_labels_from_templates(
                 peaks,
                 peak_labels,

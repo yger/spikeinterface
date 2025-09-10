@@ -10,6 +10,7 @@ from spikeinterface.core.job_tools import (
     fix_job_kwargs
 )
 
+import copy
 from ..tools import make_multi_method_doc
 
 def find_clusters_from_peaks(recording, peaks, method="stupid", extra_outputs=False, **kwargs):
@@ -49,7 +50,7 @@ def find_clusters_from_peaks(recording, peaks, method="stupid", extra_outputs=Fa
     job_kwargs = fix_job_kwargs(job_kwargs)
 
     method_class = clustering_methods[method]
-    params = method_class._default_params.copy()
+    params = copy.deepcopy(method_class._default_params.copy())
     params.update(**method_kwargs)
 
     outputs = method_class.main_function(recording, peaks, params, job_kwargs=job_kwargs)
