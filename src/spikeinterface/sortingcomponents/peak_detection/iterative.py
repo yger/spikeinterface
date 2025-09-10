@@ -103,13 +103,10 @@ class IterativePeakDetector(PeakDetector):
             # Hack because of lack of either attribute or named references
             # I welcome suggestions on how to improve this but I think it is an architectural issue
             if self.tresholds is not None:
-                old_args = self.peak_detector_node.args
-                old_detect_treshold = self.peak_detector_node.params["detect_threshold"]
-                old_abs_treshold = old_args[1]
-                new_abs_treshold = old_abs_treshold * self.tresholds[iteration] / old_detect_treshold
-
-                new_args = tuple(val if index != 1 else new_abs_treshold for index, val in enumerate(old_args))
-                self.peak_detector_node.args = new_args
+                old_detect_treshold = self.peak_detector_node.detect_threshold
+                old_abs_thresholds = self.peak_detector_node.abs_thresholds
+                self.peak_detector_node.detect_threshold = self.tresholds[iteration]
+                self.peak_detector_node.abs_tresholds = old_abs_thresholds * self.tresholds[iteration] / old_detect_treshold
 
             (local_peaks,) = self.peak_detector_node.compute(
                 traces=traces_chunk,

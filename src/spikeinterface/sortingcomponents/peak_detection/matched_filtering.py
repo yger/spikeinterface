@@ -100,6 +100,7 @@ class MatchedFilteringPeakDetector(PeakDetector):
         self.medians = medians[:, None]
         noise_levels = np.median(np.abs(conv_random_data - self.medians), axis=1) / 0.6744897501960817
         self.abs_thresholds = noise_levels * detect_threshold
+        self.detect_threshold = detect_threshold
         self._dtype = np.dtype(base_peak_dtype + [("z", "float32")])
 
     def get_dtype(self):
