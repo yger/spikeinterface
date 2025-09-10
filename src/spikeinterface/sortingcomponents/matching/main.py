@@ -9,10 +9,10 @@ from .method_list import *
 
 from spikeinterface.core.job_tools import (
     split_job_kwargs,
-    _shared_job_kwargs_doc
+    _shared_job_kwargs_doc,
+    fix_job_kwargs
 )
 
-from spikeinterface.core.job_tools import fix_job_kwargs
 from spikeinterface.core.node_pipeline import run_node_pipeline
 
 from ..tools import make_multi_method_doc
@@ -79,8 +79,6 @@ def find_spikes_from_templates(
 
     if len(templates.unit_ids) == 0:
         return np.zeros(0, dtype=node0.get_dtype())
-    else:
-        method_kwargs.update({"templates" : templates})
 
     if method_class.need_noise_levels:
         from spikeinterface.core.recording_tools import get_noise_levels
@@ -89,7 +87,7 @@ def find_spikes_from_templates(
             recording, return_in_uV=False, **random_chunk_kwargs, **job_kwargs
         )
 
-    node0 = method_class(recording, **method_kwargs)
+    node0 = method_class(recording, templates=templates, **method_kwargs)
     nodes = [node0]
 
     gather_kwargs = gather_kwargs or {}
