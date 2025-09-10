@@ -80,6 +80,7 @@ class NaiveMatching(BaseTemplateMatching):
         (local_peaks, ) = self.peak_detector.compute(
             peak_traces, start_frame, end_frame, segment_index, self.margin
         )
+
         peak_sample_ind = local_peaks["sample_index"]
         peak_chan_ind = local_peaks["channel_index"]
         peak_sample_ind += self.margin

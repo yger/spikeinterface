@@ -108,7 +108,7 @@ class IterativePeakDetector(PeakDetector):
                 self.peak_detector_node.detect_threshold = self.tresholds[iteration]
                 self.peak_detector_node.abs_tresholds = old_abs_thresholds * self.tresholds[iteration] / old_detect_treshold
 
-            (local_peaks,) = self.peak_detector_node.compute(
+            (local_peaks, ) = self.peak_detector_node.compute(
                 traces=traces_chunk,
                 start_frame=start_frame,
                 end_frame=end_frame,

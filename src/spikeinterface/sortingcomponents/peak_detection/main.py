@@ -93,7 +93,6 @@ def detect_peaks(
     node0 = method_class(recording, **method_kwargs)
     nodes = [node0]
 
-    print(kwargs)
     job_name = f"detect peaks using {method}"
     if pipeline_nodes is None:
         squeeze_output = True

@@ -477,7 +477,7 @@ class TridesclousPeeler(BaseTemplateMatching):
             sl = slice(None)
             margin_shift = 0
         peak_traces = traces[sl, :]
-        (peaks,) = peak_detector.compute(peak_traces, None, None, 0, self.margin)
+        (peaks, ) = peak_detector.compute(peak_traces, None, None, 0, self.margin)
         peak_sample_ind = peaks["sample_index"]
         peak_chan_ind = peaks["channel_index"]
         peak_sample_ind += margin_shift

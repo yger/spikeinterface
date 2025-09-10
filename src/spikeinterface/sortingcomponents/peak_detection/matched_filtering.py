@@ -161,7 +161,7 @@ class MatchedFilteringPeakDetector(PeakDetector):
         local_peaks["z"] = z_ind
 
         # return is always a tuple
-        return (local_peaks,)
+        return (local_peaks, )
 
     def get_convolved_traces(self, traces):
         from scipy.signal import oaconvolve

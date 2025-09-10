@@ -107,7 +107,7 @@ class ByChannelPeakDetector(PeakDetector):
         local_peaks["amplitude"] = peak_amplitude
         local_peaks["segment_index"] = segment_index
 
-        return (local_peaks,)
+        return (local_peaks, )
     
 
 class ByChannelTorchPeakDetector(ByChannelPeakDetector):
@@ -183,7 +183,7 @@ class ByChannelTorchPeakDetector(ByChannelPeakDetector):
             local_peaks["amplitude"] = peak_amplitude
             local_peaks["segment_index"] = segment_index
 
-        return (local_peaks,)
+        return (local_peaks, )
 
 if HAVE_TORCH:
     import torch
