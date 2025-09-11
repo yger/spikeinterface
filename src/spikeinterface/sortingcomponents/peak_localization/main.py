@@ -43,6 +43,8 @@ def localize_peaks(recording,
         The recording extractor object.
     peaks : array
         Peaks array, as returned by detect_peaks() in "compact_numpy" way.
+    method : str
+        The localization method to use. See `localization_methods` for available methods.
     ms_before : float
         The number of milliseconds to include before the peak of the spike
     ms_after : float

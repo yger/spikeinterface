@@ -37,8 +37,8 @@ def find_spikes_from_templates(
         The recording extractor object
     templates : Templates
         The Templates that should be look for in the data
-    method : "naive" | "tridesclous" | "circus" | "circus-omp" | "wobble", default: "naive"
-        Which method to use for template matching
+    method : str
+        The matching method to use. See `matching_methods` for available methods.
     method_kwargs : dict, optional
         Keyword arguments for the chosen method
     extra_outputs : bool
