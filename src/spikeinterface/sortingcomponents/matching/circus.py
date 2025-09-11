@@ -117,7 +117,7 @@ class CircusOMPPeeler(BaseTemplateMatching):
     consider using 100ms chunk
     """
 
-    name = "circus-omp-svd"
+    name = "circus-omp"
     full_convolution = True
     need_noise_levels = False
     params_doc = """
