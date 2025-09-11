@@ -35,27 +35,35 @@ def test_select_peaks():
     select_kwargs = dict(n_peaks=n_peaks, noise_levels=noise_levels, peaks_locations=peak_locations)
     select_methods = [
         "uniform",
-        "smart_sampling_amplitudes",
-        "smart_sampling_locations",
-        "smart_sampling_locations_and_time",
+        "smart_sampling_by_amplitude",
+        "smart_sampling_by_locations",
+        "smart_sampling_by_locations_and_times",
     ]
     for method in select_methods:
-        selected_peaks = select_peaks(peaks, method=method, **select_kwargs)
+
+        local_select_kwargs = select_kwargs.copy()
+        if method == "uniform":
+            local_select_kwargs.pop("noise_levels")
+            local_select_kwargs.pop("peaks_locations")
+        elif method in ["smart_sampling_amplitudes"]:
+            local_select_kwargs.pop("peaks_locations")
+        
+        selected_peaks = select_peaks(peaks, method=method, **local_select_kwargs)
         assert (
             selected_peaks.size <= n_peaks
         ), "selected_peaks is not the right size when return_indices=False, select_per_channel=False"
 
-        selected_peaks = select_peaks(peaks, recording=recording, method=method, margin=(10, 10), **select_kwargs)
+        selected_peaks = select_peaks(peaks, recording=recording, method=method, margin=(10, 10), **local_select_kwargs)
         assert (
             selected_peaks.size <= n_peaks
         ), "selected_peaks is not the right size when return_indices=False, select_per_channel=False"
 
-        selected_peaks = select_peaks(peaks, method=method, select_per_channel=True, **select_kwargs)
+        selected_peaks = select_peaks(peaks, method=method, select_per_channel=True, **local_select_kwargs)
         assert selected_peaks.size <= (
             n_peaks * recording.get_num_channels()
         ), "selected_peaks is not the right size when return_indices=False, select_per_channel=True"
 
-        selected_peaks, selected_indices = select_peaks(peaks, method=method, return_indices=True, **select_kwargs)
+        selected_peaks, selected_indices = select_peaks(peaks, method=method, return_indices=True, **local_select_kwargs)
         assert (
             selected_peaks.size <= n_peaks
         ), "selected_peaks is not the right size when return_indices=True, select_per_channel=False"
@@ -64,7 +72,7 @@ def test_select_peaks():
         ), "selection_indices differ from selected_peaks when select_per_channel=False"
 
         selected_peaks, selected_indices = select_peaks(
-            peaks, method=method, return_indices=True, select_per_channel=True, **select_kwargs
+            peaks, method=method, return_indices=True, select_per_channel=True, **local_select_kwargs
         )
         assert selected_peaks.size <= (
             n_peaks * recording.get_num_channels()

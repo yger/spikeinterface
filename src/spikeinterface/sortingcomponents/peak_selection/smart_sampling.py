@@ -1,5 +1,4 @@
 import numpy as np
-import
 
 class SmartSamplingByAmplitudes:
     
@@ -80,18 +79,17 @@ class SmartSamplingByLocations:
         The number of peaks to select
     noise_levels: array
         The noise levels for each channel
-    select_per_channel: bool, default: False
-        If True then select n_peaks per channel, else n_peaks in total
+    preak_locations: array
+        The peak locations (x,y) for each peak       
     seed: int, default: None
         The random seed for peak selection
     """
 
-    def __init__(self, n_peaks, noise_levels, peak_locations, seed=None, select_per_channel=False):
+    def __init__(self, n_peaks, noise_levels, peak_locations, seed=None):
         self.n_peaks = n_peaks
         self.noise_levels = noise_levels
         self.peak_locations = peak_locations
         self.seed = seed if seed else None
-        self.select_per_channel = select_per_channel
         self.rng = np.random.default_rng(seed=self.seed)
 
     def compute(self, peaks):
@@ -120,6 +118,73 @@ class SmartSamplingByLocations:
                 data_y = data[:, 1] < probabilities
 
                 valid = candidates[np.where(data_x * data_y)[0]]
+                my_selection = np.concatenate((my_selection, valid))
+
+            selected_indices = [self.rng.permutation(my_selection)[: self.n_peaks]]
+        return selected_indices
+
+class SmartSamplingByLocationsAndTimes:
+
+    name = "smart_sampling_locations_and_times"
+    need_noise_levels = True
+    params_doc = """
+    n_peaks: int
+        The number of peaks to select
+    noise_levels: array
+        The noise levels for each channel
+    select_per_channel: bool, default: False
+        If True then select n_peaks per channel, else n_peaks in total
+    seed: int, default: None
+        The random seed for peak selection
+    """
+
+    def __init__(self, n_peaks, noise_levels, peak_locations, seed=None):
+        self.n_peaks = n_peaks
+        self.noise_levels = noise_levels
+        self.peak_locations = peak_locations
+        self.seed = seed if seed else None
+        self.rng = np.random.default_rng(seed=self.seed)
+
+    def compute(self, peaks):
+
+        from sklearn.preprocessing import QuantileTransformer
+        selected_indices = []
+
+        ## This method will try to select around n_peaksbut in a non uniform manner
+        ## First, it will look at the distribution of the positions.
+        ## Once this distribution is known, it will sample from the peaks with a rejection probability
+        ## such that the final distribution of the amplitudes, for the selected peaks, will be as
+        ## uniform as possible. In a nutshell, the method will try to sample as homogenously as possible
+        ## from the space of all the peaks, using the locations as a discriminative criteria
+        ## To do so, one must provide the peaks locations, and the number of bins for the
+        ## probability density histogram
+        
+        nb_spikes = len(peaks)
+
+        if self.n_peaks > nb_spikes:
+            selected_indices += [np.arange(peaks.size)]
+        else:
+            preprocessing = QuantileTransformer(output_distribution="uniform", n_quantiles=min(100, nb_spikes))
+            data = np.array(
+                [self.peaks_locations["x"], self.peaks_locations["y"], peaks["sample_index"]]
+            ).T
+            data = preprocessing.fit_transform(data)
+
+            my_selection = np.zeros(0, dtype=np.int32)
+            all_index = np.arange(peaks.size)
+            while my_selection.size < params["n_peaks"]:
+                candidates = all_index[np.logical_not(np.isin(all_index, my_selection))]
+
+                probabilities = self.rng.random(size=len(candidates))
+                data_x = data[:, 0] < probabilities
+
+                probabilities = self.rng.random(size=len(candidates))
+                data_y = data[:, 1] < probabilities
+
+                probabilities = self.rng.random(size=len(candidates))
+                data_t = data[:, 2] < probabilities
+
+                valid = candidates[np.where(data_x * data_y * data_t)[0]]
                 my_selection = np.concatenate((my_selection, valid))
 
             selected_indices = [self.rng.permutation(my_selection)[: self.n_peaks]]

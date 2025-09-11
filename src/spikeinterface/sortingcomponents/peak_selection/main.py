@@ -7,9 +7,10 @@ from .method_list import *
 from ..tools import make_multi_method_doc
 
 from spikeinterface.core.job_tools import (
-    _shared_job_kwargs_doc
+    split_job_kwargs,
+    _shared_job_kwargs_doc,
+    fix_job_kwargs
 )
-
 
 def select_peaks(
     peaks, 
@@ -40,7 +41,6 @@ def select_peaks(
 
     {job_doc}  
 
-    {}
     Returns
     -------
     selected_peaks: array
@@ -79,9 +79,13 @@ def select_peaks(
     else:
         return selected_peaks
 
-def _select_peak_indices(peaks, method, **method_kwargs):
+def _select_peak_indices(peaks, method, **kwargs):
     
+    method_kwargs, job_kwargs = split_job_kwargs(kwargs)
+    job_kwargs = fix_job_kwargs(job_kwargs)
+
     method_class = selection_methods[method]
+    
     selector = method_class(**method_kwargs)
 
     selected_indices = selector.compute(peaks)
