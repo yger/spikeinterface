@@ -32,7 +32,7 @@ def test_select_peaks():
     )
 
     n_peaks = 100
-    select_kwargs = dict(n_peaks=n_peaks, noise_levels=noise_levels, peaks_locations=peak_locations)
+    select_kwargs = dict(n_peaks=n_peaks, recording=recording, peaks_locations=peak_locations)
     select_methods = [
         "uniform",
         "smart_sampling_by_amplitude",
@@ -42,10 +42,7 @@ def test_select_peaks():
     for method in select_methods:
 
         local_select_kwargs = select_kwargs.copy()
-        if method == "uniform":
-            local_select_kwargs.pop("noise_levels")
-            local_select_kwargs.pop("peaks_locations")
-        elif method in ["smart_sampling_amplitudes"]:
+        if method in ["uniform", "smart_sampling_amplitudes"]:
             local_select_kwargs.pop("peaks_locations")
         
         selected_peaks = select_peaks(peaks, method=method, **local_select_kwargs)

@@ -18,7 +18,7 @@ def select_peaks(
     recording=None, 
     seed=None, 
     return_indices=False, 
-    margin=None, 
+    margin=None,
     **kwargs
 ):
     """
@@ -57,7 +57,7 @@ def select_peaks(
     if margin is not None:
         assert recording is not None, "recording should be provided if margin is not None"
 
-    selected_indices = _select_peak_indices(peaks, method=method, seed=seed, **kwargs)
+    selected_indices = _select_peak_indices(peaks, method=method, recording=recording, seed=seed, **kwargs)
     selected_peaks = peaks[selected_indices]
     num_segments = len(np.unique(selected_peaks["segment_index"]))
 
@@ -79,13 +79,22 @@ def select_peaks(
     else:
         return selected_peaks
 
-def _select_peak_indices(peaks, method, **kwargs):
+def _select_peak_indices(peaks, method, recording, **kwargs):
     
     method_kwargs, job_kwargs = split_job_kwargs(kwargs)
     job_kwargs = fix_job_kwargs(job_kwargs)
 
     method_class = selection_methods[method]
-    
+
+    if method_class.need_noise_levels:
+        assert recording is not None, f"recording should be provided for the method {method}"
+        from spikeinterface.core.recording_tools import get_noise_levels
+        random_chunk_kwargs = method_kwargs.pop("random_chunk_kwargs", {})
+        if "noise_levels" not in method_kwargs:
+            method_kwargs["noise_levels"] = get_noise_levels(
+                recording, return_in_uV=False, **random_chunk_kwargs, **job_kwargs
+            )
+
     selector = method_class(**method_kwargs)
 
     selected_indices = selector.compute(peaks)
