@@ -34,6 +34,7 @@ class RandomProjectionClustering:
     hdbscan clustering on peak_locations previously done by localize_peaks()
     """
 
+    name = "random_projections"
     _default_params = {
         "hdbscan_kwargs": {
             "min_cluster_size": 10,

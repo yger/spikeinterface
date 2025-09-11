@@ -35,12 +35,10 @@ class IterHDBSCANClustering:
         "clusterer": "hdbscan",  # 'isosplit6', 'hdbscan', 'isosplit'
         "clusterer_kwargs": {
             "min_cluster_size": 20,
-            "cluster_selection_epsilon": 0.5,
-            "cluster_selection_method": "leaf",
+            "cluster_selection_method": "eom",
             "allow_single_cluster": True,
         },
         "cleaning_kwargs": {},
-        "remove_mixtures": False,
         "waveforms": {"ms_before": 2, "ms_after": 2},
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25},
         "recursive_kwargs": {

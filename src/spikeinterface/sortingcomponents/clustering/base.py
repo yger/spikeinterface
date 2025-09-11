@@ -57,3 +57,67 @@ class SVDBasedClustering:
         )
 
         return peaks_svd, sparse_mask, svd_model
+
+    @classmethod
+    def merge_from_templates(cls, peaks, peak_labels, templates, sparse_mask, params):
+        
+        from spikeinterface.core import Templates
+        from spikeinterface.sortingcomponents.clustering.merge_templates import merge_peak_labels_from_templates
+
+        peak_labels, merge_template_array, merge_sparsity_mask, new_unit_ids = merge_peak_labels_from_templates(
+            peaks,
+            peak_labels,
+            templates.unit_ids,
+            templates.templates_array,
+            sparse_mask,
+            **params["merge_kwargs"],
+        )
+
+        fs = templates.sampling_frequency
+        probe = templates.get_probe()
+        channel_ids = templates.channel_ids
+
+        templates = Templates(
+            templates_array=merge_template_array,
+            sampling_frequency=fs,
+            nbefore=templates.nbefore,
+            sparsity_mask=None,
+            channel_ids=channel_ids,
+            unit_ids=new_unit_ids,
+            probe=probe,
+            is_in_uV=False,
+        )
+
+        return peak_labels, templates, merge_sparsity_mask
+
+    @classmethod
+    def merge_from_features(cls, peaks, peak_labels, templates, sparse_mask, params):
+        
+        from spikeinterface.core import Templates
+        from spikeinterface.sortingcomponents.clustering.merge_templates import merge_peak_labels_from_templates
+
+        peak_labels, merge_template_array, merge_sparsity_mask, new_unit_ids = merge_peak_labels_from_templates(
+            peaks,
+            peak_labels,
+            templates.unit_ids,
+            templates.templates_array,
+            sparse_mask,
+            **params["merge_kwargs"],
+        )
+
+        fs = templates.sampling_frequency
+        probe = templates.get_probe()
+        channel_ids = templates.channel_ids
+
+        templates = Templates(
+            templates_array=merge_template_array,
+            sampling_frequency=fs,
+            nbefore=templates.nbefore,
+            sparsity_mask=None,
+            channel_ids=channel_ids,
+            unit_ids=new_unit_ids,
+            probe=probe,
+            is_in_uV=False,
+        )
+
+        return peak_labels, templates, merge_sparsity_mask
