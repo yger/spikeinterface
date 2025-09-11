@@ -12,6 +12,10 @@ from .base import BaseTemplateMatching, _base_matching_dtype
 
 
 class NaiveMatching(BaseTemplateMatching):
+    """
+    This methods detects peaks using a locally exclusive peak detector and then
+    assigns templates to each detected peak by finding the closest template in least squares sense.
+    """
 
     name = "naive"
     need_noise_levels = True

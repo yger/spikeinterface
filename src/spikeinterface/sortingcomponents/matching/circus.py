@@ -18,6 +18,8 @@ if torch_spec is not None:
     torch_nn_functional_spec = importlib.util.find_spec("torch.nn")
     if torch_nn_functional_spec is not None:
         HAVE_TORCH = True
+        import torch
+        from torch.nn.functional import conv1d
     else:
         HAVE_TORCH = False
 else:
