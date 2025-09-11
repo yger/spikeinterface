@@ -101,7 +101,7 @@ def compute_overlaps(templates, num_samples, num_channels, sparsities):
     return new_overlaps
 
 
-class CircusOMPSVDPeeler(BaseTemplateMatching):
+class CircusOMPPeeler(BaseTemplateMatching):
     """
     Orthogonal Matching Pursuit inspired from Spyking Circus sorter
 
