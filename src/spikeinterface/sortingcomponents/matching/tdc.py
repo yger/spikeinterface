@@ -94,8 +94,6 @@ class TridesclousPeeler(BaseTemplateMatching):
         self,
         recording,
         templates=None,
-        return_output=True,
-        parents=None,
         peak_sign="neg",
         exclude_sweep_ms=0.5,
         peak_shift_ms=0.2,
@@ -119,7 +117,7 @@ class TridesclousPeeler(BaseTemplateMatching):
         amplitude_limits=(0.7, 1.4),
     ):
 
-        BaseTemplateMatching.__init__(self, recording, templates, return_output=return_output, parents=parents)
+        BaseTemplateMatching.__init__(self, recording, templates)
 
         self.motion_aware = motion_aware
 

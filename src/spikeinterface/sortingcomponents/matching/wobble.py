@@ -382,7 +382,7 @@ class WobbleMatch(BaseTemplateMatching):
         shared_memory=True,
     ):
 
-        BaseTemplateMatching.__init__(self, recording, templates, return_output=True, parents=None)
+        BaseTemplateMatching.__init__(self, recording, templates)
 
         templates_array = templates.get_dense_templates().astype(np.float32)
 

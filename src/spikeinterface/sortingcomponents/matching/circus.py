@@ -171,7 +171,7 @@ class CircusOMPPeeler(BaseTemplateMatching):
         torch_device="cpu",
     ):
 
-        BaseTemplateMatching.__init__(self, recording, templates, return_output=True, parents=None)
+        BaseTemplateMatching.__init__(self, recording, templates)
 
         self.num_channels = recording.get_num_channels()
         self.num_samples = templates.num_samples

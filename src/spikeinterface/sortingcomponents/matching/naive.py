@@ -46,7 +46,7 @@ class NaiveMatching(BaseTemplateMatching):
         random_chunk_kwargs={},
     ):
 
-        BaseTemplateMatching.__init__(self, recording, templates, return_output=True, parents=None)
+        BaseTemplateMatching.__init__(self, recording, templates)
 
         self.templates_array = self.templates.get_dense_templates()
 
