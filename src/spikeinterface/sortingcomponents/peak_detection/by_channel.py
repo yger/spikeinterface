@@ -51,8 +51,10 @@ class ByChannelPeakDetector(PeakDetector):
         exclude_sweep_ms=0.1,
         noise_levels=None,
         random_chunk_kwargs={},
+        return_output=True,
+        parents=None
     ):
-        PeakDetector.__init__(self, recording, return_output=True)
+        PeakDetector.__init__(self, recording, return_output=return_output, parents=parents)
         assert peak_sign in ("both", "neg", "pos")
 
         if noise_levels is None:
@@ -148,6 +150,8 @@ class ByChannelTorchPeakDetector(ByChannelPeakDetector):
         device=None,
         return_tensor=False,
         random_chunk_kwargs={},
+        return_output=True,
+        parents=None
     ):
 
         if not HAVE_TORCH:
@@ -160,7 +164,9 @@ class ByChannelTorchPeakDetector(ByChannelPeakDetector):
                                        detect_threshold,
                                        exclude_sweep_ms,
                                        noise_levels,
-                                       random_chunk_kwargs)
+                                       random_chunk_kwargs,
+                                       return_output,
+                                       parents)
         
         if device is None:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"

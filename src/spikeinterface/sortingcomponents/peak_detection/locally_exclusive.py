@@ -55,11 +55,13 @@ class LocallyExclusivePeakDetector(PeakDetector):
         radius_um=50,
         noise_levels=None,
         random_chunk_kwargs={},
+        return_output=True,
+        parents=None
     ):
         if not HAVE_NUMBA:
             raise ModuleNotFoundError('"locally_exclusive" needs numba which is not installed')
 
-        PeakDetector.__init__(self, recording, return_output=True)
+        PeakDetector.__init__(self, recording, return_output=return_output, parents=parents)
 
         assert peak_sign in ("both", "neg", "pos")
         if noise_levels is None:
@@ -207,6 +209,8 @@ class LocallyExclusiveTorchPeakDetector(ByChannelTorchPeakDetector):
         radius_um=50,
         return_tensor=False,
         random_chunk_kwargs={},
+        return_output=True,
+        parents=None
     ):
         if not HAVE_TORCH:
             raise ModuleNotFoundError('"by_channel_torch" needs torch which is not installed')
@@ -219,7 +223,9 @@ class LocallyExclusiveTorchPeakDetector(ByChannelTorchPeakDetector):
                                             noise_levels,
                                             device,
                                             return_tensor,
-                                            random_chunk_kwargs)
+                                            random_chunk_kwargs,
+                                            return_output,
+                                            parents)
 
         self.channel_distance = get_channel_distances(recording)
         self.neighbour_indices_by_chan = []

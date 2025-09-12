@@ -57,8 +57,10 @@ class MatchedFilteringPeakDetector(PeakDetector):
         radius_um=50,
         random_chunk_kwargs={"num_chunks_per_segment": 5},
         weight_method={},
+        return_output=True,
+        parents=None
     ):
-        PeakDetector.__init__(self, recording, return_output=True)
+        PeakDetector.__init__(self, recording, return_output=return_output, parents=parents)
         from scipy.sparse import csr_matrix
 
         if not HAVE_NUMBA:
