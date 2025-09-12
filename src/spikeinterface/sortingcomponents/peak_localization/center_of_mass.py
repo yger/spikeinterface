@@ -32,7 +32,7 @@ class LocalizeCenterOfMass(LocalizeBase):
         Feature to consider for computation
     """
 
-    def __init__(self, recording, return_output=True, parents=["extract_waveforms"], radius_um=75.0, feature="ptp"):
+    def __init__(self, recording, parents, return_output=True, radius_um=75.0, feature="ptp"):
         LocalizeBase.__init__(self, recording, return_output=return_output, parents=parents, radius_um=radius_um)
         self._dtype = np.dtype(dtype_localize_by_method["center_of_mass"])
 

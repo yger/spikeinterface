@@ -54,8 +54,8 @@ class LocalizeGridConvolution(LocalizeBase):
     def __init__(
         self,
         recording,
+        parents,
         return_output=True,
-        parents=["extract_waveforms"],
         radius_um=40.0,
         upsampling_um=5.0,
         sigma_ms=0.25,

@@ -47,8 +47,8 @@ class LocalizeMonopolarTriangulation(LocalizeBase):
     def __init__(
         self,
         recording,
+        parents,
         return_output=True,
-        parents=["extract_waveforms"],
         radius_um=75.0,
         max_distance_um=150.0,
         optimizer="minimize_with_log_penality",
