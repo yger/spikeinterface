@@ -4,6 +4,7 @@ class UniformSelection:
     
     name = "uniform"
     need_noise_levels = False
+    need_peaks_locations = False
     params_doc = """
     n_peaks: int
         The number of peaks to select

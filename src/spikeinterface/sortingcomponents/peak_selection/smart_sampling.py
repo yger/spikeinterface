@@ -79,7 +79,7 @@ class SmartSamplingByLocations:
         The number of peaks to select
     noise_levels: array
         The noise levels for each channel
-    preak_locations: array
+    peaks_locations: array
         The peak locations (x,y) for each peak       
     seed: int, default: None
         The random seed for peak selection
@@ -166,13 +166,13 @@ class SmartSamplingByLocationsAndTimes:
         else:
             preprocessing = QuantileTransformer(output_distribution="uniform", n_quantiles=min(100, nb_spikes))
             data = np.array(
-                [self.peaks_locations["x"], self.peaks_locations["y"], peaks["sample_index"]]
+                [self.peak_locations["x"], self.peak_locations["y"], peaks["sample_index"]]
             ).T
             data = preprocessing.fit_transform(data)
 
             my_selection = np.zeros(0, dtype=np.int32)
             all_index = np.arange(peaks.size)
-            while my_selection.size < params["n_peaks"]:
+            while my_selection.size < self.n_peaks:
                 candidates = all_index[np.logical_not(np.isin(all_index, my_selection))]
 
                 probabilities = self.rng.random(size=len(candidates))
