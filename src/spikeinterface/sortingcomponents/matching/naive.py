@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import numpy as np
 from spikeinterface.core import get_noise_levels, get_channel_distances
-from spikeinterface.sortingcomponents.peak_detection.locally_exclusive import LocallyExclusivePeakDetector
 
 
 from .base import BaseTemplateMatching, _base_matching_dtype
@@ -58,7 +57,9 @@ class NaiveMatching(BaseTemplateMatching):
         self.detect_threshold = detect_threshold
         self.abs_thresholds = self.noise_levels * self.detect_threshold
         self.peak_sign = peak_sign
-        self.exclude_sweep_ms = exclude_sweep_ms
+        channel_distance = get_channel_distances(recording)
+        self.neighbours_mask = channel_distance <= radius_um
+        self.exclude_sweep_size = int(exclude_sweep_ms * recording.get_sampling_frequency() / 1000.0)
         self.nbefore = self.templates.nbefore
         self.nafter = self.templates.nafter
         self.radius_um = radius_um
@@ -76,14 +77,16 @@ class NaiveMatching(BaseTemplateMatching):
         return self.margin
 
     def compute_matching(self, traces, start_frame, end_frame, segment_index):
+        from spikeinterface.sortingcomponents.peak_detection.locally_exclusive import (
+            detect_peaks_numba_locally_exclusive_on_chunk,
+        )
 
         if self.margin > 0:
             peak_traces = traces[self.margin : -self.margin, :]
         else:
             peak_traces = traces
-
-        (local_peaks, ) = self.peak_detector.compute(
-            peak_traces, start_frame, end_frame, segment_index, self.margin
+        peak_sample_ind, peak_chan_ind = detect_peaks_numba_locally_exclusive_on_chunk(
+            peak_traces, self.peak_sign, self.abs_threholds, self.exclude_sweep_size, self.neighbours_mask
         )
 
         peak_sample_ind = local_peaks["sample_index"]

@@ -9,8 +9,12 @@ from spikeinterface.core import (
     get_template_extremum_channel,
 )
 
-from spikeinterface.sortingcomponents.peak_detection.locally_exclusive import LocallyExclusivePeakDetector
-from spikeinterface.sortingcomponents.peak_detection.matched_filtering import MatchedFilteringPeakDetector
+from spikeinterface.sortingcomponents.peak_detection.method_list import (
+    LocallyExclusivePeakDetector,
+    MatchedFilteringPeakDetector,
+)
+
+
 from .base import BaseTemplateMatching, _base_matching_dtype
 
 from spikeinterface.generation.drift_tools import DriftingTemplates
@@ -305,6 +309,7 @@ class TridesclousPeeler(BaseTemplateMatching):
                     sigma_3d=2.5,
                     mode="exponential_3d",
                 ),
+                # noise_levels=None,
             )
 
         self.detector_margin0 = self.fast_spike_detector.get_trace_margin()
@@ -457,7 +462,7 @@ class TridesclousPeeler(BaseTemplateMatching):
         # TODO change the threhold dynaically depending the level
         # peak_traces = traces[self.detector_margin : -self.detector_margin, :]
 
-        # peak_sample_ind, peak_chan_ind = DetectPeakLocallyExclusive.detect_peaks(
+        # peak_sample_ind, peak_chan_ind = LocallyExclusivePeakDetector.detect_peaks(
         #     peak_traces, self.peak_sign, self.abs_thresholds, self.peak_shift, self.neighbours_mask
         # )
 

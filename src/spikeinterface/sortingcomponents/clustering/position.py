@@ -30,7 +30,12 @@ class PositionClustering:
 
         if d["peak_locations"] is None:
             from spikeinterface.sortingcomponents.peak_localization import localize_peaks
+<<<<<<< HEAD
             peak_locations = localize_peaks(recording, peaks, **d["peak_localization_kwargs"], **job_kwargs)
+=======
+
+            peak_locations = localize_peaks(recording, peaks, method_kwargs=d["peak_localization_kwargs"], job_kwargs=job_kwargs)
+>>>>>>> sam/big_clean_in_components
         else:
             peak_locations = d["peak_locations"]
 
