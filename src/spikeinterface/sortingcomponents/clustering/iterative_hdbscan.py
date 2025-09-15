@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-
 import numpy as np
-import random, string
+
 
 from spikeinterface.core import Templates
 from spikeinterface.core.recording_tools import get_channel_distances
@@ -13,7 +12,7 @@ from spikeinterface.sortingcomponents.clustering.merging_tools import merge_peak
 from spikeinterface.sortingcomponents.clustering.splitting_tools import split_clusters
 from spikeinterface.sortingcomponents.clustering.tools import get_templates_from_peaks_and_svd
 
-class CircusClustering:
+class IterativeHDBSCANClustering:
     """
     Circus clustering is based on several local clustering achieved with a
     divide-and-conquer strategy. It uses the `hdbscan` or `isosplit6` clustering algorithms to
@@ -27,52 +26,55 @@ class CircusClustering:
     """
 
     _default_params = {
-        "extract_peaks_svd": {"n_svd": 5,
-                              "ms_before": 0.5,
-                              "ms_after": 1.5,
-                              "radius_um": 100.0},
+        "peaks_svd": {"n_components": 5,
+                      "ms_before": 0.5,
+                      "ms_after": 1.5,
+                      "radius_um": 100.0},
         "seed": None,
-        "motion": None,
         "split": {
             "split_radius_um": 50.0,
-            "clusterer": "hdbscan",
-            "clusterer_kwargs": {
-                "min_cluster_size": 20,
-                "cluster_selection_method": "eom",
-                "allow_single_cluster": True,
+            "recursive": True,
+            "recursive_depth": 3,
+            "method_kwargs" : {
+                "clusterer": "hdbscan",
+                "clusterer_kwargs": {
+                    "min_cluster_size": 20,
+                    "cluster_selection_method": "eom",
+                    "allow_single_cluster": True,
+                },
+                "n_pca_features": 0.9
             },
-            "projection_mode": "tsvd", 
-            "n_pca_features": 0.9
         },
         "merge_from_templates" : dict(),
         "merge_from_features" : None,
         "debug_folder" : None,
-        "verbose": True,
-        "job_kwargs" : None
+        "verbose": True
     }
 
     @classmethod
     def main_function(cls, recording, peaks, params=dict(), job_kwargs=dict()):
         
-        params = cls._default_params.copy().update(params)
-        clusterer = params.get(params["split"]["clusterer"], "hdbscan")
-        split_radius_um = params["split"].pop("split_radius_um", 50)
-        extract_peaks_svd = params["extract_peaks_svd"]
-        ms_before = extract_peaks_svd.get("ms_before", 0.5)
-        ms_after = extract_peaks_svd.get("ms_after", 1.5)
-        verbose = params.get("verbose", False)
-        split = params["split"]
-        seed = params["seed"]
-        job_kwargs = params.get("job_kwargs", dict())
-        debug_folder = params.get("debug_folder", None)
+        parameters = cls._default_params.copy()
+        parameters.update(params)
+        clusterer = parameters.get(parameters["split"]["method_kwargs"]["clusterer"], "hdbscan")
+        split_radius_um = parameters["split"].pop("split_radius_um", 50)
+        peaks_svd = parameters["peaks_svd"]
+        ms_before = peaks_svd.get("ms_before", 0.5)
+        ms_after = peaks_svd.get("ms_after", 1.5)
+        verbose = parameters.get("verbose", False)
+        min_cluster_size = parameters["split"]["method_kwargs"]["clusterer_kwargs"].get("min_cluster_size", 20)
+        split = parameters["split"]
+        seed = parameters["seed"]
+        job_kwargs = parameters.get("job_kwargs", dict())
+        debug_folder = parameters.get("debug_folder", None)
 
         if debug_folder is not None:
             debug_folder = Path(debug_folder).absolute()
             debug_folder.mkdir(exist_ok=True)
-            extract_peaks_svd.update(features_folder=debug_folder / "features")
+            peaks_svd.update(features_folder=debug_folder / "features")
         
         if seed is not None:
-            extract_peaks_svd.update(seed=seed)
+            peaks_svd.update(seed=seed)
             split.update(seed=seed)
 
         assert clusterer in [
@@ -88,7 +90,7 @@ class CircusClustering:
         peaks_svd, sparse_mask, svd_model = extract_peaks_svd(
             recording,
             peaks,
-            **extract_peaks_svd,
+            **peaks_svd,
             **job_kwargs,
         )
 
@@ -96,28 +98,24 @@ class CircusClustering:
             np.save(debug_folder / "sparse_mask.npy", sparse_mask)
             np.save(debug_folder / "peaks.npy", peaks)
 
-        
-
-        split.update(waveforms_sparse_mask = sparse_mask)
+        split["method_kwargs"].update(waveforms_sparse_mask = sparse_mask)
         neighbours_mask = get_channel_distances(recording) <= split_radius_um
-        split.update(neighbours_mask = neighbours_mask)
-        #split.update(min_size_split)
-        # split_kwargs["min_size_split"] = 2 * params["clusterer_kwargs"].get("min_cluster_size", 50)
+        split["method_kwargs"].update(neighbours_mask = neighbours_mask)
+        split["method_kwargs"].update(min_size_split = 2 * min_cluster_size)
 
         if debug_folder is not None:
             split.update(debug_folder = debug_folder / "split")
 
-        peak_labels, _ = split_clusters(
+        peak_labels = split_clusters(
             peaks["channel_index"],
             recording,
-            {"peaks": peaks, 
-             "sparse_tsvd": peaks_svd},
+            {"peaks": peaks, "sparse_tsvd": peaks_svd},
             method="local_feature_clustering",
             **split,
             **job_kwargs,
         )
 
-        templates, sparse_mask2 = get_templates_from_peaks_and_svd(
+        templates, new_sparse_mask = get_templates_from_peaks_and_svd(
             recording,
             peaks,
             peak_labels,
@@ -129,14 +127,19 @@ class CircusClustering:
             operator="median",
         )
 
-        if params["merge_from_templates"] is not None:
+        labels = templates.unit_ids
+
+        if verbose:
+            print("Kept %d raw clusters" % len(labels))
+
+        if parameters["merge_from_templates"] is not None:
             peak_labels, merge_template_array, merge_sparsity_mask, new_unit_ids = merge_peak_labels_from_templates(
                 peaks,
                 peak_labels,
                 templates.unit_ids,
                 templates.templates_array,
-                sparse_mask2,
-                **params["merge_from_templates"],
+                new_sparse_mask,
+                **parameters["merge_from_templates"],
             )
 
             templates = Templates(
