@@ -75,17 +75,7 @@ class IterativeHDBSCANClustering:
         
         if seed is not None:
             peaks_svd.update(seed=seed)
-            split.update(seed=seed)
-
-        assert clusterer in [
-            "isosplit6",
-            "hdbscan",
-            "isosplit",
-        ], "Circus clustering only supports isosplit6, isosplit or hdbscan"
-        if clusterer in ["isosplit6", "hdbscan"]:
-            have_dep = importlib.util.find_spec(clusterer) is not None
-            if not have_dep:
-                raise RuntimeError(f"using {clusterer} as a clusterer needs {clusterer} to be installed")
+            split["method_kwargs"].update(seed=seed)
 
         peaks_svd, sparse_mask, svd_model = extract_peaks_svd(
             recording,

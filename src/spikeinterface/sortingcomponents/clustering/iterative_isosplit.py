@@ -37,6 +37,7 @@ class IterativeISOSPLITClustering:
                     "max_iterations_per_pass": 500,
                     "isocut_threshold": 2.0,
                 },
+                "min_size_split": 10,
                 "n_pca_features": 3,
             },
         },
@@ -79,17 +80,7 @@ class IterativeISOSPLITClustering:
 
         if seed is not None:
             peaks_svd.update(seed=seed)
-            split.update(seed=seed)
-
-        assert clusterer in [
-            "isosplit6",
-            "hdbscan",
-            "isosplit",
-        ], "Circus clustering only supports isosplit6, isosplit or hdbscan"
-        if clusterer in ["isosplit6", "hdbscan"]:
-            have_dep = importlib.util.find_spec(clusterer) is not None
-            if not have_dep:
-                raise RuntimeError(f"using {clusterer} as a clusterer needs {clusterer} to be installed")
+            split["method_kwargs"].update(seed=seed)
 
         outs = extract_peaks_svd(
             recording,
@@ -112,7 +103,6 @@ class IterativeISOSPLITClustering:
         split["method_kwargs"].update(waveforms_sparse_mask = sparse_mask)
         neighbours_mask = get_channel_distances(recording) <= split_radius_um
         split["method_kwargs"].update(neighbours_mask = neighbours_mask)
-        split["method_kwargs"].update(min_size_split = 2 * min_cluster_size)
 
         if debug_folder is not None:
             split.update(debug_folder = debug_folder / "split")
