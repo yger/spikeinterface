@@ -58,14 +58,12 @@ class IterativeISOSPLITClustering:
 
         parameters = cls._default_params.copy()
         parameters.update(params)
-        clusterer = parameters.get(parameters["split"]["method_kwargs"]["clusterer"], "hdbscan")
         split_radius_um = parameters["split"].pop("split_radius_um", 40)
         peaks_svd = parameters["peaks_svd"]
         motion = peaks_svd["motion"]
         ms_before = peaks_svd.get("ms_before", 0.5)
         ms_after = peaks_svd.get("ms_after", 1.5)
-        verbose = parameters.get("verbose", False)
-        min_cluster_size = parameters["split"]["method_kwargs"]["clusterer_kwargs"].get("min_cluster_size", 10)
+        verbose = parameters.get("verbose", True)
         split = parameters["split"]
         seed = parameters["seed"]
         job_kwargs = parameters.get("job_kwargs", dict())
@@ -138,7 +136,7 @@ class IterativeISOSPLITClustering:
             merge_features_kwargs = parameters["merge_from_features"].copy()
             merge_radius_um = merge_features_kwargs.pop("merge_radius_um")
 
-            peak_labels, merge_template_array, merge_sparsity_mask, new_unit_ids = merge_peak_labels_from_features(
+            peak_labels, merge_template_array, new_sparse_mask, new_unit_ids = merge_peak_labels_from_features(
                 peaks,
                 peak_labels,
                 templates.unit_ids,
@@ -168,7 +166,7 @@ class IterativeISOSPLITClustering:
             )
 
         if parameters["merge_from_templates"] is not None:
-            peak_labels, merge_template_array, merge_sparsity_mask, new_unit_ids = merge_peak_labels_from_templates(
+            peak_labels, merge_template_array, new_sparse_mask, new_unit_ids = merge_peak_labels_from_templates(
                 peaks,
                 peak_labels,
                 templates.unit_ids,
