@@ -13,7 +13,7 @@ except:
     HAVE_HDBSCAN = False
 
 
-class HDBSCANPositionsClustering:
+class PositionsClustering:
     """
     hdbscan clustering on peak_locations previously done by localize_peaks()
     """

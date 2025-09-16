@@ -41,7 +41,7 @@ class GraphClustering:
             apply_local_svd=True,
             enforce_diagonal_to_zero=True,
         ),
-        "clustering": dict(
+        "clusterer": dict(
             method="hdbscan",
             core_dist_n_jobs=-1,
             min_cluster_size=20,
@@ -74,9 +74,7 @@ class GraphClustering:
         radius_um = peaks_svd["radius_um"]
         motion = peaks_svd["motion"]
         seed = params["seed"]
-        clustering = params["clustering"]
-
-        clustering = params["clustering"]
+        clusterer = params["clusterer"]
         graph_kwargs = params["graph_kwargs"]
 
         motion_aware = motion is not None
@@ -98,7 +96,7 @@ class GraphClustering:
         )
 
         # some method need a symetric matrix
-        clustering_method = clustering.pop("method")
+        clustering_method = clusterer.pop("method")
         assert clustering_method in ["networkx-louvain",
                                      "sknetwork-louvain",
                                      "sknetwork-leiden",
@@ -123,7 +121,7 @@ class GraphClustering:
             distances_bool = distances.copy()
             distances_bool.data[:] = 1
             G = nx.Graph(distances_bool)
-            communities = nx.community.louvain_communities(G, seed=seed, **clustering)
+            communities = nx.community.louvain_communities(G, seed=seed, **clusterer)
             peak_labels = np.zeros(peaks.size, dtype=int)
             peak_labels[:] = -1
             k = 0
@@ -136,7 +134,7 @@ class GraphClustering:
         elif clustering_method == "sknetwork-louvain":
             from sknetwork.clustering import Louvain
 
-            classifier = Louvain(**clustering)
+            classifier = Louvain(**clusterer)
             distances_bool = distances.copy()
             distances_bool.data[:] = 1
             peak_labels = classifier.fit_predict(distances_bool)
@@ -145,7 +143,7 @@ class GraphClustering:
         elif clustering_method == "sknetwork-leiden":
             from sknetwork.clustering import Leiden
 
-            classifier = Leiden(**clustering)
+            classifier = Leiden(**clusterer)
             distances_bool = distances.copy()
             distances_bool.data[:] = 1
             peak_labels = classifier.fit_predict(distances_bool)
@@ -180,7 +178,7 @@ class GraphClustering:
 
                 local_dist = distances[connected_nodes, :].tocsc()[:, connected_nodes].tocsr()
 
-                clusterer = HDBSCAN(metric="precomputed", **clustering)
+                clusterer = HDBSCAN(metric="precomputed", **clusterer)
                 local_labels = clusterer.fit_predict(local_dist)
 
                 valid_clusters = np.flatnonzero(local_labels >= 0)

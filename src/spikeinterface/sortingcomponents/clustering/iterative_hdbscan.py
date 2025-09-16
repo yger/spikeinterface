@@ -35,8 +35,8 @@ class IterativeHDBSCANClustering:
             "recursive": True,
             "recursive_depth": 3,
             "method_kwargs" : {
-                "clusterer": "hdbscan",
-                "clusterer_kwargs": {
+                "clusterer": {
+                    "method" : "hdbscan",
                     "min_cluster_size": 20,
                     "cluster_selection_method": "eom",
                     "allow_single_cluster": True,
@@ -75,7 +75,7 @@ class IterativeHDBSCANClustering:
         ms_before = peaks_svd.get("ms_before", 0.5)
         ms_after = peaks_svd.get("ms_after", 1.5)
         verbose = params.get("verbose", True)
-        min_cluster_size = params["split"]["method_kwargs"]["clusterer_kwargs"].get("min_cluster_size", 20)
+        min_cluster_size = params["split"]["method_kwargs"]["clusterer"].get("min_cluster_size", 20)
         split = params["split"]
         seed = params["seed"]
         job_kwargs = params.get("job_kwargs", dict())

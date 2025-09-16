@@ -31,8 +31,8 @@ class IterativeISOSPLITClustering:
             "recursive": True,
             "recursive_depth": 3,
             "method_kwargs" : {
-                "clusterer": "isosplit",
-                "clusterer_kwargs": {
+                "clusterer": {
+                    "method" : "isosplit",
                     "n_init": 50,
                     "min_cluster_size": 10,
                     "max_iterations_per_pass": 500,
