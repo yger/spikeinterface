@@ -9,12 +9,12 @@ from .iterative_isosplit import IterativeISOSPLITClustering
 from .graph_clustering import GraphClustering
 
 clustering_methods = {
-    #"dummy": DummyClustering,
+    "dummy": DummyClustering,
     "hdbscan_positions": HDBSCANPositionsClustering,
     #"random_projections": RandomProjectionClustering,
-    #"iterative-hdbscan": IterativeHDBSCANClustering,
-    #"iterative-isosplit": IterativeISOSPLITClustering,
-    #"graph-clustering": GraphClustering,
+    "iterative-hdbscan": IterativeHDBSCANClustering,
+    "iterative-isosplit": IterativeISOSPLITClustering,
+    "graph-clustering": GraphClustering,
 }
 
 
