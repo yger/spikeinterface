@@ -16,9 +16,19 @@ from spikeinterface.sortingcomponents.waveforms.peak_svd import extract_peaks_sv
 
 class IterativeISOSPLITClustering:
     """
+    Iterative ISOSPLIT is based on several local clustering achieved with a
+    divide-and-conquer strategy. It uses the `isosplit`clustering algorithms to
+    perform the local clusterings with an iterative and greedy strategy.
+    More precisely, it first extracts waveforms from the recording,
+    then performs a Truncated SVD to reduce the dimensionality of the waveforms.
+    For every peak, it extracts the SVD features and performs local clustering, grouping the peaks
+    by channel indices. The clustering is done recursively, and the clusters are merged
+    based on a similarity metric. The final output is a set of labels for each peak,
+    indicating the cluster to which it belongs.
     """
 
     name = "iterative-isosplit"
+    need_noise_levels = False
     _default_params = {
         "peaks_svd": {"n_components": 5,
                       "ms_before": 0.5,

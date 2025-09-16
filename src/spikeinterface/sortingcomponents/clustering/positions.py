@@ -27,6 +27,7 @@ class PositionsClustering:
     }
 
     name = "hdbscan_positions"
+    need_noise_levels = False
     params_doc = """
         peak_locations :
         peaks_localization_kwargs : dict

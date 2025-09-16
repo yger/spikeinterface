@@ -7,7 +7,13 @@ from ..tools import make_multi_method_doc
 from .method_list import clustering_methods
 
 
-def find_clusters_from_peaks(recording, peaks, method="stupid", method_kwargs={}, extra_outputs=False, **job_kwargs):
+def find_clusters_from_peaks(recording,
+                             peaks, 
+                             method="stupid", 
+                             method_kwargs={}, 
+                             extra_outputs=False, 
+                             verbose=False,
+                             **job_kwargs):
     """
     Find cluster from peaks.
 
@@ -19,7 +25,7 @@ def find_clusters_from_peaks(recording, peaks, method="stupid", method_kwargs={}
     peaks : numpy.array
         The peak vector
     method : str
-        Which method to use ("stupid" | "XXXX")
+        Which method to use ("dummy" | "XXXX")
     method_kwargs : dict, default: dict()
         Keyword arguments for the chosen method
     extra_outputs : bool, default: False

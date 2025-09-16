@@ -13,8 +13,8 @@ from spikeinterface.sortingcomponents.clustering.tools import get_templates_from
 
 class IterativeHDBSCANClustering:
     """
-    Circus clustering is based on several local clustering achieved with a
-    divide-and-conquer strategy. It uses the `hdbscan` or `isosplit6` clustering algorithms to
+    Iterative HDBSCAN is based on several local clustering achieved with a
+    divide-and-conquer strategy. It uses the `hdbscan`clustering algorithms to
     perform the local clusterings with an iterative and greedy strategy.
     More precisely, it first extracts waveforms from the recording,
     then performs a Truncated SVD to reduce the dimensionality of the waveforms.
@@ -24,6 +24,7 @@ class IterativeHDBSCANClustering:
     indicating the cluster to which it belongs.
     """
     name = "iterative-hdbscan"
+    need_noise_levels = False
     _default_params = {
         "peaks_svd": {"n_components": 5,
                       "ms_before": 0.5,

@@ -17,7 +17,7 @@ class GraphClustering:
     """
 
     name = "graph-clustering"
-
+    need_noise_levels = False
     _default_params = {
         "peaks_svd": {"n_components": 5,
                       "ms_before": 0.5,

@@ -3,18 +3,18 @@ from __future__ import annotations
 from .dummy import DummyClustering
 from .positions import PositionsClustering
 
-#from .random_projections import RandomProjectionClustering
+from .random_projections import RandomProjectionClustering
 from .iterative_hdbscan import IterativeHDBSCANClustering
 from .iterative_isosplit import IterativeISOSPLITClustering
 from .graph_clustering import GraphClustering
 
 clustering_methods = {
-    "dummy": DummyClustering,
-    "hdbscan_positions": PositionsClustering,
-    #"random_projections": RandomProjectionClustering,
-    "iterative-hdbscan": IterativeHDBSCANClustering,
-    "iterative-isosplit": IterativeISOSPLITClustering,
-    "graph-clustering": GraphClustering,
+    #"dummy": DummyClustering,
+    #"hdbscan_positions": PositionsClustering,
+    "random_projections": RandomProjectionClustering,
+    #"iterative-hdbscan": IterativeHDBSCANClustering,
+    #"iterative-isosplit": IterativeISOSPLITClustering,
+    #"graph-clustering": GraphClustering,
 }
 
 
