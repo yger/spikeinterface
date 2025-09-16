@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .dummy import DummyClustering
-from .position import PositionClustering
+from .positions_hdbscan import HDBSCANPositionsClustering
 
 #from .random_projections import RandomProjectionClustering
 from .iterative_hdbscan import IterativeHDBSCANClustering
@@ -10,11 +10,11 @@ from .graph_clustering import GraphClustering
 
 clustering_methods = {
     #"dummy": DummyClustering,
-    #"position": PositionClustering,
+    "hdbscan_positions": HDBSCANPositionsClustering,
     #"random_projections": RandomProjectionClustering,
     #"iterative-hdbscan": IterativeHDBSCANClustering,
     #"iterative-isosplit": IterativeISOSPLITClustering,
-    "graph-clustering": GraphClustering,
+    #"graph-clustering": GraphClustering,
 }
 
 

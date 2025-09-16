@@ -48,9 +48,23 @@ class GraphClustering:
             cluster_selection_method='eom',
             allow_single_cluster=True,
         ),
+        "debug_folder" : None,
+        "verbose": True
     }
 
     params_doc="""
+        peaks_svd: params for peak SVD features extraction. 
+        See spikeinterface.sortingcomponents.waveforms.peak_svd.extract_peaks_svd
+                        for more details.,
+        seed: Random seed for reproducibility.,
+        merge_from_templates: params for the merging step based on templates. See
+                 spikeinterface.sortingcomponents.clustering.merging_tools.merge_peak_labels_from_templates
+                 for more details.,
+        merge_from_features: params for the merging step based on features. See
+                    spikeinterface.sortingcomponents.clustering.merging_tools.merge_peak_labels_from_features
+                    for more details.,
+        debug_folder: If not None, a folder path where to save debug information.,
+        verbose: If True, print information during the process.
     """
 
     @classmethod
@@ -176,6 +190,7 @@ class GraphClustering:
 
         else:
             raise ValueError("GraphClustering : wrong clustering_method")
+
 
         labels_set = np.unique(peak_labels)
         labels_set = labels_set[labels_set >= 0]
