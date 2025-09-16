@@ -48,7 +48,7 @@ class IterativeISOSPLITClustering:
                     "max_iterations_per_pass": 500,
                     "isocut_threshold": 2.0,
                 },
-                "min_size_split": 10,
+                "min_size_split": 25,
                 "n_pca_features": 3,
             },
         },
@@ -99,7 +99,7 @@ class IterativeISOSPLITClustering:
         if debug_folder is not None:
             debug_folder = Path(debug_folder).absolute()
             debug_folder.mkdir(exist_ok=True)
-            peaks_svd.update(features_folder=debug_folder / "features")
+            peaks_svd.update(folder=debug_folder / "features")
 
         motion_aware = motion is not None
         peaks_svd.update(motion_aware=motion_aware)
