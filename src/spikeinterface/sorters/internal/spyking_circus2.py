@@ -99,7 +99,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         # this is importanted only on demand because numba import are too heavy
         from spikeinterface.sortingcomponents.peak_detection import detect_peaks
         from spikeinterface.sortingcomponents.peak_selection import select_peaks
-        from spikeinterface.sortingcomponents.clustering import find_cluster_from_peaks
+        from spikeinterface.sortingcomponents.clustering import find_clusters_from_peaks
         from spikeinterface.sortingcomponents.matching import find_spikes_from_templates
         from spikeinterface.sortingcomponents.tools import remove_empty_templates
         from spikeinterface.sortingcomponents.tools import check_probe_for_drift_correction
@@ -335,7 +335,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                     ),
                 }
 
-            outputs = find_cluster_from_peaks(
+            outputs = find_clusters_from_peaks(
                 recording_w,
                 selected_peaks,
                 method=clustering_method,
@@ -396,7 +396,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             gather_mode = params["matching"].pop("gather_mode", "memory")
             gather_kwargs = params["matching"].pop("gather_kwargs", {})
             matching_params = params["matching"].get("method_kwargs", {}).copy()
-            matching_params["templates"] = templates
 
             if matching_method is not None:
                 pipeline_kwargs = dict(
@@ -406,6 +405,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                     pipeline_kwargs["folder"] = sorter_output_folder / "matching"
                 spikes = find_spikes_from_templates(
                     recording_w,
+                    templates,
                     matching_method,
                     method_kwargs=matching_params,
                     pipeline_kwargs=pipeline_kwargs,
