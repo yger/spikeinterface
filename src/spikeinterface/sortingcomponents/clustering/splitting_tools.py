@@ -216,6 +216,14 @@ class LocalFeatureClustering:
         projection_mode="tsvd",
         minimum_overlap_ratio=0.25,
     ):
+        
+        clustering_kwargs = clusterer.copy()
+        clusterer_method = clustering_kwargs.pop("method")
+        
+        assert clusterer_method in ["hdbscan",
+                                    "isosplit",
+                                    "isosplit6"]
+
         local_labels = np.zeros(peak_indices.size, dtype=np.int64)
 
         # can be sparse_tsvd or sparse_wfs
@@ -281,13 +289,10 @@ class LocalFeatureClustering:
                 final_features = flatten_features
                 tsvd = None
         
-        clustering_kwargs = clusterer.copy()
-        clusterer_method = clustering_kwargs.pop("method")
-        
         if clusterer_method == "hdbscan":
             from hdbscan import HDBSCAN
-
-            clust = HDBSCAN(**clustering_kwargs, core_dist_n_jobs=1)
+            clustering_kwargs.update(core_dist_n_jobs=1)
+            clust = HDBSCAN(**clustering_kwargs)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore")
                 clust.fit(final_features)
