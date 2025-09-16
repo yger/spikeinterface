@@ -13,7 +13,7 @@ def find_clusters_from_peaks(recording,
                              method_kwargs={}, 
                              extra_outputs=False, 
                              verbose=False,
-                             **job_kwargs):
+                             job_kwargs=None):
     """
     Find cluster from peaks.
 
@@ -30,6 +30,10 @@ def find_clusters_from_peaks(recording,
         Keyword arguments for the chosen method
     extra_outputs : bool, default: False
         If True then debug is also return
+    verbose : Bool, default: False
+        If True, output is verbose
+    job_kwargs : dict
+        Parameters for ChunkRecordingExecutor
     
     {method_doc}
 
