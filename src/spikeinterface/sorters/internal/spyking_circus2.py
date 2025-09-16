@@ -194,12 +194,11 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         detection_params["radius_um"] = radius_um / 2
         detection_params["exclude_sweep_ms"] = exclude_sweep_ms
         # detection_params["noise_levels"] = noise_levels  @pierre j'ai enlevé ça
-
+        matching_method = params["matching"].pop("method", "circus-omp")
         selection_method = params["selection"].get("method", "uniform")
         selection_params = params["selection"].get("method_kwargs", dict())
         n_peaks_per_channel = selection_params.get("n_peaks_per_channel", 5000)
         min_n_peaks = selection_params.get("min_n_peaks", 100000)
-        matching_method = params["matching"].get("method", "circus-omp-svd")
         skip_peaks = not params["multi_units_only"] and selection_method == "uniform"
         skip_peaks = skip_peaks and not deterministic and not (matching_method is None)
         max_n_peaks = n_peaks_per_channel * num_channels
@@ -306,10 +305,9 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 print("Kept %d peaks for clustering" % len(selected_peaks))
 
             clustering_method = params["clustering"].get("method", "iterative-hdbscan")
-            clustering_params = params["clustering"].get("method_kwargs", dict())
+            clustering_params = params["clustering"].get("method_kwargs", dict()).copy()
 
             if clustering_method == "iterative-hdbscan":
-                #clustering_params["waveforms"] = {}
                 clustering_params["verbose"] = verbose
                 clustering_params["seed"] = seed
                 if debug:
@@ -387,9 +385,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 templates.to_zarr(folder_path=clustering_folder / "templates")
 
             ## We launch a OMP matching pursuit by full convolution of the templates and the raw traces
-            matching_method = params["matching"].pop("method")
             pipeline_kwargs= params["matching"].pop("pipeline_kwargs", dict())
-            matching_params = params["matching"].get("method_kwargs", {}).copy()
+            matching_params = params["matching"].get("method_kwargs", dict())
 
             spikes = find_spikes_from_templates(
                 recording_w,
