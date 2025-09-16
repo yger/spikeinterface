@@ -49,17 +49,17 @@ class IterativeISOSPLITClustering:
     }
 
     params_doc = """
-        peaks_svd: Parameters for peak SVD features extraction. 
+        peaks_svd: params for peak SVD features extraction. 
         See spikeinterface.sortingcomponents.waveforms.peak_svd.extract_peaks_svd
                         for more details.,
         seed: Random seed for reproducibility.,
-        split": "Parameters for the splitting step. See
+        split": "params for the splitting step. See
                  spikeinterface.sortingcomponents.clustering.splitting_tools.split_clusters
                  for more details.,
-        merge_from_templates: Parameters for the merging step based on templates. See
+        merge_from_templates: params for the merging step based on templates. See
                  spikeinterface.sortingcomponents.clustering.merging_tools.merge_peak_labels_from_templates
                  for more details.,
-        merge_from_features: Parameters for the merging step based on features. See
+        merge_from_features: params for the merging step based on features. See
                     spikeinterface.sortingcomponents.clustering.merging_tools.merge_peak_labels_from_features
                     for more details.,
         debug_folder: If not None, a folder path where to save debug information.,
@@ -73,20 +73,18 @@ class IterativeISOSPLITClustering:
     # }
 
     @classmethod
-    def main_function(cls, recording, peaks, params=dict(), job_kwargs=dict()):
+    def main_function(cls, recording, peaks, params, job_kwargs=dict()):
 
-        parameters = cls._default_params.copy()
-        parameters.update(params)
-        split_radius_um = parameters["split"].pop("split_radius_um", 40)
-        peaks_svd = parameters["peaks_svd"]
+        split_radius_um = params["split"].pop("split_radius_um", 40)
+        peaks_svd = params["peaks_svd"]
         motion = peaks_svd["motion"]
         ms_before = peaks_svd.get("ms_before", 0.5)
         ms_after = peaks_svd.get("ms_after", 1.5)
-        verbose = parameters.get("verbose", True)
-        split = parameters["split"]
-        seed = parameters["seed"]
-        job_kwargs = parameters.get("job_kwargs", dict())
-        debug_folder = parameters.get("debug_folder", None)
+        verbose = params.get("verbose", True)
+        split = params["split"]
+        seed = params["seed"]
+        job_kwargs = params.get("job_kwargs", dict())
+        debug_folder = params.get("debug_folder", None)
 
         if debug_folder is not None:
             debug_folder = Path(debug_folder).absolute()
@@ -94,6 +92,7 @@ class IterativeISOSPLITClustering:
             peaks_svd.update(features_folder=debug_folder / "features")
 
         motion_aware = motion is not None
+        peaks_svd.update(motion_aware=motion_aware)
 
         if seed is not None:
             peaks_svd.update(seed=seed)
@@ -150,9 +149,9 @@ class IterativeISOSPLITClustering:
         if verbose:
             print("Kept %d raw clusters" % len(labels))
 
-        if parameters["merge_from_features"] is not None:
+        if params["merge_from_features"] is not None:
 
-            merge_features_kwargs = parameters["merge_from_features"].copy()
+            merge_features_kwargs = params["merge_from_features"].copy()
             merge_radius_um = merge_features_kwargs.pop("merge_radius_um")
 
             peak_labels, merge_template_array, new_sparse_mask, new_unit_ids = merge_peak_labels_from_features(
@@ -184,14 +183,14 @@ class IterativeISOSPLITClustering:
                 is_in_uV=False,
             )
 
-        if parameters["merge_from_templates"] is not None:
+        if params["merge_from_templates"] is not None:
             peak_labels, merge_template_array, new_sparse_mask, new_unit_ids = merge_peak_labels_from_templates(
                 peaks,
                 peak_labels,
                 templates.unit_ids,
                 templates.templates_array,
                 new_sparse_mask,
-                **parameters["merge_from_templates"],
+                **params["merge_from_templates"],
             )
 
             templates = Templates(

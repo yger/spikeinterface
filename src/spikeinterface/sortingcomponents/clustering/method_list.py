@@ -6,22 +6,21 @@ from .position import PositionClustering
 #from .random_projections import RandomProjectionClustering
 from .iterative_hdbscan import IterativeHDBSCANClustering
 from .iterative_isosplit import IterativeISOSPLITClustering
-#from .graph_clustering import GraphClustering
+from .graph_clustering import GraphClustering
 
 clustering_methods = {
-    "dummy": DummyClustering,
+    #"dummy": DummyClustering,
     #"position": PositionClustering,
     #"random_projections": RandomProjectionClustering,
-    "iterative-hdbscan": IterativeHDBSCANClustering,
-    "iterative-isosplit": IterativeISOSPLITClustering,
-    #"graph-clustering": GraphClustering,
+    #"iterative-hdbscan": IterativeHDBSCANClustering,
+    #"iterative-isosplit": IterativeISOSPLITClustering,
+    "graph-clustering": GraphClustering,
 }
 
 
-#try:
-#    # Kilosort licence (GPL 3) is forcing us to make and use an external package
-#    from spikeinterface_kilosort_components.kilosort_clustering import KiloSortClustering
-
-#    clustering_methods["kilosort-clustering"] = KiloSortClustering
-#except ImportError:
-#    pass
+try:
+    # Kilosort licence (GPL 3) is forcing us to make and use an external package
+    from spikeinterface_kilosort_components.kilosort_clustering import KiloSortClustering
+    clustering_methods["kilosort-clustering"] = KiloSortClustering
+except ImportError:
+    pass

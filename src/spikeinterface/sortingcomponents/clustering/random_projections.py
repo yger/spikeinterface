@@ -58,6 +58,8 @@ class RandomProjectionClustering:
         "verbose": True,
         "debug": False,
     }
+    
+    name = "random_projections"
 
     @classmethod
     def main_function(cls, recording, peaks, params, job_kwargs=dict()):

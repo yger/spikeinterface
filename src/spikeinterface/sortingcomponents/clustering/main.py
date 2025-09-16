@@ -25,7 +25,7 @@ def find_clusters_from_peaks(recording, peaks, method="stupid", method_kwargs={}
     extra_outputs : bool, default: False
         If True then debug is also return
     
-    {params_doc}
+    {method_doc}
 
     Returns
     -------
@@ -56,4 +56,4 @@ def find_clusters_from_peaks(recording, peaks, method="stupid", method_kwargs={}
 
 
 method_doc = make_multi_method_doc(list(clustering_methods.values()))
-find_cluster_from_peaks.__doc__ = find_cluster_from_peaks.__doc__.format(method_doc=method_doc)
+find_clusters_from_peaks.__doc__ = find_clusters_from_peaks.__doc__.format(method_doc=method_doc)
