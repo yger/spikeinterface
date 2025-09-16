@@ -114,7 +114,7 @@ class Tridesclous2Sorter(ComponentsBasedSorter):
         from spikeinterface.sortingcomponents.matching import find_spikes_from_templates
         from spikeinterface.sortingcomponents.peak_detection import detect_peaks
         from spikeinterface.sortingcomponents.peak_selection import select_peaks
-        from spikeinterface.sortingcomponents.clustering.main import find_cluster_from_peaks
+        from spikeinterface.sortingcomponents.clustering.main import find_clusters_from_peaks
         from spikeinterface.sortingcomponents.tools import remove_empty_templates
         from spikeinterface.preprocessing import correct_motion
         from spikeinterface.sortingcomponents.motion import InterpolateMotionRecording
@@ -210,7 +210,7 @@ class Tridesclous2Sorter(ComponentsBasedSorter):
                     "You want to run tridesclous2 with the isosplit6 (the C++) implementation, but this is not installed, please `pip install isosplit6`"
                 )
 
-        unit_ids, clustering_label, more_outs = find_cluster_from_peaks(
+        unit_ids, clustering_label, more_outs = find_clusters_from_peaks(
             recording, peaks, method="tdc-clustering", method_kwargs=clustering_kwargs, extra_outputs=True, **job_kwargs
         )
 
@@ -227,7 +227,7 @@ class Tridesclous2Sorter(ComponentsBasedSorter):
             unit_ids=unit_ids,
         )
         if verbose:
-            print(f"find_cluster_from_peaks(): {sorting_pre_peeler.unit_ids.size} cluster found")
+            print(f"find_clusters_from_peaks(): {sorting_pre_peeler.unit_ids.size} cluster found")
 
         recording_for_peeler = recording
 
@@ -280,7 +280,6 @@ class Tridesclous2Sorter(ComponentsBasedSorter):
         matching_method = params["matching"].pop("method")
         gather_mode = params["matching"].pop("gather_mode", "memory")
         matching_params = params["matching"].get("matching_kwargs", {}).copy()
-        matching_params["templates"] = templates
         if matching_method in ("tdc-peeler",):
             matching_params["noise_levels"] = noise_levels
         
@@ -289,6 +288,7 @@ class Tridesclous2Sorter(ComponentsBasedSorter):
             pipeline_kwargs["folder"] = sorter_output_folder / "matching"
         spikes = find_spikes_from_templates(
             recording_for_peeler,
+            templates,
             method=matching_method,
             method_kwargs=matching_params,
             pipeline_kwargs=pipeline_kwargs,
