@@ -24,7 +24,7 @@ class IterativeHDBSCANClustering:
     based on a similarity metric. The final output is a set of labels for each peak,
     indicating the cluster to which it belongs.
     """
-
+    name = "iterative-hdbscan"
     _default_params = {
         "peaks_svd": {"n_components": 5,
                       "ms_before": 0.5,
@@ -50,6 +50,23 @@ class IterativeHDBSCANClustering:
         "debug_folder" : None,
         "verbose": True
     }
+    params_doc = """
+        peaks_svd: Parameters for peak SVD features extraction. 
+        See spikeinterface.sortingcomponents.waveforms.peak_svd.extract_peaks_svd
+                        for more details.,
+        seed: Random seed for reproducibility.,
+        split": "Parameters for the splitting step. See
+                 spikeinterface.sortingcomponents.clustering.splitting_tools.split_clusters
+                 for more details.,
+        merge_from_templates: Parameters for the merging step based on templates. See
+                 spikeinterface.sortingcomponents.clustering.merging_tools.merge_peak_labels_from_templates
+                 for more details.,
+        merge_from_features: Parameters for the merging step based on features. See
+                    spikeinterface.sortingcomponents.clustering.merging_tools.merge_peak_labels_from_features
+                    for more details.,
+        debug_folder: If not None, a folder path where to save debug information.,
+        verbose: If True, print information during the process.
+    """
 
     @classmethod
     def main_function(cls, recording, peaks, params=dict(), job_kwargs=dict()):
