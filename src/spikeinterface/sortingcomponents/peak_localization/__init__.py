@@ -2,5 +2,5 @@
 # possible to inject external methods (like ks) dynamically
 # from .method_list import matching_methods
 
-from .method_list import localization_methods
+from .method_list import peak_localization_methods
 from .main import localize_peaks
