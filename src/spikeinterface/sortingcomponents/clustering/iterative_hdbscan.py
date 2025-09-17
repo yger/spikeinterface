@@ -73,14 +73,13 @@ class IterativeHDBSCANClustering:
         
         split_radius_um = params["split"].pop("split_radius_um", 50)
         peaks_svd = params["peaks_svd"]
-        ms_before = peaks_svd.get("ms_before", 0.5)
-        ms_after = peaks_svd.get("ms_after", 1.5)
-        verbose = params.get("verbose", True)
-        min_cluster_size = params["split"]["method_kwargs"]["clusterer"].get("min_cluster_size", 20)
-        split = params["split"]
+        ms_before = peaks_svd["ms_before"]
+        ms_after = peaks_svd["ms_after"]
+        verbose = params["verbose"]
+        min_cluster_size = params["split"]["method_kwargs"]["clusterer"]["min_cluster_size"]
+        split = params["split"].copy()
         seed = params["seed"]
-        job_kwargs = params.get("job_kwargs", dict())
-        debug_folder = params.get("debug_folder", None)
+        debug_folder = params["debug_folder"]
 
         if debug_folder is not None:
             debug_folder = Path(debug_folder).absolute()

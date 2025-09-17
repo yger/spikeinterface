@@ -70,12 +70,13 @@ class GraphClustering:
     @classmethod
     def main_function(cls, recording, peaks, params, job_kwargs=dict()):
 
-        peaks_svd = params["peaks_svd"]
+        peaks_svd = params["peaks_svd"].copy()
         radius_um = peaks_svd["radius_um"]
         motion = peaks_svd["motion"]
         seed = params["seed"]
+        verbose = params["verbose"]
         clustering_kwargs = params["clusterer"].copy()
-        graph_kwargs = params["graph_kwargs"]
+        graph_kwargs = params["graph_kwargs"].copy()
 
         motion_aware = motion is not None
         peaks_svd.update(motion_aware=motion_aware)

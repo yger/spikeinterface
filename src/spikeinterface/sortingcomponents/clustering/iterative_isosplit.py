@@ -59,21 +59,21 @@ class IterativeISOSPLITClustering:
     }
 
     params_doc = """
-        peaks_svd: params for peak SVD features extraction. 
+        peaks_svd : params for peak SVD features extraction. 
         See spikeinterface.sortingcomponents.waveforms.peak_svd.extract_peaks_svd
                         for more details.,
-        seed: Random seed for reproducibility.,
-        split": params for the splitting step. See 
+        seed : Random seed for reproducibility.,
+        split : params for the splitting step. See 
                  spikeinterface.sortingcomponents.clustering.splitting_tools.split_clusters
                  for more details.,
-        merge_from_templates: params for the merging step based on templates. See
+        merge_from_templates : params for the merging step based on templates. See
                  spikeinterface.sortingcomponents.clustering.merging_tools.merge_peak_labels_from_templates
                  for more details.,
-        merge_from_features: params for the merging step based on features. See
+        merge_from_features : params for the merging step based on features. See
                     spikeinterface.sortingcomponents.clustering.merging_tools.merge_peak_labels_from_features
                     for more details.,
-        debug_folder: If not None, a folder path where to save debug information.,
-        verbose: If True, print information during the process.
+        debug_folder : If not None, a folder path where to save debug information.,
+        verbose : If True, print information during the process.
     """
 
     # _default_params = {
@@ -88,14 +88,12 @@ class IterativeISOSPLITClustering:
         split_radius_um = params["split"].pop("split_radius_um", 40)
         peaks_svd = params["peaks_svd"]
         motion = peaks_svd["motion"]
-        ms_before = peaks_svd.get("ms_before", 0.5)
-        ms_after = peaks_svd.get("ms_after", 1.5)
-        verbose = params.get("verbose", True)
-        split = params["split"]
+        ms_before = peaks_svd["ms_before"]
+        ms_after = peaks_svd["ms_after"]
+        verbose = params["verbose"]
+        split = params["split"].copy()
         seed = params["seed"]
-        job_kwargs = params.get("job_kwargs", dict())
-        debug_folder = params.get("debug_folder", None)
-
+        debug_folder = params["debug_folder"]
         if debug_folder is not None:
             debug_folder = Path(debug_folder).absolute()
             debug_folder.mkdir(exist_ok=True)
