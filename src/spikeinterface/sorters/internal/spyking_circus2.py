@@ -193,6 +193,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         detection_params = params["detection"].get("method_kwargs", dict()).copy()
         detection_params["radius_um"] = radius_um / 2
         detection_params["exclude_sweep_ms"] = exclude_sweep_ms
+        detect_pipeline_kwargs = params["detection"].get("pipeline_kwargs", dict()).copy()
 
         matching_method = params["matching"].get("method", "circus-omp")
         matching_params = params["matching"].get("matching_kwargs", dict()).copy()
@@ -259,8 +260,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             if debug:
                 np.save(clustering_folder / "waveforms.npy", waveforms)
                 np.save(clustering_folder / "prototype.npy", prototype)
-        
-        detect_pipeline_kwargs = dict()
         
         if skip_peaks:
             detect_pipeline_kwargs["recording_slices"] = get_shuffled_recording_slices(
