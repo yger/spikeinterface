@@ -63,7 +63,7 @@ def test_find_spikes_from_templates(method, sorting_analyzer):
 
     if method == "nearest-svd":
         from spikeinterface.sortingcomponents.tools import get_prototype_and_waveforms
-        prototype, wfs, _ = get_prototype_and_waveforms(recording, ms_before=1, ms_after=2)
+        _, wfs, _ = get_prototype_and_waveforms(recording, ms_before=1, ms_after=2)
         n_components = 5
         from sklearn.decomposition import TruncatedSVD
         svd_model = TruncatedSVD(n_components=n_components)

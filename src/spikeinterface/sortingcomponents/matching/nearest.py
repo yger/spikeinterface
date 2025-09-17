@@ -108,7 +108,7 @@ class NearestTemplatesSVDPeeler(NearestTemplatesPeeler):
         The radius to use to select neighbour channels for locally exclusive detection.
     svd_radius_um : float
         The radius in um of the local neighboorhood used, centered on every detected peaks, to compute
-        the distances with all the templates
+        the distances with all the templates in the SVD space
     """
     )
 
