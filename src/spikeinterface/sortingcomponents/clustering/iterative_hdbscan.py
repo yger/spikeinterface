@@ -115,8 +115,8 @@ class IterativeHDBSCANClustering:
             recording,
             {"peaks": peaks, "sparse_tsvd": peaks_svd},
             method="local_feature_clustering",
+            job_kwargs=job_kwargs,
             **split,
-            **job_kwargs,
         )
 
         templates, new_sparse_mask = get_templates_from_peaks_and_svd(

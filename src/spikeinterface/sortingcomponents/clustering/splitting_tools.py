@@ -32,7 +32,7 @@ def split_clusters(
     recursive_depth=None,
     returns_split_count=False,
     debug_folder=None,
-    **job_kwargs,
+    job_kwargs=None,
 ):
     """
     Run recusrsively (or not) in a multi process pool a local split method.
