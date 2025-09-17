@@ -63,7 +63,7 @@ class IterativeISOSPLITClustering:
         See spikeinterface.sortingcomponents.waveforms.peak_svd.extract_peaks_svd
                         for more details.,
         seed: Random seed for reproducibility.,
-        split": "params for the splitting step. See
+        split": params for the splitting step. See 
                  spikeinterface.sortingcomponents.clustering.splitting_tools.split_clusters
                  for more details.,
         merge_from_templates: params for the merging step based on templates. See

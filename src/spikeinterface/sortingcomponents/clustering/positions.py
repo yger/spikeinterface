@@ -29,9 +29,11 @@ class PositionsClustering:
     name = "hdbscan_positions"
     need_noise_levels = False
     params_doc = """
-        peak_locations :
+        peak_locations : The locations of the peaks
         peaks_localization_kwargs : dict
+            Kwargs for peak localization if locations are not provided
         hdbscan_kwargs: dict
+            Kwargs for HDBSCAN
     """
 
     @classmethod
