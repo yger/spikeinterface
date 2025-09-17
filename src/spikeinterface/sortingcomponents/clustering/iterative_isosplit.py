@@ -69,25 +69,26 @@ class IterativeISOSPLITClustering:
     }
 
     params_doc = """
-        peaks_svd: params for peak SVD features extraction. 
+        peaks_svd : params for peak SVD features extraction. 
         See spikeinterface.sortingcomponents.waveforms.peak_svd.extract_peaks_svd
                         for more details.,
-        seed: Random seed for reproducibility.,
-        split": params for the splitting step. See 
+        seed : Random seed for reproducibility.,
+        split : params for the splitting step. See 
                  spikeinterface.sortingcomponents.clustering.splitting_tools.split_clusters
                  for more details.,
-        merge_from_templates: params for the merging step based on templates. See
+        merge_from_templates : params for the merging step based on templates. See
                  spikeinterface.sortingcomponents.clustering.merging_tools.merge_peak_labels_from_templates
                  for more details.,
-        merge_from_features: params for the merging step based on features. See
+        merge_from_features : params for the merging step based on features. See
                     spikeinterface.sortingcomponents.clustering.merging_tools.merge_peak_labels_from_features
                     for more details.,
-        debug_folder: If not None, a folder path where to save debug information.,
-        verbose: If True, print information during the process.
+        debug_folder : If not None, a folder path where to save debug information.,
+        verbose : If True, print information during the process.
     """
 
     @classmethod
     def main_function(cls, recording, peaks, params, job_kwargs=dict()):
+
 
         ms_before = params["peaks_svd"]["ms_before"]
         ms_after = params["peaks_svd"]["ms_after"]
