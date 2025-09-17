@@ -40,7 +40,7 @@ class RandomProjectionClustering:
         },
         "waveforms": {"ms_before": 0.5, 
                       "ms_after": 1.5,
-                      "radius_um"},
+                      "radius_um" : 100},
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25},
         "radius_um": 50,
         "nb_projections": 10,
@@ -61,7 +61,7 @@ class RandomProjectionClustering:
         assert HAVE_HDBSCAN, "random projections clustering need hdbscan to be installed"
 
         fs = recording.get_sampling_frequency()
-        radius_um = params.get("radius_um", 30)
+        radius_um = params["waveforms"]["radius_um"]
         ms_before = params["waveforms"]["ms_before"]
         ms_after = params["waveforms"]["ms_before"]
         nbefore = int(ms_before * fs / 1000.0)
