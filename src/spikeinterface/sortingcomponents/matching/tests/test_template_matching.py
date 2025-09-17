@@ -99,10 +99,10 @@ def test_find_spikes_from_templates(method, sorting_analyzer):
 
 if __name__ == "__main__":
     sorting_analyzer = get_sorting_analyzer()
-    # method = "naive"
+    method = "nearest"
     # method = "tdc-peeler"
     # method = "circus-omp-svd"
-    method = "wobble"
+    # method = "wobble"
     # method = "kilosort-matching"
 
     test_find_spikes_from_templates(method, sorting_analyzer)
