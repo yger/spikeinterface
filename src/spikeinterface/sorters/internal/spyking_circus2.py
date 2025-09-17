@@ -15,7 +15,6 @@ from spikeinterface.sortingcomponents.tools import (
     _set_optimal_chunk_size,
 )
 from spikeinterface.core.basesorting import minimum_spike_dtype
-from spikeinterface.core.sparsity import compute_sparsity
 
 
 class Spykingcircus2Sorter(ComponentsBasedSorter):

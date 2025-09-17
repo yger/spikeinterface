@@ -39,7 +39,8 @@ class RandomProjectionClustering:
             "cluster_selection_method": "eom",
         },
         "waveforms": {"ms_before": 0.5, 
-                      "ms_after": 1.5},
+                      "ms_after": 1.5,
+                      "radius_um"},
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25},
         "radius_um": 50,
         "nb_projections": 10,
@@ -61,13 +62,13 @@ class RandomProjectionClustering:
 
         fs = recording.get_sampling_frequency()
         radius_um = params.get("radius_um", 30)
-        ms_before = params["waveforms"].get("ms_before", 0.5)
-        ms_after = params["waveforms"].get("ms_before", 1.5)
+        ms_before = params["waveforms"]["ms_before"]
+        ms_after = params["waveforms"]["ms_before"]
         nbefore = int(ms_before * fs / 1000.0)
         nafter = int(ms_after * fs / 1000.0)
-        verbose = params.get("verbose", True)
+        verbose = params["verbose"]
         num_chans = recording.get_num_channels()
-        debug_folder = params.get("debug_folder", None)
+        debug_folder = params["debug_folder"]
 
         if debug_folder is not None:
             debug_folder = Path(debug_folder).absolute()
