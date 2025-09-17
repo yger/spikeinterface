@@ -61,6 +61,15 @@ def test_find_spikes_from_templates(method, sorting_analyzer):
         method_kwargs["spatial_components"] = spatial_components
         method_kwargs["temporal_components"] = temporal_components
 
+    if method == "nearest-svd":
+        from spikeinterface.sortingcomponents.tools import get_prototype_and_waveforms
+        prototype, wfs, _ = get_prototype_and_waveforms(recording, ms_before=1, ms_after=2)
+        n_components = 5
+        from sklearn.decomposition import TruncatedSVD
+        svd_model = TruncatedSVD(n_components=n_components)
+        svd_model.fit(wfs)
+        method_kwargs["svd_model"] = svd_model
+
     # method_kwargs["wobble"] = {
     #     "templates": waveform_extractor.get_all_templates(),
     #     "nbefore": waveform_extractor.nbefore,
@@ -99,7 +108,8 @@ def test_find_spikes_from_templates(method, sorting_analyzer):
 
 if __name__ == "__main__":
     sorting_analyzer = get_sorting_analyzer()
-    method = "nearest"
+    # method = "nearest"
+    method = "nearest-svd"
     # method = "tdc-peeler"
     # method = "circus-omp-svd"
     # method = "wobble"
