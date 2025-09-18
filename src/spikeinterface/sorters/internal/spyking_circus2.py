@@ -270,7 +270,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             )
             detect_pipeline_kwargs["skip_after_n_peaks"] = n_peaks
 
-        # @pierre t'avais un bug ici : detection_params contiet noise level alors que c'est du matched filtering!!
         peaks = detect_peaks(
             recording_w, 
             method=detection_method, 
@@ -305,7 +304,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             if verbose:
                 print("Kept %d peaks for clustering" % len(selected_peaks))
 
-            if clustering_method in ["iterative-hdbscan", "iterative-isosplit", "kilosort-clustering"]:
+            if clustering_method in ["iterative-hdbscan", "iterative-isosplit", "kilosort-clustering", "graph-clustering"]:
                 clustering_params.update(seed=seed)
                 clustering_params.update(peaks_svd=params["general"])
                 if debug:
