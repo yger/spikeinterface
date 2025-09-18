@@ -85,7 +85,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
     @classmethod
     def get_sorter_version(cls):
-        return "2025.07"
+        return "2025.09"
 
     @classmethod
     def _run_from_folder(cls, sorter_output_folder, params, verbose):
@@ -270,6 +270,10 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             )
             detect_pipeline_kwargs["skip_after_n_peaks"] = n_peaks
 
+<<<<<<< HEAD
+=======
+        # @pierre t'avais un bug ici : detection_params contiet noise level alors que c'est du matched filtering!!
+>>>>>>> bfb1687636fd0948b3fd2aaf9411fc3c2776e187
         peaks = detect_peaks(
             recording_w, 
             method=detection_method, 
@@ -305,8 +309,9 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 print("Kept %d peaks for clustering" % len(selected_peaks))
 
             if clustering_method in ["iterative-hdbscan", "iterative-isosplit", "kilosort-clustering", "graph-clustering"]:
+                clustering_params.update(verbose= verbose)
                 clustering_params.update(seed=seed)
-                clustering_params.update(peaks_svd=params["general"])
+                clustering_params.update(peak_svd=params["general"])
                 if debug:
                     clustering_params["debug_folder"] = sorter_output_folder / "clustering"
 
@@ -316,7 +321,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 method=clustering_method,
                 method_kwargs=clustering_params,
                 extra_outputs=True,
-                verbose=verbose,
                 job_kwargs=job_kwargs,
             )
 
