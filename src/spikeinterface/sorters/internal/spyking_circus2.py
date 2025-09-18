@@ -270,10 +270,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             )
             detect_pipeline_kwargs["skip_after_n_peaks"] = n_peaks
 
-<<<<<<< HEAD
-=======
         # @pierre t'avais un bug ici : detection_params contiet noise level alors que c'est du matched filtering!!
->>>>>>> bfb1687636fd0948b3fd2aaf9411fc3c2776e187
         peaks = detect_peaks(
             recording_w, 
             method=detection_method, 
