@@ -37,7 +37,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "apply_motion_correction": True,
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
-        "clustering": {"method": "iterative-hdbscan", "method_kwargs": dict()},
+        "clustering": {"method": "kilosort-clustering", "method_kwargs": dict()},
         "matching": {"method": "circus-omp", "method_kwargs": dict(), "pipeline_kwargs": dict()},
         "apply_preprocessing": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
@@ -307,7 +307,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
             if clustering_method in ["iterative-hdbscan", "iterative-isosplit", "kilosort-clustering"]:
                 clustering_params.update(seed=seed)
-                clustering_params.update(peak_svd=params["general"])
+                clustering_params.update(peaks_svd=params["general"])
                 if debug:
                     clustering_params["debug_folder"] = sorter_output_folder / "clustering"
 

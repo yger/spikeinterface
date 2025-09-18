@@ -335,6 +335,8 @@ def get_templates_from_peaks_and_svd(
 
     templates_array = np.zeros((len(labels), nbefore + nafter, num_channels), dtype=np.float32)
     final_sparsity_mask = np.zeros((len(labels), num_channels), dtype="bool")
+    
+    from spikeinterface.sortingcomponents.waveforms.waveform_utils import from_temporal_representation
     for unit_ind, label in enumerate(labels):
         mask = valid_labels == label
         local_peaks = valid_peaks[mask]
@@ -343,12 +345,15 @@ def get_templates_from_peaks_and_svd(
         best_channel = peak_channels[np.argmax(b)]
         sub_mask = local_peaks["channel_index"] == best_channel
         final_sparsity_mask[unit_ind, :] = sparsity_mask[best_channel]
-        for count, i in enumerate(np.flatnonzero(sparsity_mask[best_channel])):
-            if operator == "average":
-                data = np.mean(local_svd[sub_mask, :, count], 0)
-            elif operator == "median":
-                data = np.median(local_svd[sub_mask, :, count], 0)
-            templates_array[unit_ind, :, i] = svd_model.inverse_transform(data.reshape(1, -1))
+
+        if operator == "average":
+            data = np.mean(local_svd[sub_mask][:, :, final_sparsity_mask[unit_ind]], 0)
+        elif operator == "median":
+            data = np.median(local_svd[sub_mask][:, :, final_sparsity_mask[unit_ind]], 0)
+        
+        temporal_denoised_waveforms = svd_model.inverse_transform(data.swapaxes(0, 1))
+        denoised_waveforms = from_temporal_representation(temporal_denoised_waveforms, num_channels)
+        templates_array[unit_ind] = denoised_waveforms
 
     dense_templates = Templates(
         templates_array=templates_array,
