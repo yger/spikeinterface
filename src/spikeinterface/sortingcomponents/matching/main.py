@@ -78,14 +78,8 @@ def find_spikes_from_templates(
         return np.zeros(0, dtype=node0.get_dtype())
 
     if method_class.need_noise_levels:
-        from spikeinterface.core.recording_tools import get_noise_levels
         if "noise_levels" not in method_kwargs:
-            random_slices_kwargs = method_kwargs.pop("random_chunk_kwargs", {})
-            if "random_slices_kwargs" in method_kwargs:
-                random_slices_kwargs.update(method_kwargs.pop("random_slices_kwargs"))
-            method_kwargs["noise_levels"] = get_noise_levels(
-                recording, return_in_uV=False, random_slices_kwargs=random_slices_kwargs, **job_kwargs
-            )
+            raise ValueError(f"find_spikes_from_templates() method {method} need noise_levels")
 
 
     node0 = method_class(recording, templates=templates, **method_kwargs)
