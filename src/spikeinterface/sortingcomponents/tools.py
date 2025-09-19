@@ -18,7 +18,7 @@ from spikeinterface.core.sparsity import ChannelSparsity
 from spikeinterface.core.sparsity import compute_sparsity
 from spikeinterface.core.analyzer_extension_core import ComputeTemplates
 from spikeinterface.core.template_tools import get_template_extremum_channel_peak_shift
-
+from spikeinterface.core.recording_tools import get_noise_levels
 
 def make_multi_method_doc(methods, ident="    "):
     doc = ""
@@ -161,6 +161,10 @@ def get_prototype_and_waveforms_from_recording(
     from spikeinterface.core.node_pipeline import ExtractSparseWaveforms
 
     detection_kwargs, job_kwargs = split_job_kwargs(all_kwargs)
+
+    if "noise_levels" not in detection_kwargs:
+        detection_kwargs = detection_kwargs.copy()
+        detection_kwargs["noise_levels"] = get_noise_levels(recording, return_in_uV=False)
 
     node0 = LocallyExclusivePeakDetector(
         recording,
@@ -424,7 +428,7 @@ def remove_empty_templates(templates):
     """
     assert templates.sparsity_mask is not None, "Need sparse Templates object"
     not_empty = templates.sparsity_mask.sum(axis=1) > 0
-    return templates.select(templates.unit_ids[not_empty])
+    return templates.select_units(templates.unit_ids[not_empty])
 
 
 
