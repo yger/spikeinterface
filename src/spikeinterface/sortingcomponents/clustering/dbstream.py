@@ -272,20 +272,19 @@ class DBSTREAM(base.Clusterer):
                 # update shared density
                 for j in neighbor_clusters.keys():
                     if j > i:
-                        try:
+                        if not i in self.s:
+                            self.s[i] = {j: 1}
+                            self.s_t[i] = {j: self._time_stamp}
+                        elif j in self.s[i]:
                             self.s[i][j] = (
                                 self.s[i][j]
                                 * 2 ** (-self.fading_factor * (self._time_stamp - self.s_t[i][j]))
                                 + 1
                             )
                             self.s_t[i][j] = self._time_stamp
-                        except KeyError:
-                            try:
-                                self.s[i][j] = 1
-                                self.s_t[i][j] = self._time_stamp
-                            except KeyError:
-                                self.s[i] = {j: 1}
-                                self.s_t[i] = {j: self._time_stamp}
+                        else:
+                            self.s[i][j] = 1
+                            self.s_t[i][j] = self._time_stamp
 
             # prevent collapsing clusters
             for i in neighbor_clusters.keys():

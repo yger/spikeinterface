@@ -364,33 +364,29 @@ def get_templates_from_peaks_and_svd(
     return dense_templates, final_sparsity_mask
 
 
-from spikeinterface.core.node_pipeline import (
-    ExtractSparseWaveforms,
-    run_node_pipeline
-)
-from spikeinterface.sortingcomponents.waveforms.features_from_peaks import RandomProjectionsFeature
-from spikeinterface.core.job_tools import fix_job_kwargs
-import numpy as np
-
-
 def online_clustering(
     recording, 
     detection_method="locally_exclusive",
     detection_kwargs=dict(), 
-    ms_before=2, 
-    ms_after=2, 
-    radius_um=100, 
-    dbstream_kwargs={"clustering_threshold" : 1,
-                              "fading_factor" : 0.01,
+    ms_before=0.5, 
+    ms_after=1.5, 
+    radius_um=50, 
+    chunk_size=10000,
+    dbstream_kwargs={"clustering_threshold" : 100,
+                              "fading_factor" : 0.001,
                               "cleanup_interval" : 10,
-                              "intersection_factor" : 0.25,
+                              "intersection_factor" : 0.3,
                               "minimum_weight" : 10},
     **job_kwargs
 ) -> np.ndarray | tuple[np.ndarray, dict]:
 
-    job_kwargs = fix_job_kwargs(job_kwargs)
-
+    from spikeinterface.core.job_tools import fix_job_kwargs
+    import numpy as np
     from spikeinterface.sortingcomponents.peak_detection import detect_peak_methods
+    from spikeinterface.core.node_pipeline import ExtractSparseWaveforms, run_node_pipeline
+    from spikeinterface.sortingcomponents.waveforms.features_from_peaks import PeakToPeakFeature
+
+    job_kwargs = fix_job_kwargs(job_kwargs)
     method_class = detect_peak_methods[detection_method]
     node0 = method_class(recording, **detection_kwargs)
     
@@ -403,29 +399,23 @@ def online_clustering(
         radius_um=radius_um,
     )
     
-    num_chans = recording.get_num_channels()
-    projections = np.eye(num_chans)
-
-    node2 = RandomProjectionsFeature(
+    node2 = PeakToPeakFeature(
             recording,
             parents=[node0, node1],
             return_output=True,
-            feature="ptp",
-            projections=projections,
             radius_um=radius_um,
-            noise_threshold=None,
             sparse=True,
     )
 
     pipeline_nodes = [node0, node1, node2]
 
     online_params = {'recording' : recording, 
-                "dbstream" : dbstream_kwargs,
-                "radius_um" : radius_um, 
-                "chunk_size" : 1000}
+                     "dbstream" : dbstream_kwargs,
+                     "radius_um" : radius_um, 
+                     "chunk_size" : chunk_size}
 
     clusterer = run_node_pipeline(
-        recording, pipeline_nodes, job_kwargs={"chunk_size" : 1000}, 
+        recording, pipeline_nodes, job_kwargs={"chunk_size" : chunk_size}, 
         job_name="online clustering", 
         gather_mode = "online_clustering", 
         gather_kwargs=online_params
