@@ -368,9 +368,7 @@ from spikeinterface.core.node_pipeline import (
     ExtractSparseWaveforms,
     run_node_pipeline
 )
-from spikeinterface.sortingcomponents.features_from_peaks import RandomProjectionsFeature
-from spikeinterface.sortingcomponents.peak_detection import DetectPeakLocallyExclusive
-from spikeinterface.sortingcomponents.peak_detection import detect_peaks
+from spikeinterface.sortingcomponents.waveforms.features_from_peaks import RandomProjectionsFeature
 from spikeinterface.core.job_tools import fix_job_kwargs
 import numpy as np
 
