@@ -6,10 +6,9 @@ import math
 from abc import ABCMeta
 import numpy as np
 
-from river import base, utils
+from river import base
 from spikeinterface.core.template import Templates
 from spikeinterface.core import get_channel_distances
-from spikeinterface.core.sparsity import compute_sparsity
 from spikeinterface.sortingcomponents.tools import remove_empty_templates
 
 from spikeinterface.core.node_pipeline import (
@@ -147,6 +146,7 @@ class DBSTREAM(base.Clusterer):
         cleanup_interval: float = 10,
         intersection_factor: float = 0.3,
         minimum_weight: float = 1.0,
+        distance_threshold_um: float = 10.0,
     ):
         super().__init__()
         self._time_stamp = 0
@@ -158,6 +158,7 @@ class DBSTREAM(base.Clusterer):
         self.minimum_weight = minimum_weight
 
         self._n_clusters: int = 0
+        self.distance_threshold_um = distance_threshold_um
         self._clusters: dict[int, DBSTREAMMicroCluster] = {}
         self._centers: dict = {}
         self._waveforms: dict = {}
@@ -188,7 +189,7 @@ class DBSTREAM(base.Clusterer):
         for i in self._micro_clusters.keys():
             y = self.micro_clusters[i].ptps
             position_i = np.dot(y, self.contact_locations[self.micro_clusters[i].waveforms_channels])/y.sum()
-            if not np.linalg.norm(position_i - position_x) > 10:                
+            if np.linalg.norm(position_i - position_x) <= self.distance_threshold_um:                
                 common_channels = self._micro_clusters[i]._common_indices(waveforms_channels)
                 point_a = self._micro_clusters[i].center[common_channels]
                 point_b = full_x[common_channels]
