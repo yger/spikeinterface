@@ -527,7 +527,7 @@ class DBSTREAM(base.Clusterer):
             templates_array,
             sampling_frequency=self.recording.get_sampling_frequency(),
             nbefore=n_before,
-            is_scaled=False,
+            is_in_uV=False,
             sparsity_mask=None,
             channel_ids=self.recording.channel_ids,
             unit_ids=unit_ids,
