@@ -377,7 +377,7 @@ def online_clustering(
                               "cleanup_interval" : 10,
                               "intersection_factor" : 0.3,
                               "minimum_weight" : 10},
-    **job_kwargs
+    job_kwargs=None
 ) -> np.ndarray | tuple[np.ndarray, dict]:
 
     from spikeinterface.core.job_tools import fix_job_kwargs
@@ -387,6 +387,7 @@ def online_clustering(
     from spikeinterface.sortingcomponents.waveforms.features_from_peaks import PeakToPeakFeature
 
     job_kwargs = fix_job_kwargs(job_kwargs)
+    job_kwargs["chunk_size"] = chunk_size
     method_class = detect_peak_methods[detection_method]
     node0 = method_class(recording, **detection_kwargs)
     
@@ -415,7 +416,7 @@ def online_clustering(
                      "chunk_size" : chunk_size}
 
     clusterer = run_node_pipeline(
-        recording, pipeline_nodes, job_kwargs={"chunk_size" : chunk_size}, 
+        recording, pipeline_nodes, job_kwargs=job_kwargs, 
         job_name="online clustering", 
         gather_mode = "online_clustering", 
         gather_kwargs=online_params
