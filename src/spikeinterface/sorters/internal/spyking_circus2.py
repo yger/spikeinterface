@@ -442,6 +442,10 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             clusterer = online_clustering(recording_w, "locally_exclusive", detection_kwargs=detection_kwargs, n_jobs=1)
             sorting = clusterer.get_sorting()
 
+            sorting_folder = sorter_output_folder / "sorting"
+            if sorting_folder.exists():
+                shutil.rmtree(sorting_folder)
+
         folder_to_delete = None
         cache_mode = params["cache_preprocessing"].get("mode", "memory")
         delete_cache = params["cache_preprocessing"].get("delete_cache", True)
