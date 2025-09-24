@@ -147,6 +147,7 @@ class DBSTREAM(base.Clusterer):
         intersection_factor: float = 0.3,
         minimum_weight: float = 1.0,
         distance_threshold_um: float = 10.0,
+        sigma_gaussian: float = 3.0,
     ):
         super().__init__()
         self._time_stamp = 0
@@ -156,6 +157,7 @@ class DBSTREAM(base.Clusterer):
         self.cleanup_interval = cleanup_interval
         self.intersection_factor = intersection_factor
         self.minimum_weight = minimum_weight
+        self.sigma_gaussian = sigma_gaussian
 
         self._n_clusters: int = 0
         self.distance_threshold_um = distance_threshold_um
@@ -208,7 +210,7 @@ class DBSTREAM(base.Clusterer):
 
     def _gaussian_neighborhood(self, point_a, point_b):
         distance = self._distance(point_a, point_b)
-        sigma = self.clustering_threshold / 3
+        sigma = self.clustering_threshold / self.sigma_gaussian
         gaussian_neighborhood = np.exp(-(distance **2) / (2 * (sigma**2)))
         return gaussian_neighborhood
 

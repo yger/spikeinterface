@@ -44,6 +44,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "chunk_preprocessing": {"memory_limit": None},
         "multi_units_only": False,
         "job_kwargs": {},
+        "online": True,
         "seed": 42,
         "deterministic_peaks_detection": False,
         "debug": False,
@@ -120,6 +121,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         deterministic = params["deterministic_peaks_detection"]
         debug = params["debug"]
         seed = params["seed"]
+        online = params["online"]
         apply_preprocessing = params["apply_preprocessing"]
         apply_motion_correction = params["apply_motion_correction"]
         exclude_sweep_ms = params["detection"].get("exclude_sweep_ms", max(ms_before, ms_after))
@@ -139,7 +141,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             recording_f.annotate(is_filtered=True)
 
         valid_geometry = check_probe_for_drift_correction(recording_f)
-        if apply_motion_correction:
+        if apply_motion_correction and not online:
             if not valid_geometry:
                 if verbose:
                     print("Geometry of the probe does not allow 1D drift correction")
@@ -189,245 +191,256 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
         recording_w = cache_preprocessing(recording_w, **job_kwargs, **params["cache_preprocessing"])
 
-        ## Then, we are detecting peaks with a locally_exclusive method
-        detection_method = params["detection"].get("method", "matched_filtering")
-        detection_params = params["detection"].get("method_kwargs", dict()).copy()
-        detection_params["radius_um"] = radius_um / 2
-        detection_params["exclude_sweep_ms"] = exclude_sweep_ms
-        detect_pipeline_kwargs = params["detection"].get("pipeline_kwargs", dict()).copy()
+        if not online:
 
-        matching_method = params["matching"].get("method", "circus-omp")
-        matching_params = params["matching"].get("matching_kwargs", dict()).copy()
-        matching_pipelines_kwargs= params["matching"].get("pipeline_kwargs", dict())
+            ## Then, we are detecting peaks with a locally_exclusive method
+            detection_method = params["detection"].get("method", "matched_filtering")
+            detection_params = params["detection"].get("method_kwargs", dict()).copy()
+            detection_params["radius_um"] = radius_um / 2
+            detection_params["exclude_sweep_ms"] = exclude_sweep_ms
+            detect_pipeline_kwargs = params["detection"].get("pipeline_kwargs", dict()).copy()
 
-        clustering_method = params["clustering"].get("method", "iterative-hdbscan")
-        clustering_params = params["clustering"].get("method_kwargs", dict()).copy()
+            matching_method = params["matching"].get("method", "circus-omp")
+            matching_params = params["matching"].get("matching_kwargs", dict()).copy()
+            matching_pipelines_kwargs= params["matching"].get("pipeline_kwargs", dict())
 
-        selection_method = params["selection"].get("method", "uniform")
-        selection_params = params["selection"].get("method_kwargs", dict()).copy()
+            clustering_method = params["clustering"].get("method", "iterative-hdbscan")
+            clustering_params = params["clustering"].get("method_kwargs", dict()).copy()
 
-        n_peaks_per_channel = selection_params.get("n_peaks_per_channel", 5000)
-        min_n_peaks = selection_params.get("min_n_peaks", 100000)
-        skip_peaks = not params["multi_units_only"] and selection_method == "uniform"
-        skip_peaks = skip_peaks and not deterministic and not (matching_method is None)
-        max_n_peaks = n_peaks_per_channel * num_channels
-        n_peaks = max(min_n_peaks, max_n_peaks)
-        selection_params["n_peaks"] = n_peaks
+            selection_method = params["selection"].get("method", "uniform")
+            selection_params = params["selection"].get("method_kwargs", dict()).copy()
 
-        if debug:
-            clustering_folder = sorter_output_folder / "clustering"
-            clustering_folder.mkdir(parents=True, exist_ok=True)
-            np.save(clustering_folder / "noise_levels.npy", noise_levels)
+            n_peaks_per_channel = selection_params.get("n_peaks_per_channel", 5000)
+            min_n_peaks = selection_params.get("min_n_peaks", 100000)
+            skip_peaks = not params["multi_units_only"] and selection_method == "uniform"
+            skip_peaks = skip_peaks and not deterministic and not (matching_method is None)
+            max_n_peaks = n_peaks_per_channel * num_channels
+            n_peaks = max(min_n_peaks, max_n_peaks)
+            selection_params["n_peaks"] = n_peaks
 
-        # detection_params["random_chunk_kwargs"] = {"num_chunks_per_segment": 5, "seed": params["seed"]}
-
-        if detection_method == "matched_filtering":
-            if not deterministic:
-                from spikeinterface.sortingcomponents.tools import (
-                    get_prototype_and_waveforms_from_recording,
-                )
-                detection_params2 = detection_params.copy()
-                prototype, waveforms, _ = get_prototype_and_waveforms_from_recording(
-                    recording_w,
-                    n_peaks=10000,
-                    ms_before=ms_before,
-                    ms_after=ms_after,
-                    seed=seed,
-                    noise_levels=noise_levels,
-                    **detection_params2,
-                    **job_kwargs,
-                )
-            else:
-                from spikeinterface.sortingcomponents.tools import (
-                    get_prototype_and_waveforms_from_peaks,
-                )
-                detection_params2 = detection_params.copy()
-                detection_params2["noise_levels"] = noise_levels
-                peaks = detect_peaks(
-                    recording_w, 
-                    method="locally_exclusive", 
-                    method_kwargs=detection_params2,
-                    job_kwargs=job_kwargs
-                )
-                prototype, waveforms, _ = get_prototype_and_waveforms_from_peaks(
-                    recording_w,
-                    peaks,
-                    n_peaks=10000,
-                    ms_before=ms_before,
-                    ms_after=ms_after,
-                    seed=seed,
-                    **job_kwargs,
-                )
-            detection_params["prototype"] = prototype
-            detection_params["ms_before"] = ms_before
             if debug:
-                np.save(clustering_folder / "waveforms.npy", waveforms)
-                np.save(clustering_folder / "prototype.npy", prototype)
-        
-        if skip_peaks:
-            detect_pipeline_kwargs["recording_slices"] = get_shuffled_recording_slices(
-                recording_w, 
-                seed=params["seed"], 
-                **job_kwargs
-            )
-            detect_pipeline_kwargs["skip_after_n_peaks"] = n_peaks
+                clustering_folder = sorter_output_folder / "clustering"
+                clustering_folder.mkdir(parents=True, exist_ok=True)
+                np.save(clustering_folder / "noise_levels.npy", noise_levels)
 
-        peaks = detect_peaks(
-            recording_w, 
-            method=detection_method, 
-            method_kwargs=detection_params,
-            pipeline_kwargs=detect_pipeline_kwargs, 
-            verbose=verbose,
-            job_kwargs=job_kwargs
-        )
-        order = np.lexsort((peaks["sample_index"], peaks["segment_index"]))
-        peaks = peaks[order]
+            # detection_params["random_chunk_kwargs"] = {"num_chunks_per_segment": 5, "seed": params["seed"]}
 
-        if debug:
-            np.save(clustering_folder / "peaks.npy", peaks)
-
-        if not skip_peaks and verbose:
-            print("Found %d peaks in total" % len(peaks))
-
-        sorting_folder = sorter_output_folder / "sorting"
-        if sorting_folder.exists():
-            shutil.rmtree(sorting_folder)
-
-        if params["multi_units_only"]:
-            sorting = NumpySorting.from_peaks(peaks, sampling_frequency, unit_ids=recording_w.channel_ids)
-        else:
-            ## We subselect a subset of all the peaks, by making the distributions os SNRs over all
-            ## channels as flat as possible
-            selected_peaks = select_peaks(peaks, 
-                                          seed=seed, 
-                                          method=selection_method, 
-                                          **selection_params)
-
-            if verbose:
-                print("Kept %d peaks for clustering" % len(selected_peaks))
-
-            if clustering_method in ["iterative-hdbscan", "iterative-isosplit", "kilosort-clustering", "graph-clustering"]:
-                clustering_params.update(verbose= verbose)
-                clustering_params.update(seed=seed)
-                clustering_params.update(peak_svd=params["general"])
+            if detection_method == "matched_filtering":
+                if not deterministic:
+                    from spikeinterface.sortingcomponents.tools import (
+                        get_prototype_and_waveforms_from_recording,
+                    )
+                    detection_params2 = detection_params.copy()
+                    prototype, waveforms, _ = get_prototype_and_waveforms_from_recording(
+                        recording_w,
+                        n_peaks=10000,
+                        ms_before=ms_before,
+                        ms_after=ms_after,
+                        seed=seed,
+                        noise_levels=noise_levels,
+                        **detection_params2,
+                        **job_kwargs,
+                    )
+                else:
+                    from spikeinterface.sortingcomponents.tools import (
+                        get_prototype_and_waveforms_from_peaks,
+                    )
+                    detection_params2 = detection_params.copy()
+                    detection_params2["noise_levels"] = noise_levels
+                    peaks = detect_peaks(
+                        recording_w, 
+                        method="locally_exclusive", 
+                        method_kwargs=detection_params2,
+                        job_kwargs=job_kwargs
+                    )
+                    prototype, waveforms, _ = get_prototype_and_waveforms_from_peaks(
+                        recording_w,
+                        peaks,
+                        n_peaks=10000,
+                        ms_before=ms_before,
+                        ms_after=ms_after,
+                        seed=seed,
+                        **job_kwargs,
+                    )
+                detection_params["prototype"] = prototype
+                detection_params["ms_before"] = ms_before
                 if debug:
-                    clustering_params["debug_folder"] = sorter_output_folder / "clustering"
-
-            _, peak_labels, more_outs = find_clusters_from_peaks(
-                recording_w,
-                selected_peaks,
-                method=clustering_method,
-                method_kwargs=clustering_params,
-                extra_outputs=True,
-                job_kwargs=job_kwargs,
-            )
-
-            clustering_from_svd = True
-            for key in ["svd_model", "peaks_svd", "peak_svd_sparse_mask"]:
-                if key not in more_outs:
-                    clustering_from_svd = False
-
-            if not clustering_from_svd:
-                from spikeinterface.sortingcomponents.clustering.tools import get_templates_from_peaks_and_recording
-
-                templates = get_templates_from_peaks_and_recording(
-                    recording_w,
-                    selected_peaks,
-                    peak_labels,
-                    ms_before,
-                    ms_after,
-                    **job_kwargs,
-                )
-            else:
-                from spikeinterface.sortingcomponents.clustering.tools import get_templates_from_peaks_and_svd
-                templates, _ = get_templates_from_peaks_and_svd(
-                    recording_w,
-                    selected_peaks,
-                    peak_labels,
-                    ms_before,
-                    ms_after,
-                    more_outs["svd_model"],
-                    more_outs["peaks_svd"],
-                    more_outs["peak_svd_sparse_mask"],
-                    operator="median",
-                )
-                # this release the peak_svd memmap file
+                    np.save(clustering_folder / "waveforms.npy", waveforms)
+                    np.save(clustering_folder / "prototype.npy", prototype)
             
-            del more_outs
+            if skip_peaks:
+                detect_pipeline_kwargs["recording_slices"] = get_shuffled_recording_slices(
+                    recording_w, 
+                    seed=params["seed"], 
+                    **job_kwargs
+                )
+                detect_pipeline_kwargs["skip_after_n_peaks"] = n_peaks
 
-            templates = clean_templates(
-                templates,
-                noise_levels=noise_levels,
-                min_snr=detect_threshold,
-                max_jitter_ms=0.1,
-                remove_empty=True,
-            )
-
-            if verbose:
-                print("Kept %d clean clusters" % len(templates.unit_ids))
-
-            if debug:
-                templates.to_zarr(folder_path=clustering_folder / "templates")
-
-            ## We launch a OMP matching pursuit by full convolution of the templates and the raw traces
-        
-            spikes = find_spikes_from_templates(
-                recording_w,
-                templates,
-                matching_method,
-                method_kwargs=matching_params,
-                pipeline_kwargs=matching_pipelines_kwargs,
+            peaks = detect_peaks(
+                recording_w, 
+                method=detection_method, 
+                method_kwargs=detection_params,
+                pipeline_kwargs=detect_pipeline_kwargs, 
                 verbose=verbose,
-                job_kwargs=job_kwargs,
+                job_kwargs=job_kwargs
             )
+            order = np.lexsort((peaks["sample_index"], peaks["segment_index"]))
+            peaks = peaks[order]
 
             if debug:
-                fitting_folder = sorter_output_folder / "fitting"
-                fitting_folder.mkdir(parents=True, exist_ok=True)
-                np.save(fitting_folder / "spikes", spikes)
+                np.save(clustering_folder / "peaks.npy", peaks)
 
-            if verbose:
-                print("Found %d spikes" % len(spikes))
+            if not skip_peaks and verbose:
+                print("Found %d peaks in total" % len(peaks))
 
-            ## And this is it! We have a spyking circus
-            sorting = np.zeros(spikes.size, dtype=minimum_spike_dtype)
-            sorting["sample_index"] = spikes["sample_index"]
-            sorting["unit_index"] = spikes["cluster_index"]
-            sorting["segment_index"] = spikes["segment_index"]
-            sorting = NumpySorting(sorting, sampling_frequency, templates.unit_ids)
+            sorting_folder = sorter_output_folder / "sorting"
+            if sorting_folder.exists():
+                shutil.rmtree(sorting_folder)
 
-            merging_params = params["merging"].copy()
-            merging_params["debug_folder"] = sorter_output_folder / "merging"
-
-            if len(merging_params) > 0:
-                if params["motion_correction"] and motion_folder is not None:
-                    from spikeinterface.preprocessing.motion import load_motion_info
-
-                    motion_info = load_motion_info(motion_folder)
-                    motion = motion_info["motion"]
-                    max_motion = max(
-                        np.max(np.abs(motion.displacement[seg_index])) for seg_index in range(len(motion.displacement))
-                    )
-                    max_distance_um = merging_params.get("max_distance_um", 50)
-                    merging_params["max_distance_um"] = max(max_distance_um, 2 * max_motion)
-
-                if debug:
-                    curation_folder = sorter_output_folder / "curation"
-                    if curation_folder.exists():
-                        shutil.rmtree(curation_folder)
-                    sorting.save(folder=curation_folder)
-                    # np.save(fitting_folder / "amplitudes", guessed_amplitudes)
-
-                if sorting.get_non_empty_unit_ids().size > 0:
-                    final_analyzer = final_cleaning_circus(
-                        recording_w, sorting, templates, **merging_params, **job_kwargs
-                    )
-                    final_analyzer.save_as(format="binary_folder", folder=sorter_output_folder / "final_analyzer")
-
-                    sorting = final_analyzer.sorting
+            if params["multi_units_only"]:
+                sorting = NumpySorting.from_peaks(peaks, sampling_frequency, unit_ids=recording_w.channel_ids)
+            else:
+                ## We subselect a subset of all the peaks, by making the distributions os SNRs over all
+                ## channels as flat as possible
+                selected_peaks = select_peaks(peaks, 
+                                            seed=seed, 
+                                            method=selection_method, 
+                                            **selection_params)
 
                 if verbose:
-                    print(f"Kept {len(sorting.unit_ids)} units after final merging")
+                    print("Kept %d peaks for clustering" % len(selected_peaks))
+
+                if clustering_method in ["iterative-hdbscan", "iterative-isosplit", "kilosort-clustering", "graph-clustering"]:
+                    clustering_params.update(verbose= verbose)
+                    clustering_params.update(seed=seed)
+                    clustering_params.update(peak_svd=params["general"])
+                    if debug:
+                        clustering_params["debug_folder"] = sorter_output_folder / "clustering"
+
+                _, peak_labels, more_outs = find_clusters_from_peaks(
+                    recording_w,
+                    selected_peaks,
+                    method=clustering_method,
+                    method_kwargs=clustering_params,
+                    extra_outputs=True,
+                    job_kwargs=job_kwargs,
+                )
+
+                clustering_from_svd = True
+                for key in ["svd_model", "peaks_svd", "peak_svd_sparse_mask"]:
+                    if key not in more_outs:
+                        clustering_from_svd = False
+
+                if not clustering_from_svd:
+                    from spikeinterface.sortingcomponents.clustering.tools import get_templates_from_peaks_and_recording
+
+                    templates = get_templates_from_peaks_and_recording(
+                        recording_w,
+                        selected_peaks,
+                        peak_labels,
+                        ms_before,
+                        ms_after,
+                        **job_kwargs,
+                    )
+                else:
+                    from spikeinterface.sortingcomponents.clustering.tools import get_templates_from_peaks_and_svd
+                    templates, _ = get_templates_from_peaks_and_svd(
+                        recording_w,
+                        selected_peaks,
+                        peak_labels,
+                        ms_before,
+                        ms_after,
+                        more_outs["svd_model"],
+                        more_outs["peaks_svd"],
+                        more_outs["peak_svd_sparse_mask"],
+                        operator="median",
+                    )
+                    # this release the peak_svd memmap file
+                
+                del more_outs
+
+                templates = clean_templates(
+                    templates,
+                    noise_levels=noise_levels,
+                    min_snr=detect_threshold,
+                    max_jitter_ms=0.1,
+                    remove_empty=True,
+                )
+
+                if verbose:
+                    print("Kept %d clean clusters" % len(templates.unit_ids))
+
+                if debug:
+                    templates.to_zarr(folder_path=clustering_folder / "templates")
+
+                ## We launch a OMP matching pursuit by full convolution of the templates and the raw traces
+            
+                spikes = find_spikes_from_templates(
+                    recording_w,
+                    templates,
+                    matching_method,
+                    method_kwargs=matching_params,
+                    pipeline_kwargs=matching_pipelines_kwargs,
+                    verbose=verbose,
+                    job_kwargs=job_kwargs,
+                )
+
+                if debug:
+                    fitting_folder = sorter_output_folder / "fitting"
+                    fitting_folder.mkdir(parents=True, exist_ok=True)
+                    np.save(fitting_folder / "spikes", spikes)
+
+                if verbose:
+                    print("Found %d spikes" % len(spikes))
+
+                ## And this is it! We have a spyking circus
+                sorting = np.zeros(spikes.size, dtype=minimum_spike_dtype)
+                sorting["sample_index"] = spikes["sample_index"]
+                sorting["unit_index"] = spikes["cluster_index"]
+                sorting["segment_index"] = spikes["segment_index"]
+                sorting = NumpySorting(sorting, sampling_frequency, templates.unit_ids)
+
+                merging_params = params["merging"].copy()
+                merging_params["debug_folder"] = sorter_output_folder / "merging"
+
+                if len(merging_params) > 0:
+                    if params["motion_correction"] and motion_folder is not None:
+                        from spikeinterface.preprocessing.motion import load_motion_info
+
+                        motion_info = load_motion_info(motion_folder)
+                        motion = motion_info["motion"]
+                        max_motion = max(
+                            np.max(np.abs(motion.displacement[seg_index])) for seg_index in range(len(motion.displacement))
+                        )
+                        max_distance_um = merging_params.get("max_distance_um", 50)
+                        merging_params["max_distance_um"] = max(max_distance_um, 2 * max_motion)
+
+                    if debug:
+                        curation_folder = sorter_output_folder / "curation"
+                        if curation_folder.exists():
+                            shutil.rmtree(curation_folder)
+                        sorting.save(folder=curation_folder)
+                        # np.save(fitting_folder / "amplitudes", guessed_amplitudes)
+
+                    if sorting.get_non_empty_unit_ids().size > 0:
+                        final_analyzer = final_cleaning_circus(
+                            recording_w, sorting, templates, **merging_params, **job_kwargs
+                        )
+                        final_analyzer.save_as(format="binary_folder", folder=sorter_output_folder / "final_analyzer")
+
+                        sorting = final_analyzer.sorting
+
+                    if verbose:
+                        print(f"Kept {len(sorting.unit_ids)} units after final merging")
+        else:
+            if verbose:
+                print("Online clustering activated")
+            from spikeinterface.sortingcomponents.clustering.tools import online_clustering
+
+            detection_kwargs = params["detection"].get("method_kwargs", dict()).copy()
+            detection_kwargs["noise_levels"] = noise_levels
+            clusterer = online_clustering(recording_w, "locally_exclusive", detection_kwargs=detection_kwargs, n_jobs=1)
+            sorting = clusterer.get_sorting()
 
         folder_to_delete = None
         cache_mode = params["cache_preprocessing"].get("mode", "memory")
