@@ -188,10 +188,6 @@ def _get_default_motion_params():
         params["detect_kwargs"][method_name] = {
             k: v.default for k, v in sig.parameters.items() if k != "self" and v.default != inspect.Parameter.empty
         }
-<<<<<<< HEAD
-
-=======
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
     # no design by subclass
     params["select_kwargs"] = dict()
@@ -389,11 +385,8 @@ def compute_motion(
         if method_class.need_noise_levels:
             detect_kwargs_without_method["noise_levels"] = noise_levels
 
-<<<<<<< HEAD
             
 
-=======
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         node0 = method_class(recording, **detect_kwargs_without_method)
 
         node1 = ExtractDenseWaveforms(recording, parents=[node0], ms_before=0.1, ms_after=0.3)
@@ -549,11 +542,6 @@ def correct_motion(
     detect_kwargs, select_kwargs, localize_peaks_kwargs, estimate_motion_kwargs = _update_motion_kwargs(
         preset, detect_kwargs, select_kwargs, localize_peaks_kwargs, estimate_motion_kwargs
     )
-<<<<<<< HEAD
-    
-=======
-
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     interpolate_motion_kwargs = _update_interpolation_kwargs(preset, interpolate_motion_kwargs)
     
     motion, motion_info = compute_motion(

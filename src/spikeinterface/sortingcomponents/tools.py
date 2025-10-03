@@ -19,10 +19,6 @@ from spikeinterface.core.sparsity import compute_sparsity
 from spikeinterface.core.analyzer_extension_core import ComputeTemplates
 from spikeinterface.core.template_tools import get_template_extremum_channel_peak_shift
 from spikeinterface.core.recording_tools import get_noise_levels
-<<<<<<< HEAD
-=======
-
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
 def make_multi_method_doc(methods, ident="    "):
     doc = ""
@@ -179,25 +175,9 @@ def get_prototype_and_waveforms_from_recording(
 
     node0 = LocallyExclusivePeakDetector(recording, return_output=True, **detection_kwargs)
 
-<<<<<<< HEAD
-    if "noise_levels" not in detection_kwargs:
-        detection_kwargs = detection_kwargs.copy()
-        detection_kwargs["noise_levels"] = get_noise_levels(recording, return_in_uV=False)
-
-    node0 = LocallyExclusivePeakDetector(
-        recording,
-        return_output=True,
-        **detection_kwargs
-    )
-
     nbefore = int(ms_before * recording.sampling_frequency / 1000.0)
     node1 = ExtractSparseWaveforms(
         recording,
-=======
-    nbefore = int(ms_before * recording.sampling_frequency / 1000.0)
-    node1 = ExtractSparseWaveforms(
-        recording,
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         parents=[node0],
         return_output=True,
         ms_before=ms_before,
@@ -207,11 +187,7 @@ def get_prototype_and_waveforms_from_recording(
 
     nodes = [node0, node1]
 
-<<<<<<< HEAD
-    recording_slices = get_shuffled_recording_slices(recording, seed=seed, **job_kwargs)
-=======
     recording_slices = get_shuffled_recording_slices(recording, job_kwargs=job_kwargs, seed=seed)
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     # res = detect_peaks(
     #     recording,
     #     pipeline_nodes=pipeline_nodes,
@@ -458,10 +434,6 @@ def remove_empty_templates(templates):
     assert templates.sparsity_mask is not None, "Need sparse Templates object"
     not_empty = templates.sparsity_mask.sum(axis=1) > 0
     return templates.select_units(templates.unit_ids[not_empty])
-<<<<<<< HEAD
-
-=======
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
 
 def create_sorting_analyzer_with_existing_templates(sorting, recording, templates, remove_empty=True):
