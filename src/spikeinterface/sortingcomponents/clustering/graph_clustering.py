@@ -19,11 +19,15 @@ class GraphClustering:
     name = "graph-clustering"
     need_noise_levels = False
     _default_params = {
+<<<<<<< HEAD
         "peaks_svd": {"n_components": 5,
                       "ms_before": 0.5,
                       "ms_after": 1.5,
                       "radius_um": 100.0,
                       "motion": None},
+=======
+        "peaks_svd": {"n_components": 5, "ms_before": 0.5, "ms_after": 1.5, "radius_um": 100.0, "motion": None},
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         "seed": None,
         "graph_kwargs": dict(
             bin_mode="channels",
@@ -43,6 +47,7 @@ class GraphClustering:
         ),
         "clusterer": dict(
             method="sknetwork-louvain",
+<<<<<<< HEAD
             #min_samples=1,
             #core_dist_n_jobs=-1,
             #min_cluster_size=20,
@@ -56,6 +61,21 @@ class GraphClustering:
 
     params_doc="""
         peaks_svd : params for peak SVD features extraction. 
+=======
+            # min_samples=1,
+            # core_dist_n_jobs=-1,
+            # min_cluster_size=20,
+            # cluster_selection_method='leaf',
+            # allow_single_cluster=True,
+            # cluster_selection_epsilon=0.1
+        ),
+        "debug_folder": None,
+        "verbose": True,
+    }
+
+    params_doc = """
+        peaks_svd : params for peak SVD features extraction.
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         See spikeinterface.sortingcomponents.waveforms.peak_svd.extract_peaks_svd
                         for more details.,
         seed : Random seed for reproducibility.,
@@ -94,17 +114,32 @@ class GraphClustering:
         peaks_svd, sparse_mask, svd_model = extract_peaks_svd(
             recording,
             peaks,
+<<<<<<< HEAD
             **peaks_svd,
             **job_kwargs,
+=======
+            job_kwargs=job_kwargs,
+            **peaks_svd,
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         )
 
         # some method need a symetric matrix
         clustering_method = clustering_kwargs.pop("method")
+<<<<<<< HEAD
         assert clustering_method in ["networkx-louvain",
                                      "sknetwork-louvain",
                                      "sknetwork-leiden",
                                      "leidenalg",
                                      "hdbscan"]
+=======
+        assert clustering_method in [
+            "networkx-louvain",
+            "sknetwork-louvain",
+            "sknetwork-leiden",
+            "leidenalg",
+            "hdbscan",
+        ]
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
         ensure_symetric = clustering_method in ("hdbscan",)
 
@@ -169,6 +204,10 @@ class GraphClustering:
         elif clustering_method == "hdbscan":
             from hdbscan import HDBSCAN
             import scipy.sparse
+<<<<<<< HEAD
+=======
+
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
             n_graph, connected_labels = scipy.sparse.csgraph.connected_components(distances, directed=False)
             peak_labels = np.zeros(peaks.size, dtype="int64")
             peak_labels[:] = -1

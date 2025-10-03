@@ -19,7 +19,11 @@ def find_spikes_from_templates(
     pipeline_kwargs=None,
     verbose=False,
     job_kwargs=None,
+<<<<<<< HEAD
     **old_kwargs
+=======
+    **old_kwargs,
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 ) -> np.ndarray | tuple[np.ndarray, dict]:
     """Find spike from a recording from given templates.
 
@@ -37,7 +41,11 @@ def find_spikes_from_templates(
         If True then a dict is also returned is also returned
     pipeline_kwargs : dict
         Dict transmited to run_node_pipelines to handle fine details
+<<<<<<< HEAD
         like : gather_mode/folder/skip_after_n_peaks/recording_slices   
+=======
+        like : gather_mode/folder/skip_after_n_peaks/recording_slices
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     verbose : Bool, default: False
         If True, output is verbose
     job_kwargs : dict
@@ -71,7 +79,11 @@ def find_spikes_from_templates(
 
     method_class = matching_methods[method]
 
+<<<<<<< HEAD
     #if method_class.full_convolution:
+=======
+    # if method_class.full_convolution:
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     #   Maybe we need to automatically adjust the temporal chunks given templates and n_processes
 
     if len(templates.unit_ids) == 0:
@@ -81,7 +93,10 @@ def find_spikes_from_templates(
         if "noise_levels" not in method_kwargs:
             raise ValueError(f"find_spikes_from_templates() method {method} need noise_levels")
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     node0 = method_class(recording, templates=templates, **method_kwargs)
     nodes = [node0]
 
@@ -98,7 +113,11 @@ def find_spikes_from_templates(
         squeeze_output=True,
         names=names,
         verbose=verbose,
+<<<<<<< HEAD
         **pipeline_kwargs
+=======
+        **pipeline_kwargs,
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     )
 
     if extra_outputs:
@@ -113,4 +132,8 @@ def find_spikes_from_templates(
 
 
 method_doc = make_multi_method_doc(list(matching_methods.values()))
+<<<<<<< HEAD
 find_spikes_from_templates.__doc__ = find_spikes_from_templates.__doc__.format(method_doc=method_doc)
+=======
+find_spikes_from_templates.__doc__ = find_spikes_from_templates.__doc__.format(method_doc=method_doc)
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c

@@ -64,6 +64,14 @@ def peak_locations_fixture(recording, peaks, job_kwargs):
 
 
 clustering_method_keys = list(clustering_methods.keys())
+<<<<<<< HEAD
+=======
+
+# remove graph-clustering if sknetwork is not installed
+HAVE_SKNETWORK = importlib.util.find_spec("sknetwork") is not None
+if not HAVE_SKNETWORK:
+    clustering_method_keys.remove("graph-clustering")
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
 
 @pytest.mark.parametrize("clustering_method", clustering_method_keys)
@@ -80,14 +88,14 @@ def test_find_clusters_from_peaks(clustering_method, recording, peaks, peak_loca
 
 # TODO move to waveforms tests
 def test_extract_peaks_svd(recording, peaks, job_kwargs):
-    peaks_svd, sparse_mask, svd_model = extract_peaks_svd(recording, peaks, n_components=5, **job_kwargs)
+    peaks_svd, sparse_mask, svd_model = extract_peaks_svd(recording, peaks, n_components=5, job_kwargs=job_kwargs)
     assert peaks_svd.shape[0] == peaks.shape[0]
     assert peaks_svd.shape[1] == 5
     assert peaks_svd.shape[2] == np.max(np.sum(sparse_mask, axis=1))
 
 
 def test_create_graph_from_peak_features(recording, peaks, job_kwargs):
-    peaks_svd, sparse_mask, svd_model = extract_peaks_svd(recording, peaks, n_components=5, **job_kwargs)
+    peaks_svd, sparse_mask, svd_model = extract_peaks_svd(recording, peaks, n_components=5, job_kwargs=job_kwargs)
 
     distances = create_graph_from_peak_features(
         recording,
@@ -100,7 +108,7 @@ def test_create_graph_from_peak_features(recording, peaks, job_kwargs):
 
 def test_templates_from_svd(recording, peaks, job_kwargs):
     peaks_svd, sparse_mask, svd_model = extract_peaks_svd(
-        recording, peaks, n_components=1, ms_before=1, ms_after=1, **job_kwargs
+        recording, peaks, n_components=1, ms_before=1, ms_after=1, job_kwargs=job_kwargs
     )
     templates = get_templates_from_peaks_and_svd(
         recording,
@@ -123,7 +131,11 @@ if __name__ == "__main__":
     peak_locations = run_peak_locations(recording, peaks, job_kwargs)
     # method = "position_and_pca"
     # method = "iterative-isosplit"
+<<<<<<< HEAD
     #method = "iterative-hdbscan"
+=======
+    # method = "iterative-hdbscan"
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     # method = "random_projections"
     method = "graph-clustering"
 

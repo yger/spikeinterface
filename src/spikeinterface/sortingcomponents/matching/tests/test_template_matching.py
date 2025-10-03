@@ -45,6 +45,10 @@ def test_find_spikes_from_templates(method, sorting_analyzer):
 
     if method == "kilosort-matching":
         from spikeinterface.sortingcomponents.tools import get_prototype_and_waveforms
+<<<<<<< HEAD
+=======
+
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         prototype, wfs, _ = get_prototype_and_waveforms(recording, ms_before=1, ms_after=2)
 
         n_components = 5
@@ -54,6 +58,11 @@ def test_find_spikes_from_templates(method, sorting_analyzer):
         temporal_components = model.cluster_centers_
         temporal_components = temporal_components / np.linalg.norm(temporal_components, axis=1)[:, None]
         temporal_components = temporal_components.astype(np.float32)
+<<<<<<< HEAD
+=======
+
+        from sklearn.decomposition import TruncatedSVD
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
         from sklearn.decomposition import TruncatedSVD
         model = TruncatedSVD(n_components=n_components).fit(wfs)
@@ -61,15 +70,26 @@ def test_find_spikes_from_templates(method, sorting_analyzer):
         method_kwargs["spatial_components"] = spatial_components
         method_kwargs["temporal_components"] = temporal_components
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     if matching_methods[method].need_noise_levels:
         method_kwargs["noise_levels"] = get_noise_levels(recording, return_in_uV=False)
 
     if method == "nearest-svd":
         from spikeinterface.sortingcomponents.tools import get_prototype_and_waveforms
+<<<<<<< HEAD
         _, wfs, _ = get_prototype_and_waveforms(recording, ms_before=1, ms_after=2)
         n_components = 5
         from sklearn.decomposition import TruncatedSVD
+=======
+
+        _, wfs, _ = get_prototype_and_waveforms(recording, ms_before=1, ms_after=2)
+        n_components = 5
+        from sklearn.decomposition import TruncatedSVD
+
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         svd_model = TruncatedSVD(n_components=n_components)
         svd_model.fit(wfs)
         method_kwargs["svd_model"] = svd_model
@@ -81,7 +101,11 @@ def test_find_spikes_from_templates(method, sorting_analyzer):
     # }
 
     spikes, info = find_spikes_from_templates(
+<<<<<<< HEAD
         recording, templates, method=method, method_kwargs=method_kwargs, extra_outputs=True, **job_kwargs
+=======
+        recording, templates, method=method, method_kwargs=method_kwargs, extra_outputs=True, job_kwargs=job_kwargs
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     )
 
     # print(info)

@@ -7,7 +7,11 @@ from .wobble import WobbleMatch
 
 matching_methods = {
     "nearest": NearestTemplatesPeeler,
+<<<<<<< HEAD
     "nearest-svd" : NearestTemplatesSVDPeeler,
+=======
+    "nearest-svd": NearestTemplatesSVDPeeler,
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     "tdc-peeler": TridesclousPeeler,
     "circus-omp": CircusOMPPeeler,
     "wobble": WobbleMatch,

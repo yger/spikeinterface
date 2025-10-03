@@ -56,7 +56,10 @@ class LocallyExclusivePeakDetector(PeakDetector):
         radius_um=50,
         noise_levels=None,
         return_output=True,
+<<<<<<< HEAD
         parallel_kernel=False,
+=======
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     ):
         if not HAVE_NUMBA:
             raise ModuleNotFoundError('"locally_exclusive" needs numba which is not installed')
@@ -72,7 +75,10 @@ class LocallyExclusivePeakDetector(PeakDetector):
         self.radius_um = radius_um
         self.detect_threshold = detect_threshold
         self.peak_sign = peak_sign
+<<<<<<< HEAD
         self.parallel_kernel = parallel_kernel
+=======
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         # if remove_median:
 
         #     chunks = get_random_data_chunks(recording, return_in_uV=False, concatenated=True, **random_chunk_kwargs)
@@ -91,6 +97,7 @@ class LocallyExclusivePeakDetector(PeakDetector):
     def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
         assert HAVE_NUMBA, "You need to install numba"
 
+<<<<<<< HEAD
         if self.parallel_kernel:
             peak_sample_ind, peak_chan_ind = detect_peaks_numba_locally_exclusive_on_chunk_parallel(
                 traces, self.peak_sign, self.abs_thresholds, self.exclude_sweep_size, self.neighbours_mask,
@@ -99,6 +106,11 @@ class LocallyExclusivePeakDetector(PeakDetector):
             peak_sample_ind, peak_chan_ind = detect_peaks_numba_locally_exclusive_on_chunk(
                 traces, self.peak_sign, self.abs_thresholds, self.exclude_sweep_size, self.neighbours_mask,
             )
+=======
+        peak_sample_ind, peak_chan_ind = detect_peaks_numba_locally_exclusive_on_chunk(
+            traces, self.peak_sign, self.abs_thresholds, self.exclude_sweep_size, self.neighbours_mask
+        )
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
         peak_amplitude = traces[peak_sample_ind, peak_chan_ind]
 
@@ -115,7 +127,11 @@ if HAVE_NUMBA:
     import numba
 
     def detect_peaks_numba_locally_exclusive_on_chunk(
+<<<<<<< HEAD
         traces, peak_sign, abs_thresholds, exclude_sweep_size, neighbours_mask,
+=======
+        traces, peak_sign, abs_thresholds, exclude_sweep_size, neighbours_mask
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     ):
 
         # if medians is not None:
@@ -197,6 +213,7 @@ if HAVE_NUMBA:
                         break
         return peak_mask
 
+<<<<<<< HEAD
     def detect_peaks_numba_locally_exclusive_on_chunk_parallel(
         traces, peak_sign, abs_thresholds, exclude_sweep_size, neighbours_mask,
     ):
@@ -280,6 +297,8 @@ if HAVE_NUMBA:
                         break
         return peak_mask
 
+=======
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
 class LocallyExclusiveTorchPeakDetector(ByChannelTorchPeakDetector):
     """Detect peaks using the "locally exclusive" method with pytorch."""

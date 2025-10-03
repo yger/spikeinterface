@@ -38,21 +38,33 @@ class RandomProjectionClustering:
             "core_dist_n_jobs": -1,
             "cluster_selection_method": "eom",
         },
+<<<<<<< HEAD
         "waveforms": {"ms_before": 0.5, 
                       "ms_after": 1.5},
+=======
+        "waveforms": {"ms_before": 0.5, "ms_after": 1.5},
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25},
         "radius_um": 50,
         "nb_projections": 10,
         "feature": "ptp",
         "seed": 42,
         "smoothing": {"window_length_ms": 0.25},
+<<<<<<< HEAD
         "merge_from_templates" : dict(),
+=======
+        "merge_from_templates": dict(),
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         "debug_folder": None,
         "verbose": True,
     }
     
     name = "random_projections"
     params_doc="""
+    """
+
+    name = "random_projections"
+    params_doc = """
     """
 
     @classmethod
@@ -85,10 +97,14 @@ class RandomProjectionClustering:
             radius_um=radius_um,
         )
 
+<<<<<<< HEAD
         node2 = SavGolDenoiser(recording, 
                                parents=[node0, node1], 
                                return_output=False, 
                                **params["smoothing"])
+=======
+        node2 = SavGolDenoiser(recording, parents=[node0, node1], return_output=False, **params["smoothing"])
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
         num_projections = min(num_chans, params["nb_projections"])
         projections = rng.normal(loc=0.0, scale=1.0 / np.sqrt(num_chans), size=(num_chans, num_projections))

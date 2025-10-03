@@ -74,9 +74,15 @@ def detect_peaks(
 
     if "method" in method_kwargs:
         # for flexibility the caller can put method inside method_kwargs
+<<<<<<< HEAD
         assert  method is None
         method = method_kwargs.pop("method")
     
+=======
+        assert method is None
+        method = method_kwargs.pop("method")
+
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     if method is None:
         warnings.warn("detect_peaks() method should be explicitly given, 'locally_exclusive' is used by default")
         method = "locally_exclusive"
@@ -89,6 +95,10 @@ def detect_peaks(
 
     if method_class.need_noise_levels:
         from spikeinterface.core.recording_tools import get_noise_levels
+<<<<<<< HEAD
+=======
+
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         if "noise_levels" not in method_kwargs:
             random_slices_kwargs = method_kwargs.pop("random_slices_kwargs", {})
             # this warning will be added in version 0.104.0
@@ -105,6 +115,7 @@ def detect_peaks(
     job_name = f"detect peaks ({method})"
 
     outs = run_node_pipeline(
+<<<<<<< HEAD
         recording,
         nodes,
         job_kwargs,
@@ -112,6 +123,9 @@ def detect_peaks(
         squeeze_output = True,
         verbose=verbose,
         **pipeline_kwargs
+=======
+        recording, nodes, job_kwargs, job_name=job_name, squeeze_output=True, verbose=verbose, **pipeline_kwargs
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     )
     return outs
 

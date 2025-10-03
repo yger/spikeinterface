@@ -32,6 +32,7 @@ class IterativeISOSPLITClustering:
     _default_params = {
         "motion": None,
         "seed": None,
+<<<<<<< HEAD
         "peaks_svd": {
             "n_components": 5,
             "ms_before": 0.5,
@@ -39,13 +40,22 @@ class IterativeISOSPLITClustering:
             "radius_um": 120.0,
             "motion": None
         },
+=======
+        "peaks_svd": {"n_components": 5, "ms_before": 0.5, "ms_after": 1.5, "radius_um": 120.0, "motion": None},
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         "split": {
             "split_radius_um": 40.0,
             "recursive": True,
             "recursive_depth": 5,
+<<<<<<< HEAD
             "method_kwargs" : {
                 "clusterer": {
                     "method" : "isosplit",
+=======
+            "method_kwargs": {
+                "clusterer": {
+                    "method": "isosplit",
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
                     "n_init": 50,
                     "min_cluster_size": 10,
                     "max_iterations_per_pass": 500,
@@ -55,11 +65,16 @@ class IterativeISOSPLITClustering:
                 "n_pca_features": 3,
             },
         },
+<<<<<<< HEAD
         "merge_from_templates" :{
+=======
+        "merge_from_templates": {
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
             "similarity_metric": "l1",
             "num_shifts": 3,
             "similarity_thresh": 0.8,
         },
+<<<<<<< HEAD
         "merge_from_features" : None,
         "clean": {
             "minimum_cluster_size": 10,
@@ -74,6 +89,22 @@ class IterativeISOSPLITClustering:
                         for more details.,
         seed : Random seed for reproducibility.,
         split : params for the splitting step. See 
+=======
+        "merge_from_features": None,
+        "clean": {
+            "minimum_cluster_size": 10,
+        },
+        "debug_folder": None,
+        "verbose": True,
+    }
+
+    params_doc = """
+        peaks_svd : params for peak SVD features extraction.
+        See spikeinterface.sortingcomponents.waveforms.peak_svd.extract_peaks_svd
+                        for more details.,
+        seed : Random seed for reproducibility.,
+        split : params for the splitting step. See
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
                  spikeinterface.sortingcomponents.clustering.splitting_tools.split_clusters
                  for more details.,
         merge_from_templates : params for the merging step based on templates. See
@@ -89,7 +120,10 @@ class IterativeISOSPLITClustering:
     @classmethod
     def main_function(cls, recording, peaks, params, job_kwargs=dict()):
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         ms_before = params["peaks_svd"]["ms_before"]
         ms_after = params["peaks_svd"]["ms_after"]
         # radius_um = params["waveforms"]["radius_um"]
@@ -105,6 +139,7 @@ class IterativeISOSPLITClustering:
         outs = extract_peaks_svd(
             recording,
             peaks,
+<<<<<<< HEAD
             # ms_before=ms_before,
             # ms_after=ms_after,
             # radius_um=radius_um,
@@ -113,6 +148,11 @@ class IterativeISOSPLITClustering:
             # motion=motion,
             # **params["extract_peaks_svd_kwargs"],
             **job_kwargs,
+=======
+            job_kwargs=job_kwargs,
+            motion_aware=motion_aware,
+            **params_peak_svd,
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         )
 
         if motion is not None:
@@ -141,7 +181,10 @@ class IterativeISOSPLITClustering:
             peaks_svd=peaks_svd,
         )
 
+<<<<<<< HEAD
         
+=======
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         split_params["returns_split_count"] = True
 
         if params["seed"] is not None:
@@ -258,20 +301,26 @@ class IterativeISOSPLITClustering:
         )
         return labels_set, final_peak_labels, more_outs
 
+<<<<<<< HEAD
 
 
 
 
 
+=======
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     # _default_params = {
     #     "clean": {
     #         "minimum_cluster_size": 10,
     #     },
     # }
 
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     # @classmethod
     # def main_function(cls, recording, peaks, params, job_kwargs=dict()):
 
@@ -365,8 +414,13 @@ class IterativeISOSPLITClustering:
     #             radius_um=merge_radius_um,
     #             method="project_distribution",
     #             method_kwargs=dict(
+<<<<<<< HEAD
     #                 feature_name="sparse_tsvd", 
     #                 waveforms_sparse_mask=sparse_mask, 
+=======
+    #                 feature_name="sparse_tsvd",
+    #                 waveforms_sparse_mask=sparse_mask,
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     #                 **merge_features_kwargs
     #             ),
     #             **job_kwargs,

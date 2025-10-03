@@ -17,6 +17,56 @@ from spikeinterface.core.node_pipeline import (
 )
 
 
+<<<<<<< HEAD
+=======
+# This method is used both by localize_peaks() and compute_spike_locations()
+# message to pierre yger : do not remove this function any more, please
+def get_localization_pipeline_nodes(
+    recording,
+    peak_source,
+    method="center_of_mass",
+    method_kwargs=None,
+    ms_before=0.5,
+    ms_after=0.5,
+    job_kwargs=None,
+):
+
+    assert (
+        method in peak_localization_methods
+    ), f"Method {method} is not supported. Choose from {peak_localization_methods.keys()}"
+
+    assert method_kwargs is not None
+
+    # peak_retriever = PeakRetriever(recording, peaks)
+
+    extract_dense_waveforms = ExtractDenseWaveforms(
+        recording, parents=[peak_source], ms_before=ms_before, ms_after=ms_after, return_output=False
+    )
+
+    method_class = peak_localization_methods[method]
+
+    if method == "grid_convolution" and "prototype" not in method_kwargs:
+        assert isinstance(peak_source, (PeakRetriever, SpikeRetriever))
+        # extract prototypes silently
+
+        from ..tools import get_prototype_and_waveforms_from_peaks
+
+        job_kwargs = fix_job_kwargs(job_kwargs)
+        job_kwargs["progress_bar"] = False
+
+        method_kwargs = method_kwargs.copy()
+        method_kwargs["prototype"], _, _ = get_prototype_and_waveforms_from_peaks(
+            recording, peaks=peak_source.peaks, ms_before=ms_before, ms_after=ms_after, job_kwargs=job_kwargs
+        )
+
+    localization_nodes = method_class(recording, parents=[peak_source, extract_dense_waveforms], **method_kwargs)
+
+    pipeline_nodes = [peak_source, extract_dense_waveforms, localization_nodes]
+
+    return pipeline_nodes
+
+
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 def localize_peaks(
     recording,
     peaks,
@@ -68,7 +118,13 @@ def localize_peaks(
     """
     if len(old_kwargs) > 0:
         # This is the old behavior and will be remove in 0.105.0
+<<<<<<< HEAD
         warnings.warn("The signature of localize_peaks() has changed, now method_kwargs and job_kwargs are dinstinct params.")
+=======
+        warnings.warn(
+            "The signature of localize_peaks() has changed, now method_kwargs and job_kwargs are dinstinct params."
+        )
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         assert job_kwargs is None
         assert method_kwargs is None
         method_kwargs, job_kwargs = split_job_kwargs(old_kwargs)
@@ -78,7 +134,11 @@ def localize_peaks(
 
     if "method" in method_kwargs:
         # for flexibility the caller can put method inside method_kwargs
+<<<<<<< HEAD
         assert  method is None
+=======
+        assert method is None
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         method_kwargs = method_kwargs.copy()
         method = method_kwargs.pop("method")
 
@@ -92,6 +152,7 @@ def localize_peaks(
         method in peak_localization_methods
     ), f"Method {method} is not supported. Choose from {peak_localization_methods.keys()}"
 
+<<<<<<< HEAD
     peak_retriever = PeakRetriever(recording, peaks)
 
     extract_dense_waveforms = ExtractDenseWaveforms(
@@ -115,6 +176,20 @@ def localize_peaks(
 
     pipeline_nodes = [peak_retriever, extract_dense_waveforms, localization_nodes]
 
+=======
+    peak_source = PeakRetriever(recording, peaks)
+
+    pipeline_nodes = get_localization_pipeline_nodes(
+        recording,
+        peak_source,
+        method=method,
+        method_kwargs=method_kwargs,
+        ms_before=ms_before,
+        ms_after=ms_after,
+        job_kwargs=job_kwargs,
+    )
+
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     if pipeline_kwargs is None:
         pipeline_kwargs = dict()
 
@@ -126,7 +201,11 @@ def localize_peaks(
         job_name=job_name,
         squeeze_output=True,
         verbose=verbose,
+<<<<<<< HEAD
         **pipeline_kwargs
+=======
+        **pipeline_kwargs,
+>>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     )
 
     return peak_locations
