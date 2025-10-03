@@ -64,14 +64,11 @@ def peak_locations_fixture(recording, peaks, job_kwargs):
 
 
 clustering_method_keys = list(clustering_methods.keys())
-<<<<<<< HEAD
-=======
 
 # remove graph-clustering if sknetwork is not installed
 HAVE_SKNETWORK = importlib.util.find_spec("sknetwork") is not None
 if not HAVE_SKNETWORK:
     clustering_method_keys.remove("graph-clustering")
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
 
 @pytest.mark.parametrize("clustering_method", clustering_method_keys)
@@ -131,11 +128,7 @@ if __name__ == "__main__":
     peak_locations = run_peak_locations(recording, peaks, job_kwargs)
     # method = "position_and_pca"
     # method = "iterative-isosplit"
-<<<<<<< HEAD
-    #method = "iterative-hdbscan"
-=======
     # method = "iterative-hdbscan"
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     # method = "random_projections"
     method = "graph-clustering"
 

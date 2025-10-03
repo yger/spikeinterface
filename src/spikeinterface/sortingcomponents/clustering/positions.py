@@ -21,13 +21,7 @@ class PositionsClustering:
     _default_params = {
         "peak_locations": None,
         "peak_localization_kwargs": {"method": "center_of_mass"},
-<<<<<<< HEAD
-        "hdbscan_kwargs": {"min_cluster_size": 20, 
-                           "allow_single_cluster": True, 
-                           "core_dist_n_jobs": -1},
-=======
         "hdbscan_kwargs": {"min_cluster_size": 20, "allow_single_cluster": True, "core_dist_n_jobs": -1},
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     }
 
     name = "hdbscan_positions"
@@ -47,23 +41,12 @@ class PositionsClustering:
         if params["peak_locations"] is None:
             from spikeinterface.sortingcomponents.peak_localization import localize_peaks
 
-<<<<<<< HEAD
-            peak_locations = localize_peaks(recording, 
-                                            peaks, 
-                                            **params["peak_localization_kwargs"], 
-                                            job_kwargs=job_kwargs)
-        else:
-            peak_locations = params["peak_locations"]
-
-
-=======
             peak_locations = localize_peaks(
                 recording, peaks, **params["peak_localization_kwargs"], job_kwargs=job_kwargs
             )
         else:
             peak_locations = params["peak_locations"]
 
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         location_keys = ["x", "y"]
         locations = np.stack([peak_locations[k] for k in location_keys], axis=1)
 

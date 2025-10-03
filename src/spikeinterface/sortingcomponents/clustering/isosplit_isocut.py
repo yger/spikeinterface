@@ -239,9 +239,6 @@ if HAVE_NUMBA:
 
 
 def isosplit(
-<<<<<<< HEAD
-    X, initial_labels=None, n_init=200, max_iterations_per_pass=500, min_cluster_size=10, isocut_threshold=2.0, seed=None,
-=======
     X,
     initial_labels=None,
     n_init=200,
@@ -249,7 +246,6 @@ def isosplit(
     min_cluster_size=10,
     isocut_threshold=2.0,
     seed=None,
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 ):
     """
     Implementtaion in python/numba of the isosplit algorithm done by Jeremy Magland

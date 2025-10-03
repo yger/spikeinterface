@@ -90,11 +90,7 @@ class MotionEstimationBenchmark(Benchmark):
 
         t0 = time.perf_counter()
         detect_kwargs = p["detect_kwargs"].copy()
-<<<<<<< HEAD
-        detect_kwargs["noise_level"] = noise_levels
-=======
         detect_kwargs["noise_levels"] = noise_levels
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         peaks = detect_peaks(self.recording, method_kwargs=detect_kwargs, job_kwargs=job_kwargs)
         t1 = time.perf_counter()
         if p["select_kwargs"] is not None:
@@ -103,13 +99,9 @@ class MotionEstimationBenchmark(Benchmark):
             selected_peaks = peaks
 
         t2 = time.perf_counter()
-<<<<<<< HEAD
-        peak_locations = localize_peaks(self.recording, selected_peaks, method_kwargs=p["localize_kwargs"], job_kwargs=job_kwargs)
-=======
         peak_locations = localize_peaks(
             self.recording, selected_peaks, method_kwargs=p["localize_kwargs"], job_kwargs=job_kwargs
         )
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         t3 = time.perf_counter()
         motion = estimate_motion(self.recording, selected_peaks, peak_locations, **p["estimate_motion_kwargs"])
         t4 = time.perf_counter()

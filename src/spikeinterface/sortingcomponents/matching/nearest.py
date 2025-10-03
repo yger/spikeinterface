@@ -84,20 +84,12 @@ class NearestTemplatesPeeler(BaseTemplateMatching):
 
         waveforms = traces[spikes["sample_index"][:, None] + np.arange(-self.nbefore, self.nafter)]
         num_templates = len(self.templates_array)
-<<<<<<< HEAD
-        XA = self.templates_array.reshape(num_templates,-1)
-=======
         XA = self.templates_array.reshape(num_templates, -1)
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
         # naively take the closest template
         for main_chan in np.unique(spikes["channel_index"]):
             (idx,) = np.nonzero(spikes["channel_index"] == main_chan)
-<<<<<<< HEAD
-            XB = waveforms[idx].reshape(len(idx),-1)
-=======
             XB = waveforms[idx].reshape(len(idx), -1)
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
             dist = cdist(XA, XB, "euclidean")
             cluster_index = np.argmin(dist, 0)
             spikes["cluster_index"][idx] = cluster_index
@@ -135,21 +127,6 @@ class NearestTemplatesSVDPeeler(NearestTemplatesPeeler):
         random_chunk_kwargs={},
     ):
 
-<<<<<<< HEAD
-        NearestTemplatesPeeler.__init__(self, recording,
-                    templates,
-                    return_output=return_output,
-                    peak_sign=peak_sign,
-                    exclude_sweep_ms=exclude_sweep_ms,
-                    detect_threshold=detect_threshold,
-                    noise_levels=noise_levels,
-                    radius_um=radius_um,
-                    random_chunk_kwargs=random_chunk_kwargs)
-        
-        from spikeinterface.sortingcomponents.waveforms.waveform_utils import (
-            to_temporal_representation,
-            from_temporal_representation
-=======
         NearestTemplatesPeeler.__init__(
             self,
             recording,
@@ -166,7 +143,6 @@ class NearestTemplatesSVDPeeler(NearestTemplatesPeeler):
         from spikeinterface.sortingcomponents.waveforms.waveform_utils import (
             to_temporal_representation,
             from_temporal_representation,
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         )
 
         self.num_channels = self.recording.get_num_channels()
@@ -174,11 +150,6 @@ class NearestTemplatesSVDPeeler(NearestTemplatesPeeler):
         self.svd_radius_um = svd_radius_um
         channel_distance = get_channel_distances(recording)
         self.svd_neighbours_mask = channel_distance <= self.svd_radius_um
-<<<<<<< HEAD
-        
-=======
-
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         temporal_templates = to_temporal_representation(self.templates_array)
         projected_temporal_templates = self.svd_model.transform(temporal_templates)
         self.svd_templates = from_temporal_representation(projected_temporal_templates, self.num_channels)
@@ -194,11 +165,7 @@ class NearestTemplatesSVDPeeler(NearestTemplatesPeeler):
         from scipy.spatial.distance import cdist
         from spikeinterface.sortingcomponents.waveforms.waveform_utils import (
             to_temporal_representation,
-<<<<<<< HEAD
-            from_temporal_representation
-=======
             from_temporal_representation,
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         )
 
         if self.margin > 0:
@@ -217,11 +184,6 @@ class NearestTemplatesSVDPeeler(NearestTemplatesPeeler):
 
         waveforms = traces[spikes["sample_index"][:, None] + np.arange(-self.nbefore, self.nafter)]
         num_templates = len(self.templates_array)
-<<<<<<< HEAD
-        
-=======
-
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         temporal_waveforms = to_temporal_representation(waveforms)
         projected_temporal_waveforms = self.svd_model.transform(temporal_waveforms)
         projected_waveforms = from_temporal_representation(projected_temporal_waveforms, self.num_channels)

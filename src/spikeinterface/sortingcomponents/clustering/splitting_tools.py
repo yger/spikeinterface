@@ -206,11 +206,7 @@ class LocalFeatureClustering:
         features,
         recursion_level=1,
         debug_folder=None,
-<<<<<<< HEAD
-        clusterer={"method" : "hdbscan", "min_cluster_size": 25, "min_samples": 5},
-=======
         clusterer={"method": "hdbscan", "min_cluster_size": 25, "min_samples": 5},
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         feature_name="sparse_tsvd",
         neighbours_mask=None,
         waveforms_sparse_mask=None,
@@ -220,21 +216,11 @@ class LocalFeatureClustering:
         projection_mode="tsvd",
         minimum_overlap_ratio=0.25,
     ):
-<<<<<<< HEAD
-        
-        clustering_kwargs = clusterer.copy()
-        clusterer_method = clustering_kwargs.pop("method")
-        
-        assert clusterer_method in ["hdbscan",
-                                    "isosplit",
-                                    "isosplit6"]
-=======
 
         clustering_kwargs = clusterer.copy()
         clusterer_method = clustering_kwargs.pop("method")
 
         assert clusterer_method in ["hdbscan", "isosplit", "isosplit6"]
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
 
         local_labels = np.zeros(peak_indices.size, dtype=np.int64)
 
@@ -300,16 +286,10 @@ class LocalFeatureClustering:
             else:
                 final_features = flatten_features
                 tsvd = None
-<<<<<<< HEAD
-        
-        if clusterer_method == "hdbscan":
-            from hdbscan import HDBSCAN
-=======
 
         if clusterer_method == "hdbscan":
             from hdbscan import HDBSCAN
 
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
             clustering_kwargs.update(core_dist_n_jobs=1)
             clust = HDBSCAN(**clustering_kwargs)
             with warnings.catch_warnings():

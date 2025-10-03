@@ -28,26 +28,14 @@ def setup_dataset_and_peaks(cache_folder):
     peak_detector_class = detect_peak_methods["locally_exclusive"]
     peak_detector = peak_detector_class(
         recording,
-<<<<<<< HEAD
-        noise_levels = get_noise_levels(recording, return_in_uV=False),
-=======
         noise_levels=get_noise_levels(recording, return_in_uV=False),
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
         peak_sign="neg",
         detect_threshold=5,
         exclude_sweep_ms=0.1,
         return_output=True,
     )
     extract_dense_waveforms = ExtractDenseWaveforms(
-<<<<<<< HEAD
-        recording,
-        ms_before=0.1,
-        ms_after=0.3,
-        return_output=False,
-        parents=[peak_detector]
-=======
         recording, ms_before=0.1, ms_after=0.3, return_output=False, parents=[peak_detector]
->>>>>>> ae1a0d83f0ef3c883f61af1184320b0331684c7c
     )
     peak_localizer = LocalizeCenterOfMass(
         recording,
