@@ -142,7 +142,7 @@ class DBSTREAM(base.Clusterer):
     def __init__(
         self,
         clustering_threshold: float = 1.0,
-        fading_factor: float = 0.01,
+        fading_factor: float = 0.05,
         cleanup_interval: float = 10,
         intersection_factor: float = 0.3,
         minimum_weight: float = 1.0,
@@ -188,9 +188,9 @@ class DBSTREAM(base.Clusterer):
         fixed_radius_nn = {}
         x = full_x[waveforms_channels]
         position_x = np.dot(x, self.contact_locations[waveforms_channels])/x.sum()
+        
         for i in self._micro_clusters.keys():
-            y = self.micro_clusters[i].ptps
-            position_i = np.dot(y, self.contact_locations[self.micro_clusters[i].waveforms_channels])/y.sum()
+            position_i = self.micro_clusters[i].center_of_mass            
             if np.linalg.norm(position_i - position_x) <= self.distance_threshold_um:                
                 common_channels = self._micro_clusters[i]._common_indices(waveforms_channels)
                 point_a = self._micro_clusters[i].center[common_channels]
@@ -239,6 +239,7 @@ class DBSTREAM(base.Clusterer):
                     last_update=self._time_stamp, 
                     peak = peak,
                     weight=1,
+                    positions=self.contact_locations
                 )
             else:
                 self._micro_clusters[0] = DBSTREAMMicroCluster(
@@ -248,6 +249,7 @@ class DBSTREAM(base.Clusterer):
                     peak = peak,
                     last_update=self._time_stamp, 
                     weight=1,
+                    positions=self.contact_locations
                 )
         else:
             # update existing micro clusters
@@ -567,17 +569,32 @@ class DBSTREAM(base.Clusterer):
 class DBSTREAMMicroCluster(metaclass=ABCMeta):
     """DBStream Micro-cluster class"""
 
-    def __init__(self, x=None, waveforms=None, waveforms_channels=None, last_update=None, peak=None, weight=None):
+    def __init__(self, x=None, waveforms=None, waveforms_channels=None, last_update=None, peak=None, weight=None, positions=None):
         self.center = x
         self.waveforms = waveforms
         self.waveforms_channels = waveforms_channels
         self.last_update = last_update
         self.weight = weight
         self.all_peaks = np.array([peak], dtype=base_peak_dtype)
+        self.positions = positions
+        self._center_of_mass = None
+        self._ptps = None
 
     @property
     def ptps(self):
-        return np.ptp(self.waveforms[:, self.waveforms_channels], axis=0)
+        if self._ptps is not None:
+            return self._ptps
+        else:
+            self._ptps = np.ptp(self.waveforms[:, self.waveforms_channels], axis=0)
+            return self._ptps
+
+    @property
+    def center_of_mass(self):
+        if self._center_of_mass is not None:
+            return self._center_of_mass
+        else:
+            self._center_of_mass = np.dot(self.ptps, self.positions[self.waveforms_channels])/self.ptps.sum()
+        return self._center_of_mass
     
     def _common_indices(self, waveforms_channels):
         common_indices = self.waveforms_channels * waveforms_channels
@@ -594,6 +611,8 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
         self.waveforms_channels = self.waveforms_channels | cluster.waveforms_channels
         self.weight = denominator
         self.all_peaks = np.concatenate((self.all_peaks, cluster.all_peaks), axis=0)
+        self._center_of_mass = None
+        self._ptps = None
 
     def update(self, x, waveforms, waveforms_channels, amplitude, peak):
         common_indices = self._common_indices(waveforms_channels)
@@ -604,4 +623,6 @@ class DBSTREAMMicroCluster(metaclass=ABCMeta):
         self.waveforms[:, ~common_indices] = amplitude*waveforms[:, ~common_indices]
         self.waveforms_channels = self.waveforms_channels | waveforms_channels
         self.all_peaks = np.concatenate((self.all_peaks, [peak]), axis=0)
+        self._center_of_mass = None
+        self._ptps = None
         
