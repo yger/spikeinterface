@@ -372,9 +372,9 @@ def online_clustering(
     ms_after=1.5, 
     radius_um=50, 
     chunk_size=10000,
-    dbstream_kwargs={"clustering_threshold" : 1e10,
+    dbstream_kwargs={"clustering_threshold" : 0.2,
                         "fading_factor" : 0.05,
-                        "cleanup_interval" : 10,
+                        "cleanup_interval" : 30,
                         "intersection_factor" : 0.3,
                         "minimum_weight" : 10},
     job_kwargs=None

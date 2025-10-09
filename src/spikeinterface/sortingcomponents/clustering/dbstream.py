@@ -181,8 +181,7 @@ class DBSTREAM(base.Clusterer):
         self.neighbours_mask = self.channel_distance <= radius_um
 
     def _distance(self, point_a, point_b):
-        #print(len(point_a), len(point_b))
-        return np.linalg.norm(point_a - point_b)/np.sqrt(len(point_a))
+        return np.linalg.norm(point_a - point_b)/(np.linalg.norm(point_a) + np.linalg.norm(point_b))
 
     def _find_fixed_radius_nn(self, full_x, waveforms_channels):
         fixed_radius_nn = {}
