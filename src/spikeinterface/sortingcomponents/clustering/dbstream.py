@@ -197,11 +197,11 @@ class DBSTREAM(base.Clusterer):
                 local_distance = self._distance(point_a, point_b)
                 if local_distance < self.clustering_threshold:
                     if len(fixed_radius_nn) == 0:
-                       fixed_radius_nn[i] = self._micro_clusters[i]
+                       fixed_radius_nn[i] = local_distance
                        best_dist = local_distance
                     else:
                        if local_distance < best_dist:
-                           fixed_radius_nn = {i: self._micro_clusters[i]}
+                           fixed_radius_nn = {i: local_distance}
                            best_dist = local_distance
                     #fixed_radius_nn[i] = self._micro_clusters[i]
 
@@ -209,6 +209,11 @@ class DBSTREAM(base.Clusterer):
 
     def _gaussian_neighborhood(self, point_a, point_b):
         distance = self._distance(point_a, point_b)
+        sigma = self.clustering_threshold / self.sigma_gaussian
+        gaussian_neighborhood = np.exp(-(distance **2) / (2 * (sigma**2)))
+        return gaussian_neighborhood
+
+    def _gaussian_neighborhood_2(self, distance):
         sigma = self.clustering_threshold / self.sigma_gaussian
         gaussian_neighborhood = np.exp(-(distance **2) / (2 * (sigma**2)))
         return gaussian_neighborhood
@@ -268,8 +273,14 @@ class DBSTREAM(base.Clusterer):
 
                 # Update the center (i) with overlapping keys (j)
                 common_channels = self._micro_clusters[i]._common_indices(waveforms_channels)
+<<<<<<< HEAD
                 amplitude = self._gaussian_neighborhood(full_x[common_channels], self._micro_clusters[i].center[common_channels])
                 #print(amplitude)
+=======
+                local_distance = neighbor_clusters[i]
+                #amplitude = self._gaussian_neighborhood(full_x[common_channels], self._micro_clusters[i].center[common_channels])
+                amplitude = self._gaussian_neighborhood_2(local_distance)                
+>>>>>>> 856b01e93857db925373430f2ace711eefd61df7
                 self._micro_clusters[i].update(full_x, full_w, waveforms_channels, amplitude, peak)
                 self._micro_clusters[i].last_update = self._time_stamp
 
