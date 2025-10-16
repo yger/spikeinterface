@@ -147,7 +147,7 @@ class DBSTREAM(base.Clusterer):
         intersection_factor: float = 0.3,
         minimum_weight: float = 1.0,
         distance_threshold_um: float = 10.0,
-        sigma_gaussian: float = 3.0,
+        sigma_gaussian: float = 10,
     ):
         super().__init__()
         self._time_stamp = 0
@@ -269,6 +269,7 @@ class DBSTREAM(base.Clusterer):
                 # Update the center (i) with overlapping keys (j)
                 common_channels = self._micro_clusters[i]._common_indices(waveforms_channels)
                 amplitude = self._gaussian_neighborhood(full_x[common_channels], self._micro_clusters[i].center[common_channels])
+                #print(amplitude)
                 self._micro_clusters[i].update(full_x, full_w, waveforms_channels, amplitude, peak)
                 self._micro_clusters[i].last_update = self._time_stamp
 
@@ -568,7 +569,7 @@ class DBSTREAM(base.Clusterer):
 class DBSTREAMMicroCluster(metaclass=ABCMeta):
     """DBStream Micro-cluster class"""
 
-    def __init__(self, x=None, waveforms=None, waveforms_channels=None, last_update=None, peak=None, weight=None, positions=None):
+    def __init__(self, x, waveforms, waveforms_channels, last_update, peak, weight, positions):
         self.center = x
         self.waveforms = waveforms
         self.waveforms_channels = waveforms_channels
