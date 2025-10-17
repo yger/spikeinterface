@@ -47,6 +47,9 @@ class IterativeISOSPLITClustering:
                 },
                 "min_size_split": 25,
                 "n_pca_features": 3,
+
+                # "projection_mode": "tsvd",
+                "projection_mode": "pca",
             },
         },
         "merge_from_templates": {
@@ -141,7 +144,11 @@ class IterativeISOSPLITClustering:
             features,
             method="local_feature_clustering",
             debug_folder=debug_folder,
+            
             job_kwargs=job_kwargs,
+            # job_kwargs=dict(n_jobs=1),
+
+
             **split_params,
             # method_kwargs=dict(
             #     clusterer=clusterer,
@@ -175,7 +182,7 @@ class IterativeISOSPLITClustering:
 
         if params["merge_from_features"]:
 
-            merge_from_features_kwargs = params["merge_features_kwargs"].copy()
+            merge_from_features_kwargs = params["merge_from_features"].copy()
             merge_radius_um = merge_from_features_kwargs.pop("merge_radius_um")
 
             post_merge_label1, templates_array, template_sparse_mask, unit_ids = merge_peak_labels_from_features(
