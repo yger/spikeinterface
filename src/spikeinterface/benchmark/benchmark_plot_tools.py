@@ -373,7 +373,8 @@ def plot_agreement_matrix(study, ordered=True, case_keys=None, axs=None):
 
     num_axes = len(case_keys)
     if axs is None:
-        fig, axs = plt.subplots(ncols=num_axes, squeeze=True)
+        fig, axs = plt.subplots(ncols=num_axes, squeeze=False)
+        axs = axs[0, :]
     else:
         assert len(axs) == num_axes, "axs should have the same number of axes as case_keys"
         fig = axs[0].get_figure()
@@ -397,6 +398,7 @@ def plot_agreement_matrix(study, ordered=True, case_keys=None, axs=None):
         ax.set_xticks([])
 
     return fig
+
 
 def _plot_performances_vs_metric(
     study,
@@ -556,7 +558,7 @@ def plot_performances_vs_snr(
     performance_names : tuple, default: ("accuracy", "recall", "precision")
         Names of the performance metrics to plot. Default is ("accuracy", "recall", "precision").
     metric_dataset_reference : str | None, default: None
-        Reference dataset key to use for SNR. If None, the SNR of each dataset is used.
+        Reference dataset metric key to use. If None, the SNR of each dataset is used.
     levels_to_group_by : list | None, default: None
         Levels to group by when mapping case keys.
     orientation : "vertical" | "horizontal", default: "vertical"
@@ -597,6 +599,7 @@ def plot_performances_vs_snr(
         axs=axs,
     )
 
+
 def plot_performances_vs_firing_rate(
     study,
     case_keys=None,
@@ -626,7 +629,7 @@ def plot_performances_vs_firing_rate(
     performance_names : tuple, default: ("accuracy", "recall", "precision")
         Names of the performance metrics to plot. Default is ("accuracy", "recall", "precision").
     metric_dataset_reference : str | None, default: None
-        Reference dataset key to use for SNR. If None, the SNR of each dataset is used.
+        Reference dataset metric key to use. If None, the SNR of each dataset is used.
     levels_to_group_by : list | None, default: None
         Levels to group by when mapping case keys.
     orientation : "vertical" | "horizontal", default: "vertical"
@@ -666,10 +669,6 @@ def plot_performances_vs_firing_rate(
         num_bin_average=num_bin_average,
         axs=axs,
     )
-
-
-
-
 
 
 def plot_performances_ordered(
@@ -722,9 +721,11 @@ def plot_performances_ordered(
 
     if axs is None:
         if orientation == "vertical":
-            fig, axs = plt.subplots(nrows=num_axes, figsize=figsize, squeeze=True)
+            fig, axs = plt.subplots(nrows=num_axes, figsize=figsize, squeeze=False)
+            axs = axs[:, 0]
         elif orientation == "horizontal":
-            fig, axs = plt.subplots(ncols=num_axes, figsize=figsize, squeeze=True)
+            fig, axs = plt.subplots(ncols=num_axes, figsize=figsize, squeeze=False)
+            axs = axs[0, :]
         else:
             raise ValueError("orientation must be 'vertical' or 'horizontal'")
     else:
@@ -958,7 +959,8 @@ def plot_performances_vs_depth_and_snr(
     case_keys, labels = study.get_grouped_keys_mapping(levels_to_group_by=levels_to_group_by, case_keys=case_keys)
 
     if axs is None:
-        fig, axs = plt.subplots(ncols=len(case_keys), figsize=figsize, squeeze=True)
+        fig, axs = plt.subplots(ncols=len(case_keys), figsize=figsize, squeeze=False)
+        axs = axs[0, :]
     else:
         assert len(axs) == len(case_keys), "axs should have the same number of axes as case_keys"
         fig = axs[0].get_figure()
@@ -1035,7 +1037,8 @@ def plot_performance_losses(
     import matplotlib.pyplot as plt
 
     if axs is None:
-        fig, axs = plt.subplots(nrows=len(performance_names), figsize=figsize, squeeze=True)
+        fig, axs = plt.subplots(nrows=len(performance_names), figsize=figsize, squeeze=False)
+        axs = axs[:, 0]
     else:
         assert len(axs) == len(performance_names), "axs should have the same number of axes as performance_names"
         fig = axs[0].get_figure()
