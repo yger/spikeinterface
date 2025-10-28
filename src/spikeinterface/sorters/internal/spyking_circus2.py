@@ -21,8 +21,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
     sorter_name = "spykingcircus2"
 
     _default_params = {
-        "general": {"ms_before": 0.5, "ms_after": 1.5, "radius_um": 100},
-        "sparsity": {"method": "snr", "amplitude_mode": "peak_to_peak", "threshold": 0.25},
+        "general": {"ms_before": 0.5, "ms_after": 1.5, "radius_um": 75.0},
         "filtering": {"freq_min": 150, "freq_max": 7000, "ftype": "bessel", "filter_order": 2, "margin_ms": 10},
         "whitening": {"mode": "local", "regularize": False},
         "detection": {
@@ -38,6 +37,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
         "clustering": {"method": "iterative-hdbscan", "method_kwargs": dict()},
+        "cleaning" : {"min_snr" : 5, "max_jitter_ms" : 0.1, "sparsify_threshold" : 0.25},
         "matching": {"method": "circus-omp", "method_kwargs": dict(), "pipeline_kwargs": dict()},
         "apply_preprocessing": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
@@ -114,7 +114,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         num_channels = recording.get_num_channels()
         ms_before = params["general"].get("ms_before", 0.5)
         ms_after = params["general"].get("ms_after", 1.5)
-        radius_um = params["general"].get("radius_um", 100)
+        radius_um = params["general"].get("radius_um", 75.0)
         detect_threshold = params["detection"]["method_kwargs"].get("detect_threshold", 5)
         peak_sign = params["detection"].get("peak_sign", "neg")
         deterministic = params["deterministic_peaks_detection"]
@@ -351,12 +351,12 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
             del more_outs
 
+            cleaning_kwargs = params.get("cleaning", {}).copy()
+            cleaning_kwargs["noise_levels"] = noise_levels
+            cleaning_kwargs["remove_empty"] = True
             templates = clean_templates(
                 templates,
-                noise_levels=noise_levels,
-                min_snr=detect_threshold,
-                max_jitter_ms=0.1,
-                remove_empty=True,
+                **cleaning_kwargs
             )
 
             if verbose:
@@ -416,7 +416,12 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
                 if sorting.get_non_empty_unit_ids().size > 0:
                     final_analyzer = final_cleaning_circus(
-                        recording_w, sorting, templates, job_kwargs=job_kwargs, **merging_params
+                        recording_w, 
+                        sorting, 
+                        templates, 
+                        noise_levels=noise_levels,
+                        job_kwargs=job_kwargs, 
+                        **merging_params
                     )
                     final_analyzer.save_as(format="binary_folder", folder=sorter_output_folder / "final_analyzer")
 
@@ -449,8 +454,9 @@ def final_cleaning_circus(
     sparsity_overlap=0.5,
     censor_ms=3.0,
     max_distance_um=50,
-    template_diff_thresh=np.arange(0.05, 0.5, 0.05),
+    template_diff_thresh=np.arange(0.05, 0.35, 0.05),
     debug_folder=None,
+    noise_levels=None,
     job_kwargs=None,
 ):
 
@@ -458,7 +464,7 @@ def final_cleaning_circus(
     from spikeinterface.curation.auto_merge import auto_merge_units
 
     # First we compute the needed extensions
-    analyzer = create_sorting_analyzer_with_existing_templates(sorting, recording, templates)
+    analyzer = create_sorting_analyzer_with_existing_templates(sorting, recording, templates, noise_levels=noise_levels)
     analyzer.compute("unit_locations", method="center_of_mass", **job_kwargs)
     analyzer.compute("template_similarity", **similarity_kwargs)
 

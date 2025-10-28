@@ -166,7 +166,6 @@ def split_worker_init(
     _ctx = {}
 
     _ctx["recording"] = recording
-    features_dict_or_folder
     _ctx["original_labels"] = original_labels
     _ctx["method"] = method
     _ctx["method_kwargs"] = method_kwargs
@@ -236,7 +235,7 @@ class LocalFeatureClustering:
         target_union_channels = np.flatnonzero(np.any(neighbours_mask[local_chans, :], axis=0))
         num_intersection = len(target_intersection_channels)
         num_union = len(target_union_channels)
-
+        
         # TODO fix this a better way, this when cluster have too few overlapping channels
         if (num_intersection / num_union) < minimum_overlap_ratio:
             return False, None

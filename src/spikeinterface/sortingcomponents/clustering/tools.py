@@ -288,6 +288,7 @@ def get_templates_from_peaks_and_svd(
     svd_features,
     sparsity_mask,
     operator="average",
+    return_std=False,
 ):
     """
     Get templates from recording using the SVD components
@@ -334,6 +335,9 @@ def get_templates_from_peaks_and_svd(
     num_channels = recording.get_num_channels()
 
     templates_array = np.zeros((len(labels), nbefore + nafter, num_channels), dtype=np.float32)
+    if return_std:
+        templates_std_array = np.zeros((len(labels), nbefore + nafter, num_channels), dtype=np.float32)
+
     final_sparsity_mask = np.zeros((len(labels), num_channels), dtype="bool")
     for unit_ind, label in enumerate(labels):
         mask = valid_labels == label
@@ -349,6 +353,9 @@ def get_templates_from_peaks_and_svd(
             elif operator == "median":
                 data = np.median(local_svd[sub_mask, :, count], 0)
             templates_array[unit_ind, :, i] = svd_model.inverse_transform(data.reshape(1, -1))
+            if return_std:
+                data = np.std(local_svd[sub_mask, :, count], 0)
+                templates_std_array[unit_ind, :, i] = svd_model.inverse_transform(data.reshape(1, -1))
 
     dense_templates = Templates(
         templates_array=templates_array,
@@ -361,4 +368,19 @@ def get_templates_from_peaks_and_svd(
         is_in_uV=False,
     )
 
-    return dense_templates, final_sparsity_mask
+    if return_std:
+        dense_templates_std = Templates(
+            templates_array=templates_std_array,
+            sampling_frequency=fs,
+            nbefore=nbefore,
+            sparsity_mask=None,
+            channel_ids=recording.channel_ids,
+            unit_ids=labels,
+            probe=recording.get_probe(),
+            is_in_uV=False,
+        )
+        return dense_templates, final_sparsity_mask, dense_templates_std
+    else:
+        return dense_templates, final_sparsity_mask
+
+    
