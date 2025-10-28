@@ -15,14 +15,15 @@ from spikeinterface.sortingcomponents.tools import (
     _set_optimal_chunk_size,
 )
 from spikeinterface.core.basesorting import minimum_spike_dtype
+from spikeinterface.core import compute_sparsity
 
 
 class Spykingcircus2Sorter(ComponentsBasedSorter):
     sorter_name = "spykingcircus2"
 
     _default_params = {
-        "general": {"ms_before": 0.5, "ms_after": 1.5, "radius_um": 75.0},
-        "filtering": {"freq_min": 150, "freq_max": 7000, "ftype": "bessel", "filter_order": 2, "margin_ms": 10},
+        "general": {"ms_before": 0.5, "ms_after": 1.5, "radius_um": 100.0},
+        "filtering": {"freq_min": 150, "freq_max": 7000, "ftype": "bessel", "filter_order": 2, "margin_ms": 100},
         "whitening": {"mode": "local", "regularize": False},
         "detection": {
             "method": "matched_filtering",
@@ -36,8 +37,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "apply_motion_correction": True,
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
-        "clustering": {"method": "iterative-hdbscan", "method_kwargs": dict()},
-        "cleaning" : {"min_snr" : 5, "max_jitter_ms" : 0.1, "sparsify_threshold" : 0.25},
+        "clustering": {"method": "iterative-isosplit", "method_kwargs": dict()},
+        "cleaning" : {"min_snr" : 5, "max_jitter_ms" : 0.1, "sparsify_threshold" : None},
         "matching": {"method": "circus-omp", "method_kwargs": dict(), "pipeline_kwargs": dict()},
         "apply_preprocessing": True,
         "cache_preprocessing": {"mode": "memory", "memory_limit": 0.5, "delete_cache": True},
@@ -114,7 +115,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         num_channels = recording.get_num_channels()
         ms_before = params["general"].get("ms_before", 0.5)
         ms_after = params["general"].get("ms_after", 1.5)
-        radius_um = params["general"].get("radius_um", 75.0)
+        radius_um = params["general"].get("radius_um", 100.0)
         detect_threshold = params["detection"]["method_kwargs"].get("detect_threshold", 5)
         peak_sign = params["detection"].get("peak_sign", "neg")
         deterministic = params["deterministic_peaks_detection"]
@@ -130,7 +131,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             if verbose:
                 print("Preprocessing the recording (bandpass filtering + CMR + whitening)")
             recording_f = bandpass_filter(recording, **filtering_params, dtype="float32")
-            if num_channels > 1:
+            if num_channels >= 32:
                 recording_f = common_reference(recording_f)
         else:
             if verbose:
@@ -325,7 +326,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             if not clustering_from_svd:
                 from spikeinterface.sortingcomponents.clustering.tools import get_templates_from_peaks_and_recording
 
-                templates = get_templates_from_peaks_and_recording(
+                dense_templates = get_templates_from_peaks_and_recording(
                     recording_w,
                     selected_peaks,
                     peak_labels,
@@ -333,10 +334,20 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                     ms_after,
                     job_kwargs=job_kwargs,
                 )
+
+                sparsity = compute_sparsity(dense_templates, method="radius", radius_um=radius_um)
+                threshold = params["cleaning"].get("sparsify_threshold", None)
+                if threshold is not None:            
+                    sparsity_snr = compute_sparsity(dense_templates, method="snr", amplitude_mode="peak_to_peak",
+                                                noise_levels=noise_levels, threshold=threshold)
+                    sparsity.mask = sparsity.mask & sparsity_snr.mask
+
+                templates = dense_templates.to_sparse(sparsity)
+
             else:
                 from spikeinterface.sortingcomponents.clustering.tools import get_templates_from_peaks_and_svd
 
-                templates, _ = get_templates_from_peaks_and_svd(
+                dense_templates, new_sparse_mask = get_templates_from_peaks_and_svd(
                     recording_w,
                     selected_peaks,
                     peak_labels,
@@ -348,6 +359,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                     operator="median",
                 )
                 # this release the peak_svd memmap file
+                templates = dense_templates.to_sparse(new_sparse_mask)
 
             del more_outs
 
@@ -454,10 +466,10 @@ def final_cleaning_circus(
     sparsity_overlap=0.5,
     censor_ms=3.0,
     max_distance_um=50,
-    template_diff_thresh=np.arange(0.05, 0.35, 0.05),
+    template_diff_thresh=np.arange(0.05, 0.5, 0.05),
     debug_folder=None,
     noise_levels=None,
-    job_kwargs=None,
+    job_kwargs=dict(),
 ):
 
     from spikeinterface.sortingcomponents.tools import create_sorting_analyzer_with_existing_templates

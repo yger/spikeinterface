@@ -28,7 +28,7 @@ class IterativeHDBSCANClustering:
     name = "iterative-hdbscan"
     need_noise_levels = False
     _default_params = {
-        "peaks_svd": {"n_components": 5, "ms_before": 0.5, "ms_after": 1.5, "radius_um": 75.0},
+        "peaks_svd": {"n_components": 5, "ms_before": 0.5, "ms_after": 1.5, "radius_um": 100.0},
         "seed": None,
         "split": {
             "split_radius_um": 75.0,
@@ -116,7 +116,7 @@ class IterativeHDBSCANClustering:
             **split,
         )
 
-        templates, new_sparse_mask, templates_std = get_templates_from_peaks_and_svd(
+        templates, new_sparse_mask = get_templates_from_peaks_and_svd(
             recording,
             peaks,
             peak_labels,
@@ -126,10 +126,7 @@ class IterativeHDBSCANClustering:
             peaks_svd,
             sparse_mask,
             operator="median",
-            return_std=True,
         )
-
-        
 
         labels = templates.unit_ids
 
