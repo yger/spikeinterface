@@ -273,14 +273,9 @@ class DBSTREAM(base.Clusterer):
 
                 # Update the center (i) with overlapping keys (j)
                 common_channels = self._micro_clusters[i]._common_indices(waveforms_channels)
-<<<<<<< HEAD
-                amplitude = self._gaussian_neighborhood(full_x[common_channels], self._micro_clusters[i].center[common_channels])
-                #print(amplitude)
-=======
                 local_distance = neighbor_clusters[i]
                 #amplitude = self._gaussian_neighborhood(full_x[common_channels], self._micro_clusters[i].center[common_channels])
                 amplitude = self._gaussian_neighborhood_2(local_distance)                
->>>>>>> 856b01e93857db925373430f2ace711eefd61df7
                 self._micro_clusters[i].update(full_x, full_w, waveforms_channels, amplitude, peak)
                 self._micro_clusters[i].last_update = self._time_stamp
 
