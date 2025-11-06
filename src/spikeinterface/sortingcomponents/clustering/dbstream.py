@@ -205,7 +205,7 @@ class DBSTREAM(base.Clusterer):
                            best_dist = local_distance
                     #fixed_radius_nn[i] = self._micro_clusters[i]
 
-        return fixed_radius_nn  
+        return fixed_radius_nn
 
     def _gaussian_neighborhood(self, point_a, point_b):
         distance = self._distance(point_a, point_b)

@@ -372,10 +372,10 @@ def online_clustering(
     ms_after=1.5, 
     radius_um=50, 
     chunk_size=10000,
-    dbstream_kwargs={"clustering_threshold" : 0.3,
-                        "fading_factor" : 0.05,
-                        "cleanup_interval" : 30,
-                        "intersection_factor" : 0.3,    
+    dbstream_kwargs={"clustering_threshold" : 0.25,
+                        "fading_factor" : 0.01,
+                        "cleanup_interval" : 10,
+                        "intersection_factor" : 0.25,    
                         "minimum_weight" : 10},
     job_kwargs=None
 ) -> np.ndarray | tuple[np.ndarray, dict]:
@@ -410,7 +410,7 @@ def online_clustering(
 
     pipeline_nodes = [node0, node1, node2]
 
-    online_params = {'recording' : recording, 
+    online_params = {"recording" : recording, 
                      "dbstream" : dbstream_kwargs,
                      "radius_um" : radius_um, 
                      "chunk_size" : chunk_size}
