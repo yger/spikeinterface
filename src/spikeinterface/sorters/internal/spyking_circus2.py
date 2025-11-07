@@ -131,6 +131,9 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         apply_motion_correction = params["apply_motion_correction"]
         exclude_sweep_ms = params["detection"].get("exclude_sweep_ms", max(ms_before, ms_after))
 
+        if online:
+            apply_motion_correction = False
+
         ## First, we are filtering the data
         filtering_params = params["filtering"].copy()
         if apply_preprocessing:
@@ -147,10 +150,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 print("Skipping preprocessing (whitening only)")
             recording_f = recording
             recording_f.annotate(is_filtered=True)
-
-        if online:
-            apply_whitening = False
-            apply_motion_correction = False
 
         if apply_whitening:
             ## We need to whiten before the template matching step, to boost the results

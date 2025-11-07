@@ -373,15 +373,14 @@ def online_clustering(
     radius_um=50, 
     chunk_size=10000,
     dbstream_kwargs={"clustering_threshold" : 0.25,
-                        "fading_factor" : 0.01,
-                        "cleanup_interval" : 10,
+                        "fading_factor_s" : 0.1,
+                        "cleanup_interval_s" : 30,
                         "intersection_factor" : 0.25,    
-                        "minimum_weight" : 10},
+                        "minimum_weight" : 25},
     job_kwargs=None
 ) -> np.ndarray | tuple[np.ndarray, dict]:
 
     from spikeinterface.core.job_tools import fix_job_kwargs
-    import numpy as np
     from spikeinterface.sortingcomponents.peak_detection import detect_peak_methods
     from spikeinterface.core.node_pipeline import ExtractSparseWaveforms, run_node_pipeline
     from spikeinterface.sortingcomponents.waveforms.features_from_peaks import PeakToPeakFeature

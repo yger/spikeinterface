@@ -69,11 +69,11 @@ class DBSTREAM(base.Clusterer):
         DBStream represents each micro cluster by a leader (a data point defining the
         micro cluster's center) and the density in an area of a user-specified radius
         $r$ (`clustering_threshold`) around the center.
-    fading_factor
+    fading_factor_s
         Parameter that controls the importance of historical data to current cluster.
-        Note that `fading_factor` has to be different from `0`.
-    cleanup_interval
-        The time interval between two consecutive time points when the cleanup process is
+        Note that `fading_factor_s` has to be different from `0`.
+    cleanup_interval_s
+        The time interval in second between two consecutive time points when the cleanup process is
          conducted.
     minimum_weight
         The minimum weight for a cluster to be not "noisy".
@@ -142,8 +142,8 @@ class DBSTREAM(base.Clusterer):
     def __init__(
         self,
         clustering_threshold: float = 1.0,
-        fading_factor: float = 0.05,
-        cleanup_interval: float = 10,
+        fading_factor_s: float = 0.05,
+        cleanup_interval_s: float = 10,
         intersection_factor: float = 0.3,
         minimum_weight: float = 1.0,
         distance_threshold_um: float = 10.0,
@@ -153,8 +153,8 @@ class DBSTREAM(base.Clusterer):
         self._time_stamp = 0
 
         self.clustering_threshold = clustering_threshold
-        self.fading_factor = fading_factor
-        self.cleanup_interval = cleanup_interval
+        self.fading_factor_s = fading_factor_s
+        self.cleanup_interval_s = cleanup_interval_s
         self.intersection_factor = intersection_factor
         self.minimum_weight = minimum_weight
         self.sigma_gaussian = sigma_gaussian
@@ -171,7 +171,7 @@ class DBSTREAM(base.Clusterer):
 
         self.last_cleanup = 0
         self.clustering_is_up_to_date = False
-        self.weight_weak = 2 ** (-self.fading_factor * self.cleanup_interval) * self.minimum_weight
+        self.weight_weak = 2 ** (-self.fading_factor_s * self.cleanup_interval_s) * self.minimum_weight
 
     def initialize_sparsity(self, recording, radius_um=75):
         self.recording = recording
@@ -265,7 +265,7 @@ class DBSTREAM(base.Clusterer):
                     self._micro_clusters[i].weight
                     * 2
                     ** (
-                        -self.fading_factor
+                        -self.fading_factor_s
                         * (self._time_stamp - self._micro_clusters[i].last_update)
                     )
                     + 1
@@ -288,7 +288,7 @@ class DBSTREAM(base.Clusterer):
                         elif j in self.s[i]:
                             self.s[i][j] = (
                                 self.s[i][j]
-                                * 2 ** (-self.fading_factor * (self._time_stamp - self.s_t[i][j]))
+                                * 2 ** (-self.fading_factor_s * (self._time_stamp - self.s_t[i][j]))
                                 + 1
                             )
                             self.s_t[i][j] = self._time_stamp
@@ -319,7 +319,7 @@ class DBSTREAM(base.Clusterer):
             #print(micro_cluster_i.weight, len(micro_cluster_i.all_peaks))
             try:
                 value = 2 ** (
-                    -self.fading_factor * (self._time_stamp - micro_cluster_i.last_update)
+                    -self.fading_factor_s * (self._time_stamp - micro_cluster_i.last_update)
                 )
             except OverflowError:
                 continue
@@ -343,7 +343,7 @@ class DBSTREAM(base.Clusterer):
         for i in self.s.keys():
             for j in self.s[i].keys():
                 try:
-                    value = 2 ** (-self.fading_factor * (self._time_stamp - self.s_t[i][j]))
+                    value = 2 ** (-self.fading_factor_s * (self._time_stamp - self.s_t[i][j]))
                 except OverflowError:
                     continue
 
@@ -463,10 +463,10 @@ class DBSTREAM(base.Clusterer):
         self._update(data, waveforms, time_stamp, peak)
         
         #if self._time_stamp % self.cleanup_interval == 0:
-        if time_stamp // self.cleanup_interval > self.last_cleanup:
+        if time_stamp // self.cleanup_interval_s > self.last_cleanup:
             print(len(self._micro_clusters))
             self._cleanup()
-            self.last_cleanup = time_stamp // self.cleanup_interval
+            self.last_cleanup = time_stamp // self.cleanup_interval_s
 
         self.clustering_is_up_to_date = False
 
