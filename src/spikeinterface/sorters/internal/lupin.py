@@ -102,7 +102,6 @@ class LupinSorter(ComponentsBasedSorter):
         from spikeinterface.sortingcomponents.peak_detection import detect_peaks
         from spikeinterface.sortingcomponents.peak_selection import select_peaks
         from spikeinterface.sortingcomponents.clustering.main import find_clusters_from_peaks, clustering_methods
-        from spikeinterface.sortingcomponents.tools import remove_empty_templates
         from spikeinterface.preprocessing import correct_motion
         from spikeinterface.sortingcomponents.motion import InterpolateMotionRecording
         from spikeinterface.sortingcomponents.tools import clean_templates, compute_sparsity_from_peaks_and_label
@@ -148,11 +147,11 @@ class LupinSorter(ComponentsBasedSorter):
                 recording = common_reference(recording)
 
             recording = whiten(recording, dtype="float32", mode="local", radius_um=params["whitening_radius_um"],
-                            #    chunk_duration="2s", 
-                            #    apply_mean=True, 
-                            #    regularize=True,
-                            #    regularize_kwargs=dict(method="LedoitWolf"),
-                               )
+                            chunk_duration="2s", 
+                            apply_mean=True, 
+                            regularize=True,
+                            regularize_kwargs=dict(method="MinCovDet"),
+                            )
 
 
             if params["apply_motion_correction"]:
@@ -184,15 +183,20 @@ class LupinSorter(ComponentsBasedSorter):
         # detection
         ms_before = params["ms_before"]
         ms_after = params["ms_after"]
-        prototype, few_waveforms, few_peaks = get_prototype_and_waveforms_from_recording(
+        prototype, _, _ = get_prototype_and_waveforms_from_recording(
             recording,
             n_peaks=10_000,
             ms_before=ms_before,
             ms_after=ms_after,
             seed=seed,
+            detect_threshold=8,
             noise_levels=noise_levels,
             job_kwargs=job_kwargs,
         )
+
+        if params["apply_motion_correction"]:
+            params["detect_threshold"] += 1.0
+
         detection_params = dict(
             peak_sign=params["peak_sign"],
             detect_threshold=params["detect_threshold"],
@@ -221,10 +225,8 @@ class LupinSorter(ComponentsBasedSorter):
         clustering_kwargs["peaks_svd"]["radius_um"] = params["features_radius_um"]
         clustering_kwargs["peaks_svd"]["n_components"] = params["n_svd_components_per_channel"]
         clustering_kwargs["split"]["recursive_depth"] = params["clustering_recursive_depth"]
+        #clustering_kwargs["split"]["split_radius_um"] = params["features_radius_um"] / 2
         clustering_kwargs["split"]["method_kwargs"]["n_pca_features"] = params["n_pca_features"]
-
-        
-
         if params["debug"]:
             clustering_kwargs["debug_folder"] = sorter_output_folder
         unit_ids, clustering_label, more_outs = find_clusters_from_peaks(

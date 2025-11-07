@@ -216,7 +216,8 @@ def get_prototype_and_waveforms_from_recording(
 
     with np.errstate(divide="ignore", invalid="ignore"):
         prototype = np.nanmedian(waveforms[:, :, 0] / (np.abs(waveforms[:, nbefore, 0][:, np.newaxis])), axis=0)
-
+    
+    print(prototype)
     return prototype, waveforms[:, :, 0], few_peaks
 
 

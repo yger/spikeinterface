@@ -263,6 +263,35 @@ def compute_covariance_matrix(recording, apply_mean, regularize, regularize_kwar
 
     return data, cov, M
 
+def compute_robust_covariance_matrix(recording, apply_mean, regularize, regularize_kwargs, random_chunk_kwargs):
+    """
+    Compute the covariance matrix from randomly sampled data chunsk.
+    See `compute_whitening_matrix()` for parameters.
+    """
+    random_data = get_random_data_chunks(recording, concatenated=True, return_in_uV=False, **random_chunk_kwargs)
+    random_data = random_data.astype(np.float32)
+
+    regularize_kwargs = regularize_kwargs if regularize_kwargs is not None else {"method": "GraphicalLassoCV"}
+
+    if apply_mean:
+        M = np.mean(random_data, axis=0)
+        M = M[None, :]
+        data = random_data - M
+    else:
+        M = None
+        data = random_data
+
+    if not regularize:
+        #cov = data.T @ data
+        #cov = cov / data.shape[0]
+        mad_x = np.median(np.abs(data - np.median(data, axis=0)), axis=0)
+    
+    else:
+        cov = compute_sklearn_covariance_matrix(data, regularize_kwargs)
+        cov = cov.astype("float32")
+
+    return data, cov, M
+
 
 def compute_sklearn_covariance_matrix(data, regularize_kwargs):
     """
@@ -276,10 +305,11 @@ def compute_sklearn_covariance_matrix(data, regularize_kwargs):
     if "assume_centered" in regularize_kwargs and not regularize_kwargs["assume_centered"]:
         raise ValueError("Cannot use `assume_centered=False` for `regularize_kwargs`. Fixing to `True`.")
 
-    method = regularize_kwargs.pop("method")
-    regularize_kwargs["assume_centered"] = True
+    params = regularize_kwargs.copy()
+    method = params.pop("method")
+    params["assume_centered"] = True
     estimator_class = getattr(sklearn.covariance, method)
-    estimator = estimator_class(**regularize_kwargs)
+    estimator = estimator_class(**params)
     estimator.fit(data.astype("float64"))  # sklearn covariance methods require float64
     cov = estimator.covariance_
 
