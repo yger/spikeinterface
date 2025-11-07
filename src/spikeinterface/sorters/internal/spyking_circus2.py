@@ -148,6 +148,10 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             recording_f = recording
             recording_f.annotate(is_filtered=True)
 
+        if online:
+            apply_whitening = False
+            apply_motion_correction = False
+
         if apply_whitening:
             ## We need to whiten before the template matching step, to boost the results
             # TODO add , regularize=True chen ready
