@@ -376,7 +376,7 @@ def online_clustering(
                         "fading_factor_s" : 0.1,
                         "cleanup_interval_s" : 30,
                         "intersection_factor" : 0.25,    
-                        "minimum_weight" : 25},
+                        "minimum_weight" : 10},
     job_kwargs=None
 ) -> np.ndarray | tuple[np.ndarray, dict]:
 

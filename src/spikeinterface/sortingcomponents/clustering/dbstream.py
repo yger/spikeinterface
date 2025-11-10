@@ -465,6 +465,7 @@ class DBSTREAM(base.Clusterer):
         #if self._time_stamp % self.cleanup_interval == 0:
         if time_stamp // self.cleanup_interval_s > self.last_cleanup:
             print(len(self._micro_clusters))
+            #print(self.weights.mean(), self.weights.std())
             self._cleanup()
             self.last_cleanup = time_stamp // self.cleanup_interval_s
 
@@ -491,6 +492,14 @@ class DBSTREAM(base.Clusterer):
     def n_clusters(self) -> int:
         self._recluster()
         return self._n_clusters
+
+    @property
+    def weights(self):
+        self._recluster()
+        weights = []
+        for i in self._clusters.keys():
+            weights.append(self._clusters[i].weight)
+        return np.array(weights)
 
     @property
     def clusters(self) -> dict[int, DBSTREAMMicroCluster]:
