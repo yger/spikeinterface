@@ -373,10 +373,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 # this release the peak_svd memmap file
                 templates = dense_templates.to_sparse(new_sparse_mask)
 
-            # To be sure that templates have appropriate ms_before and ms_after, up to rounding
-            templates.ms_before = ms_before
-            templates.ms_after = ms_after
-
             del more_outs
 
             cleaning_kwargs = params.get("cleaning", {}).copy()
@@ -419,6 +415,10 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
             merging_params = params["merging"].copy()
             merging_params["debug_folder"] = sorter_output_folder / "merging"
+
+            # To be sure that templates have appropriate ms_before and ms_after, up to rounding
+            templates.ms_before = ms_before
+            templates.ms_after = ms_after
 
             if len(merging_params) > 0:
                 if params["motion_correction"] and motion_folder is not None:
