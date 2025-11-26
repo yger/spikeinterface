@@ -329,7 +329,7 @@ if HAVE_NUMBA:
 
                 elif support == "dense":
                     local_mask = np.ones((other_num_templates, num_channels), dtype=np.bool_)
-                
+
                 overlapping_templates = np.flatnonzero(np.sum(local_mask, 1))
                 tgt_templates = tgt_sliced_templates[overlapping_templates]
                 for gcount in range(len(overlapping_templates)):
@@ -449,9 +449,17 @@ def compute_similarity_with_templates_array(
 
     distances = []
     for m in method:
-        distances += [_compute_similarity_matrix(
-            templates_array, other_templates_array, num_shifts, m, sparsity_mask, other_sparsity_mask, support=support
-        )]
+        distances += [
+            _compute_similarity_matrix(
+                templates_array,
+                other_templates_array,
+                num_shifts,
+                m,
+                sparsity_mask,
+                other_sparsity_mask,
+                support=support,
+            )
+        ]
     distances = np.mean(distances, axis=0)
 
     lags = np.argmin(distances, axis=0) - num_shifts

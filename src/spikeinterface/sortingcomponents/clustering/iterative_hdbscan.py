@@ -43,7 +43,9 @@ class IterativeHDBSCANClustering:
                 "n_pca_features": 3,
             },
         },
-        "merge_from_templates": dict(similarity_thresh=0.8, num_shifts=3, use_lags=True, similarity_metric=['l1', 'l2', "cosine"]),
+        "merge_from_templates": dict(
+            similarity_thresh=0.8, num_shifts=3, use_lags=True, similarity_metric=["l1", "l2", "cosine"]
+        ),
         "merge_from_features": None,
         "debug_folder": None,
         "verbose": True,
