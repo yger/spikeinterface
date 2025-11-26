@@ -376,10 +376,14 @@ def _check_cache_memory(recording, memory_limit, total_memory):
         return recording.get_total_memory_size() < total_memory
 
 
-
-
 def cache_preprocessing(
-    recording, mode="memory", memory_limit=0.5, total_memory=None, delete_cache=True, job_kwargs=None, folder=None,
+    recording,
+    mode="memory",
+    memory_limit=0.5,
+    total_memory=None,
+    delete_cache=True,
+    job_kwargs=None,
+    folder=None,
 ):
     """
     Cache the preprocessing of a recording object
@@ -409,9 +413,7 @@ def cache_preprocessing(
 
     job_kwargs = fix_job_kwargs(job_kwargs)
 
-    cache_info = dict(
-        mode=mode
-    )
+    cache_info = dict(mode=mode)
 
     if mode == "memory":
         if total_memory is None:
@@ -434,7 +436,7 @@ def cache_preprocessing(
         cache_info["folder"] = folder
     elif mode == "no-cache":
         recording = recording
-    elif  mode == "auto":
+    elif mode == "auto":
         mem_ok = _check_cache_memory(recording, memory_limit, total_memory)
         if mem_ok:
             # first try memory first
@@ -452,6 +454,7 @@ def cache_preprocessing(
         raise ValueError(f"cache_preprocessing() wrong mode={mode}")
 
     return recording, cache_info
+
 
 def clean_cache_preprocessing(cache_info):
     """
@@ -581,6 +584,7 @@ def clean_templates(
         templates = templates.select_units(to_select)
 
     return templates
+
 
 def compute_sparsity_from_peaks_and_label(peaks, unit_indices, unit_ids, recording, radius_um):
     """
