@@ -592,6 +592,7 @@ def _init_worker_distribute_single_buffer(
         worker_dict["all_waveforms"] = all_waveforms
     elif mode == "shared_memory":
         from multiprocessing.shared_memory import SharedMemory
+
         shm_name, dtype, shape = wf_array_info["shm_name"], wf_array_info["dtype"], wf_array_info["shape"]
         shm = SharedMemory(shm_name)
         all_waveforms = np.ndarray(shape=shape, dtype=dtype, buffer=shm.buf)
@@ -659,6 +660,7 @@ def _worker_distribute_single_buffer(segment_index, start_frame, end_frame, work
 
         if worker_dict["mode"] == "memmap":
             all_waveforms.flush()
+
 
 def split_waveforms_by_units(unit_ids, spikes, all_waveforms, sparsity_mask=None, folder=None):
     """
