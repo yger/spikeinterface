@@ -158,7 +158,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 whitening_kwargs["regularize_kwargs"] = {"method": "LedoitWolf"}
                 whitening_kwargs["apply_mean"] = True
             recording_w = whiten(recording_f, **whitening_kwargs)
-            
+
         else:
             recording_w = recording_f
 

@@ -53,6 +53,7 @@ def extract_peaks_svd(
     # Step 1 : select a few peaks to fit the SVD
     if svd_model is None:
         from sklearn.decomposition import TruncatedSVD
+
         few_peaks = select_peaks(
             peaks, recording=recording, method="uniform", n_peaks=n_peaks_fit, margin=(nbefore, nafter), seed=seed
         )
