@@ -47,12 +47,12 @@ def extract_peaks_svd(
     """
 
     job_kwargs = fix_job_kwargs(job_kwargs)
-
     nbefore = int(ms_before * recording.sampling_frequency / 1000.0)
     nafter = int(ms_after * recording.sampling_frequency / 1000.0)
 
     # Step 1 : select a few peaks to fit the SVD
     if svd_model is None:
+        from sklearn.decomposition import TruncatedSVD
         few_peaks = select_peaks(
             peaks, recording=recording, method="uniform", n_peaks=n_peaks_fit, margin=(nbefore, nafter), seed=seed
         )
@@ -66,7 +66,6 @@ def extract_peaks_svd(
         )
 
         wfs = few_wfs[:, :, 0]
-        from sklearn.decomposition import TruncatedSVD
 
         # Remove outliers
         valid = np.argmax(np.abs(wfs), axis=1) == nbefore

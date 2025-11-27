@@ -208,7 +208,8 @@ class Tridesclous2Sorter(ComponentsBasedSorter):
             method="iterative-isosplit",
             method_kwargs=clustering_kwargs,
             extra_outputs=True,
-            job_kwargs=job_kwargs,
+            verbose=verbose,
+            job_kwargs={'n_jobs' : 1},
         )
 
         mask = clustering_label >= 0
