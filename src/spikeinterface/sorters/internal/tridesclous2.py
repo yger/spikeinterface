@@ -209,7 +209,7 @@ class Tridesclous2Sorter(ComponentsBasedSorter):
             method_kwargs=clustering_kwargs,
             extra_outputs=True,
             verbose=verbose,
-            job_kwargs={'n_jobs' : 1},
+            job_kwargs=job_kwargs,
         )
 
         mask = clustering_label >= 0
