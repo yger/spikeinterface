@@ -310,7 +310,7 @@ class Tridesclous2Sorter(ComponentsBasedSorter):
                 recording_for_peeler,
                 sorting,
                 templates,
-                similarity_kwargs={"method": "l1", "support": "union", "max_lag_ms": 0.1},
+                similarity_kwargs={"method": ["l1", "l2", "cosine"], "support": "union", "max_lag_ms": 0.1},
                 sparsity_overlap=0.5,
                 censor_ms=3.0,
                 max_distance_um=50,
