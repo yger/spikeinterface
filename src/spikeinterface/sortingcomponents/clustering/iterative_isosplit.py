@@ -53,19 +53,19 @@ class IterativeISOSPLITClustering:
                     # "isocut_threshold": 2.2,
                 },
                 "min_size_split": 25,
-                # "n_pca_features": 3,
-                "n_pca_features": 10,
+                "n_pca_features": 6,
+                # "n_pca_features": 10,
                 "projection_mode": "tsvd",
                 # "projection_mode": "pca",
             },
         },
         "merge_from_templates": {
-            "similarity_metric": "l1",
+            "similarity_metric": ["l1", "l2", "cosine"],
             "num_shifts": 3,
             "similarity_thresh": 0.8,
         },
         "merge_from_features": None,
-        # "merge_from_features": {},
+        # "merge_from_features": {"merge_radius_um": 60.0},
         "clean": {
             "minimum_cluster_size": 10,
         },
@@ -209,7 +209,7 @@ class IterativeISOSPLITClustering:
         unit_ids = dense_templates.unit_ids
         templates_array = dense_templates.templates_array
 
-        if params["merge_from_features"]:
+        if params["merge_from_features"] is not None:
 
             merge_from_features_kwargs = params["merge_from_features"].copy()
             merge_radius_um = merge_from_features_kwargs.pop("merge_radius_um")

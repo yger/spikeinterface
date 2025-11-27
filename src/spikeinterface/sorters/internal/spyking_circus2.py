@@ -11,6 +11,7 @@ from spikeinterface.core.recording_tools import get_noise_levels
 from spikeinterface.preprocessing import common_reference, whiten, bandpass_filter, correct_motion
 from spikeinterface.sortingcomponents.tools import (
     cache_preprocessing,
+    clean_cache_preprocessing,
     get_shuffled_recording_slices,
     _set_optimal_chunk_size,
 )
@@ -157,6 +158,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 whitening_kwargs["regularize_kwargs"] = {"method": "LedoitWolf"}
                 whitening_kwargs["apply_mean"] = True
             recording_w = whiten(recording_f, **whitening_kwargs)
+
         else:
             recording_w = recording_f
 
@@ -189,7 +191,9 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         elif recording_w.check_serializability("pickle"):
             recording_w.dump(sorter_output_folder / "preprocessed_recording.pickle", relative_to=None)
 
-        recording_w = cache_preprocessing(recording_w, **job_kwargs, **params["cache_preprocessing"])
+        recording_w, cache_info = cache_preprocessing(
+            recording_w, job_kwargs=job_kwargs, **params["cache_preprocessing"]
+        )
 
         ## Then, we are detecting peaks with a locally_exclusive method
         detection_method = params["detection"].get("method", "matched_filtering")
@@ -261,6 +265,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 )
             detection_params["prototype"] = prototype
             detection_params["ms_before"] = ms_before
+            detection_params["random_chunk_kwargs"] = {"num_chunks_per_segment": 5, "seed": params["seed"]}
             if debug:
                 np.save(clustering_folder / "waveforms.npy", waveforms)
                 np.save(clustering_folder / "prototype.npy", prototype)
@@ -322,6 +327,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 method=clustering_method,
                 method_kwargs=clustering_params,
                 extra_outputs=True,
+                verbose=verbose,
                 job_kwargs=job_kwargs,
             )
 
@@ -373,10 +379,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 # this release the peak_svd memmap file
                 templates = dense_templates.to_sparse(new_sparse_mask)
 
-            # To be sure that templates have appropriate ms_before and ms_after, up to rounding
-            templates.ms_before = ms_before
-            templates.ms_after = ms_after
-
             del more_outs
 
             cleaning_kwargs = params.get("cleaning", {}).copy()
@@ -420,6 +422,10 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
             merging_params = params["merging"].copy()
             merging_params["debug_folder"] = sorter_output_folder / "merging"
 
+            # To be sure that templates have appropriate ms_before and ms_after, up to rounding
+            templates.ms_before = ms_before
+            templates.ms_after = ms_after
+
             if len(merging_params) > 0:
                 if params["motion_correction"] and motion_folder is not None:
                     from spikeinterface.preprocessing.motion import load_motion_info
@@ -455,16 +461,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 if verbose:
                     print(f"Kept {len(sorting.unit_ids)} units after final merging")
 
-        folder_to_delete = None
-        cache_mode = params["cache_preprocessing"].get("mode", "memory")
-        delete_cache = params["cache_preprocessing"].get("delete_cache", True)
-
-        if cache_mode in ["folder", "zarr"] and delete_cache:
-            folder_to_delete = recording_w._kwargs["folder_path"]
-
         del recording_w
-        if folder_to_delete is not None:
-            shutil.rmtree(folder_to_delete)
+        clean_cache_preprocessing(cache_info)
 
         sorting = sorting.save(folder=sorting_folder)
 
@@ -475,7 +473,7 @@ def final_cleaning_circus(
     recording,
     sorting,
     templates,
-    similarity_kwargs={"method": "l1", "support": "union", "max_lag_ms": 0.1},
+    similarity_kwargs={"method": ["l1", "l2", "cosine"], "support": "union", "max_lag_ms": 0.1},
     sparsity_overlap=0.5,
     censor_ms=3.0,
     max_distance_um=50,

@@ -333,7 +333,6 @@ if HAVE_NUMBA:
                 overlapping_templates = np.flatnonzero(np.sum(local_mask, 1))
                 tgt_templates = tgt_sliced_templates[overlapping_templates]
                 for gcount in range(len(overlapping_templates)):
-
                     j = overlapping_templates[gcount]
                     # symmetric values are handled later
                     if same_array and j < i:
@@ -418,8 +417,12 @@ def compute_similarity_with_templates_array(
 
     assert support in ["dense", "union", "intersection"], "support should be either dense, union or intersection"
 
-    if method not in all_metrics:
-        raise ValueError(f"compute_template_similarity (method {method}) not exists")
+    if not isinstance(method, list):
+        method = [method]
+
+    for m in method:
+        if m not in all_metrics:
+            raise ValueError(f"compute_template_similarity (method {m}) not exists")
 
     assert (
         templates_array.shape[1] == other_templates_array.shape[1]
@@ -443,9 +446,21 @@ def compute_similarity_with_templates_array(
         other_sparsity_mask = np.ones((other_templates_array.shape[0], other_templates_array.shape[2]), dtype=bool)
 
     assert num_shifts < num_samples, "max_lag is too large"
-    distances = _compute_similarity_matrix(
-        templates_array, other_templates_array, num_shifts, method, sparsity_mask, other_sparsity_mask, support=support
-    )
+
+    distances = []
+    for m in method:
+        distances += [
+            _compute_similarity_matrix(
+                templates_array,
+                other_templates_array,
+                num_shifts,
+                m,
+                sparsity_mask,
+                other_sparsity_mask,
+                support=support,
+            )
+        ]
+    distances = np.mean(distances, axis=0)
 
     lags = np.argmin(distances, axis=0) - num_shifts
     distances = np.min(distances, axis=0)
