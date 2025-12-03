@@ -476,6 +476,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
 
             detection_kwargs = params["detection"].get("method_kwargs", dict()).copy()
             detection_kwargs["noise_levels"] = noise_levels
+            detection_kwargs["exclude_sweep_ms"] = 2
+            detection_kwargs["radius_um"] = radius_um
             clusterer = online_clustering(recording_w, "locally_exclusive", detection_kwargs=detection_kwargs, job_kwargs=dict(n_jobs=1))
             sorting = clusterer.get_sorting()
 

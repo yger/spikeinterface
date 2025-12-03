@@ -535,3 +535,121 @@ def generate_drifting_recording(
         return static_recording, drifting_recording, sorting, extra_infos
     else:
         return static_recording, drifting_recording, sorting
+
+
+def generate_online_drifting_recording(
+    num_units=250,
+    fading_in_percentage=(0.25,0.25),
+    fading_speed_s=(10.0,10.0),
+    duration=600.0,
+    sampling_frequency=30000.0,
+    probe_name="Neuropixels1-128",
+    generate_probe_kwargs=None,
+    generate_unit_locations_kwargs=dict(
+        margin_um=20.0,
+        minimum_z=5.0,
+        maximum_z=45.0,
+        minimum_distance=18.0,
+        max_iteration=100,
+        distance_strict=False,
+        distribution="uniform",
+        # distribution="multimodal",
+        # num_modes=2,
+    ),
+    generate_displacement_vector_kwargs=dict(
+        displacement_sampling_frequency=5.0,
+        drift_start_um=[0, 20],
+        drift_stop_um=[0, -20],
+        drift_step_um=1,
+        motion_list=[
+            dict(
+                drift_mode="zigzag",
+                non_rigid_gradient=None,
+                t_start_drift=60.0,
+                t_end_drift=None,
+                period_s=200,
+            ),
+        ],
+    ),
+    generate_templates_kwargs=dict(
+        ms_before=1.5,
+        ms_after=3.0,
+        mode="ellipsoid",
+        unit_params=dict(
+            alpha=(100.0, 500.0),
+            spatial_decay=(10, 45),
+            ellipse_shrink=(0.4, 1),
+            ellipse_angle=(0, np.pi * 2),
+        ),
+    ),
+    generate_sorting_kwargs=dict(firing_rates=(2.0, 8.0), refractory_period_ms=4.0),
+    generate_noise_kwargs=dict(noise_levels=(6.0, 8.0), spatial_decay=25.0),
+    extra_outputs=False,
+    seed=None,
+):
+    """
+    Generated two synthetic recordings: one static and one drifting but with same
+    units and same spiketrains.
+
+    Parameters
+    ----------
+    num_units : int, default: 250
+        Number of units.
+    duration : float, default: 600.
+        The duration in seconds.
+    sampling_frequency : float, dfault: 30000.
+        The sampling frequency.
+    probe_name : str, default: "Neuropixels1-128"
+        The probe type if generate_probe_kwargs is None.
+    generate_probe_kwargs : None or dict
+        A dict to generate the probe, this supersede probe_name when not None.
+    generate_unit_locations_kwargs : dict
+        Parameters given to generate_unit_locations().
+    generate_displacement_vector_kwargs : dict
+        Parameters given to generate_displacement_vector().
+    generate_templates_kwargs : dict
+        Parameters given to generate_templates()
+    generate_sorting_kwargs : dict
+        Parameters given to generate_sorting().
+    generate_noise_kwargs : dict
+        Parameters given to generate_noise().
+    extra_outputs : bool, default False
+        Return optionaly a dict with more variables.
+    seed : None ot int
+        A unique seed for all steps.
+
+    Returns
+    -------
+    static_recording : Recording
+        A generated recording with no motion.
+    drifting_recording : Recording
+        A generated recording with motion.
+    sorting : Sorting
+        The ground trith soring object.
+        Same for both recordings.
+    extra_infos:
+        If extra_outputs=True, then return also a dict that contain various information like:
+
+            * displacement_vectors
+            * displacement_sampling_frequency
+            * unit_locations
+            * displacement_unit_factor
+            * unit_displacements
+
+        This can be helpfull for motion benchmark.
+    """
+
+    return generate_drifting_recording(
+        num_units=num_units,
+        duration=duration,
+        sampling_frequency=sampling_frequency,
+        probe_name=probe_name,
+        generate_probe_kwargs=generate_probe_kwargs,
+        generate_unit_locations_kwargs=generate_unit_locations_kwargs,
+        generate_displacement_vector_kwargs=generate_displacement_vector_kwargs,
+        generate_templates_kwargs=generate_templates_kwargs,
+        generate_sorting_kwargs=generate_sorting_kwargs,
+        generate_noise_kwargs=generate_noise_kwargs,
+        extra_outputs=extra_outputs,
+        seed=seed,
+    )
