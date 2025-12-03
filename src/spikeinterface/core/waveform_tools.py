@@ -575,7 +575,6 @@ def extract_waveforms_to_single_buffer(
             if shm is not None:
                 # release all sharedmem buffer
                 # empty array have None
-                del all_waveforms
                 shm.close()
                 shm.unlink()
             return wf_out
