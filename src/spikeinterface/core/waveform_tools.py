@@ -511,6 +511,7 @@ def extract_waveforms_to_single_buffer(
     else:
         file_path = Path(file_path)
 
+    
     num_spikes = spikes.size
     if sparsity_mask is None:
         num_chans = recording.get_num_channels()
@@ -552,6 +553,7 @@ def extract_waveforms_to_single_buffer(
             mode,
             sparsity_mask,
         )
+
         if job_name is None:
             job_name = f"extract waveforms {mode} mono buffer"
 
@@ -559,7 +561,7 @@ def extract_waveforms_to_single_buffer(
             recording, func, init_func, init_args, job_name=job_name, verbose=verbose, **job_kwargs
         )
         processor.run()
-
+        
     if mode == "memmap":
         return all_waveforms
     elif mode == "shared_memory":
@@ -568,6 +570,7 @@ def extract_waveforms_to_single_buffer(
             if shm is not None:
                 # release all sharedmem buffer
                 # empty array have None
+                del all_waveforms
                 shm.close()
                 shm.unlink()
             return wf_out
@@ -598,9 +601,9 @@ def _init_worker_distribute_single_buffer(
         shm_name, dtype, shape = wf_array_info["shm_name"], wf_array_info["dtype"], wf_array_info["shape"]
         shm = SharedMemory(shm_name)
         all_waveforms = np.ndarray(shape=shape, dtype=dtype, buffer=shm.buf)
-        worker_dict["shm"] = shm
         worker_dict["all_waveforms"] = all_waveforms
-
+        worker_dict["shm"] = shm
+        
     # prepare segment slices
     segment_slices = []
     for segment_index in range(recording.get_num_segments()):

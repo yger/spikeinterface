@@ -601,7 +601,6 @@ def run_node_pipeline(
 
     job_kwargs = fix_job_kwargs(job_kwargs)
     assert all(isinstance(node, PipelineNode) for node in nodes)
-
     if skip_after_n_peaks is not None:
         skip_after_n_peaks_per_worker = skip_after_n_peaks / job_kwargs["n_jobs"]
     else:

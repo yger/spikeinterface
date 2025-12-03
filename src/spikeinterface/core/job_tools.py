@@ -499,7 +499,6 @@ class ChunkRecordingExecutor:
 
         else:
             n_jobs = min(self.n_jobs, len(recording_slices))
-
             if self.pool_engine == "process":
 
                 if self.need_worker_index:
@@ -586,7 +585,6 @@ class ChunkRecordingExecutor:
 
             else:
                 raise ValueError("If n_jobs>1 pool_engine must be 'process' or 'thread'")
-
         return returns
 
 

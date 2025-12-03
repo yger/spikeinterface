@@ -60,7 +60,7 @@ class IterativeISOSPLITClustering:
             },
         },
         "merge_from_templates": {
-            "similarity_metric": ["l1", "l2", "cosine"],
+            "similarity_metric": ["l1"],
             "num_shifts": 3,
             "similarity_thresh": 0.8,
         },

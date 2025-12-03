@@ -65,7 +65,6 @@ def extract_peaks_svd(
             job_name="Fit peaks svd",
             job_kwargs=job_kwargs,
         )
-
         wfs = few_wfs[:, :, 0]
 
         # Remove outliers
