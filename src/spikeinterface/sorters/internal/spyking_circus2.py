@@ -41,7 +41,8 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         "motion_correction": {"preset": "dredge_fast"},
         "merging": {"max_distance_um": 50},
         "clustering": {"method": "iterative-hdbscan", "method_kwargs": dict()},
-        "cleaning": {"min_snr": 5, "max_jitter_ms": 0.1, "sparsify_threshold": None},
+        "cleaning": {"min_snr": 5, "max_jitter_ms": 0.2, "sparsify_threshold": 1, "mean_sd_ratio_threshold": 3},
+        "min_firing_rate": 0.1,
         "matching": {"method": "circus-omp", "method_kwargs": dict(), "pipeline_kwargs": dict()},
         "apply_preprocessing": True,
         "apply_whitening": True,
@@ -106,6 +107,7 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         from spikeinterface.sortingcomponents.peak_detection import detect_peaks
         from spikeinterface.sortingcomponents.peak_selection import select_peaks
         from spikeinterface.sortingcomponents.clustering import find_clusters_from_peaks
+        from spikeinterface.sortingcomponents.clustering.tools import remove_small_cluster
         from spikeinterface.sortingcomponents.matching import find_spikes_from_templates
         from spikeinterface.sortingcomponents.tools import check_probe_for_drift_correction
         from spikeinterface.sortingcomponents.tools import clean_templates
@@ -121,8 +123,6 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
         ms_before = params["general"].get("ms_before", 0.5)
         ms_after = params["general"].get("ms_after", 1.5)
         radius_um = params["general"].get("radius_um", 100.0)
-        detect_threshold = params["detection"]["method_kwargs"].get("detect_threshold", 5)
-        peak_sign = params["detection"].get("peak_sign", "neg")
         deterministic = params["deterministic_peaks_detection"]
         debug = params["debug"]
         seed = params["seed"]
@@ -340,6 +340,9 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                     clustering_params.update(verbose=verbose)
                     clustering_params.update(seed=seed)
                     clustering_params.update(peak_svd=params["general"])
+                    if clustering_method in ["iterative-hdbscan", "iterative-isosplit"]:
+                        clustering_params.update(clean_templates=cleaning_kwargs)
+                        clustering_params["noise_levels"] = noise_levels
                     if debug:
                         clustering_params["debug_folder"] = sorter_output_folder / "clustering"
 
@@ -542,5 +545,4 @@ def final_cleaning_circus(
         sparsity_overlap=sparsity_overlap,
         **job_kwargs,
     )
-
     return final_sa
