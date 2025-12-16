@@ -331,6 +331,9 @@ class Spykingcircus2Sorter(ComponentsBasedSorter):
                 if verbose:
                     print("Kept %d peaks for clustering" % len(selected_peaks))
 
+                cleaning_kwargs = params.get("cleaning", {}).copy()
+                cleaning_kwargs["remove_empty"] = True
+
                 if clustering_method in [
                     "iterative-hdbscan",
                     "iterative-isosplit",
