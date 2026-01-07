@@ -35,8 +35,9 @@ def analyse_residual(
     residual = make_residual_recording(analyzer)
 
     peaks = detect_peaks(residual, **detect_peaks_kwargs, **job_kwargs)
+    energies = compute_energy(residual, **job_kwargs)
 
-    return residual, peaks
+    return residual, peaks, energies
 
 
 def make_residual_recording(analyzer):
@@ -69,3 +70,62 @@ def make_residual_recording(analyzer):
     residual.name = "ResidualRecording"
 
     return residual
+
+
+from spikeinterface.core.node_pipeline import PeakDetector
+import numpy as np
+
+base_peak_dtype = [
+    ("sample_index", "int64"),
+    ("channel_index", "int64"),
+    ("energy", "float64"),
+    ("segment_index", "int64"),
+]
+
+class ComputeEnergy(PeakDetector):
+
+    name = "energy"
+    preferred_mp_context = None
+
+    def __init__(
+        self,
+        recording
+    ):
+        PeakDetector.__init__(self, recording, return_output=True)
+
+    def get_trace_margin(self):
+        return 0
+
+    def get_dtype(self):
+        return self._dtype
+
+    def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
+        num_channels = traces.shape[1]
+        energy = np.zeros(num_channels, dtype=base_peak_dtype)
+        energy["sample_index"] = 0
+        energy["segment_index"] = segment_index
+        energy["channel_index"] = range(num_channels)
+        energy["energy"] = np.linalg.norm(traces, axis=0)/np.sqrt(traces.shape[0])
+        return (energy,)
+
+
+def compute_energy(recording, job_kwargs=dict()):
+
+    from spikeinterface.core.node_pipeline import (
+        run_node_pipeline,
+    )
+    from spikeinterface.core.job_tools import fix_job_kwargs
+
+    job_kwargs = fix_job_kwargs(job_kwargs)
+
+    node0 = ComputeEnergy(
+        recording
+    )
+
+    residuals = run_node_pipeline(
+        recording,
+        [node0],
+        job_kwargs,
+        job_name="compute energy",
+    )
+    return residuals

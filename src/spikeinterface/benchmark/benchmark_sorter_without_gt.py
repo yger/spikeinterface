@@ -39,7 +39,7 @@ class SorterBenchmarkWithoutGroundTruth(Benchmark):
 
         analyzer.compute("quality_metrics", **job_kwargs)
 
-        residual, peaks = analyse_residual(
+        residual, peaks, energies = analyse_residual(
             analyzer,
             detect_peaks_kwargs=dict(
                 method="locally_exclusive",
@@ -49,8 +49,10 @@ class SorterBenchmarkWithoutGroundTruth(Benchmark):
             **job_kwargs,
         )
 
+        self.result["residual"] = residual
         self.result["sorter_analyzer"] = analyzer
         self.result["peaks_from_residual"] = peaks
+        self.result["energies_from_residual"] = energies
 
     _run_key_saved = [
         ("sorting", "sorting"),
@@ -58,8 +60,10 @@ class SorterBenchmarkWithoutGroundTruth(Benchmark):
     _result_key_saved = [
         # note that this multi_comp is the same accros benchmark (cases)
         ("multi_comp", "pickle"),
+        ("residual", "pickle"),
         ("sorter_analyzer", "sorting_analyzer"),
         ("peaks_from_residual", "npy"),
+        ("energies_from_residual", "npy"),
     ]
 
 
@@ -129,14 +133,14 @@ class SorterStudyWithoutGroundTruth(BenchmarkStudy):
                 benchmark.result["multi_comp"] = multi_comp
                 benchmark.save_result(self.folder / "results" / self.key_to_str(key))
 
-    def plot_residual_peak_amplitudes(self, figsize=None):
+    def plot_residual_peak_amplitudes(self, figsize=None, num_bins=50):
         import matplotlib.pyplot as plt
 
         groups = self._get_comparison_groups()
         colors = self.get_colors()
 
         for data_key, group in groups.items():
-            fig, ax = plt.subplots(figsize=figsize)
+            fig, axes = plt.subplots(1, 2, figsize=figsize)
 
             lim0, lim1 = np.inf, -np.inf
 
@@ -146,20 +150,81 @@ class SorterStudyWithoutGroundTruth(BenchmarkStudy):
                 lim0 = min(lim0, np.min(peaks["amplitude"]))
                 lim1 = max(lim1, np.max(peaks["amplitude"]))
 
-            bins = np.linspace(lim0, lim1, 200)
+            bins = np.linspace(lim0, lim1, num_bins)
             if lim1 < 0:
                 lim1 = 0
             if lim0 > 0:
                 lim0 = 0
+            
+            bins_channel = range(self.get_result(key)["sorter_analyzer"].recording.get_num_channels())
 
             for key in group:
                 peaks = self.get_result(key)["peaks_from_residual"]
-                print(peaks.size)
-                print()
-                count, bins = np.histogram(peaks["amplitude"], bins=bins)
-                ax.plot(bins[:-1], count, color=colors[key], label=self.cases[key]["label"])
+                count, _ = np.histogram(peaks["amplitude"], bins=bins)
+                axes[0].plot(bins[:-1], count, color=colors[key], label=self.cases[key]["label"])
 
-            ax.legend()
+                count, _ = np.histogram(peaks["channel_index"], bins=bins_channel)
+                axes[1].plot(bins_channel[:-1], count, color=colors[key], label=self.cases[key]["label"])
+
+            axes[0].set_title("Residual peak amplitudes")
+            axes[0].set_xlabel("Amplitude")
+            axes[0].set_ylabel("Count")
+            axes[1].set_title("Residual peak channel index")
+            axes[1].set_xlabel("Channel index")
+            axes[1].set_ylabel("Count")
+            axes[0].legend()
+    
+    def plot_residual_energies(self, figsize=None, num_bins=50, case_keys=None, levels_to_group_by=None):
+        import matplotlib.pyplot as plt
+
+        groups = self._get_comparison_groups()
+        colors = self.get_colors()
+
+        for data_key, group in groups.items():
+            fig, axes = plt.subplots(1, 2, figsize=figsize)
+
+            lim0, lim1 = np.inf, -np.inf
+
+            for key in group:
+                peaks = self.get_result(key)["energies_from_residual"]
+                lim0 = min(lim0, np.min(peaks["energy"]))
+                lim1 = max(lim1, np.max(peaks["energy"]))
+
+            bins = np.linspace(lim0, lim1, num_bins)
+            if lim1 < 0:
+                lim1 = 0
+            if lim0 > 0:
+                lim0 = 0
+            
+            for key in group:
+                peaks = self.get_result(key)["energies_from_residual"]
+                count, _ = np.histogram(peaks["energy"], bins=bins)
+                axes[0].plot(bins[:-1], count, color=colors[key], label=self.cases[key]["label"])
+
+            axes[0].set_title("Residual energies")
+            axes[0].set_xlabel("Energy")
+            axes[0].set_ylabel("Count")
+            axes[0].set_yscale('log')
+            axes[0].legend()
+
+        case_keys = None
+        if case_keys is None:
+            case_keys = list(self.cases.keys())
+
+        data = []
+
+        case_keys, _ = self.get_grouped_keys_mapping(levels_to_group_by=levels_to_group_by, case_keys=case_keys)
+        labels = []
+        for i, key1 in enumerate(case_keys):
+            for j, key2 in enumerate(case_keys):
+                if i < j:
+                    labels += [f"{self.cases[key1]['label']}/{self.cases[key2]['label']}"]
+                    data_1 = self.get_result(key1)['energies_from_residual']["energy"]
+                    data_2 = self.get_result(key2)['energies_from_residual']["energy"]
+                    data += [data_1 / data_2]    
+                    
+        axes[1].violinplot(data, showmeans=False, showmedians=True)
+        axes[1].set_xticks(np.arange(len(data)) + 1, labels, rotation=45)
 
     # def plot_quality_metrics_comparison_on_agreement(self, qm_name='rp_contamination', figsize=None):
     #     import matplotlib.pyplot as plt
