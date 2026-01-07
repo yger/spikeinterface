@@ -140,7 +140,7 @@ class SorterStudyWithoutGroundTruth(BenchmarkStudy):
         colors = self.get_colors()
 
         for data_key, group in groups.items():
-            fig, axes = plt.subplots(1, 2, figsize=figsize)
+            fig, axes = plt.subplots(1, 3, figsize=figsize)
 
             lim0, lim1 = np.inf, -np.inf
 
@@ -158,21 +158,25 @@ class SorterStudyWithoutGroundTruth(BenchmarkStudy):
             
             bins_channel = range(self.get_result(key)["sorter_analyzer"].recording.get_num_channels())
 
-            for key in group:
+            for idx, key in enumerate(group):
                 peaks = self.get_result(key)["peaks_from_residual"]
                 count, _ = np.histogram(peaks["amplitude"], bins=bins)
                 axes[0].plot(bins[:-1], count, color=colors[key], label=self.cases[key]["label"])
 
+                axes[1].bar([idx], np.sum(count)/(lim1 - lim0), color=colors[key], label=self.cases[key]["label"])
+
                 count, _ = np.histogram(peaks["channel_index"], bins=bins_channel)
-                axes[1].plot(bins_channel[:-1], count, color=colors[key], label=self.cases[key]["label"])
+                axes[2].plot(bins_channel[:-1], count, color=colors[key], label=self.cases[key]["label"])
 
             axes[0].set_title("Residual peak amplitudes")
             axes[0].set_xlabel("Amplitude")
             axes[0].set_ylabel("Count")
-            axes[1].set_title("Residual peak channel index")
-            axes[1].set_xlabel("Channel index")
-            axes[1].set_ylabel("Count")
+            axes[1].set_ylabel('Area under curve')
+            axes[2].set_title("Residual peak channel index")
+            axes[2].set_xlabel("Channel index")
+            axes[2].set_ylabel("Count")
             axes[0].legend()
+            plt.tight_layout()
     
     def plot_residual_energies(self, figsize=None, num_bins=50, case_keys=None, levels_to_group_by=None):
         import matplotlib.pyplot as plt
@@ -226,50 +230,60 @@ class SorterStudyWithoutGroundTruth(BenchmarkStudy):
         axes[1].violinplot(data, showmeans=False, showmedians=True)
         axes[1].set_xticks(np.arange(len(data)) + 1, labels, rotation=45)
 
-    # def plot_quality_metrics_comparison_on_agreement(self, qm_name='rp_contamination', figsize=None):
-    #     import matplotlib.pyplot as plt
+    def plot_quality_metrics_comparison_on_agreement(self, qm_name='rp_contamination', 
+                                                     case_keys=None, levels_to_group_by=None,figsize=None):
+        import matplotlib.pyplot as plt
 
-    #     groups = self._get_comparison_groups()
+        groups = self._get_comparison_groups()
 
-    #     for data_key, group in groups.items():
-    #         n = len(group)
-    #         fig, axs = plt.subplots(ncols=n - 1, nrows=n - 1, figsize=figsize, squeeze=False)
-    #         for i, key1 in enumerate(group):
-    #             for j, key2 in enumerate(group):
-    #                 if i < j:
-    #                     ax = axs[i, j - 1]
-    #                     label1 = self.cases[key1]['label']
-    #                     label2 = self.cases[key2]['label']
+        if case_keys is None:
+            case_keys = list(self.cases.keys())
+        case_keys, labels = self.get_grouped_keys_mapping(levels_to_group_by=levels_to_group_by, case_keys=case_keys)
 
-    #                     if i == j - 1:
-    #                         ax.set_xlabel(label2)
-    #                         ax.set_ylabel(label1)
+        from .benchmark_plot_tools import despine
+        
+        num_methods = len(case_keys)
+        for data_key, group in groups.items():
+            n = len(group)
+            fig, axs = plt.subplots(ncols=n - 1, nrows=n - 1, figsize=figsize, squeeze=False)
+            for i, key1 in enumerate(group):
+                for j, key2 in enumerate(group):
+                    if i < j:
+                        ax = axs[i, j - 1]
+                        label1 = self.cases[key1]['label']
+                        label2 = self.cases[key2]['label']
 
-    #                     multi_comp = self.get_result(key1)['multi_comp']
-    #                     comp = multi_comp.comparisons[key1, key2]
+                        if i == j - 1:
+                            ax.set_xlabel(label2)
+                            ax.set_ylabel(label1)
 
-    #                     match_12 = comp.hungarian_match_12
-    #                     if match_12.dtype.kind =='i':
-    #                         mask = match_12.values != -1
-    #                     if match_12.dtype.kind =='U':
-    #                         mask = match_12.values != ''
+                        multi_comp = self.get_result(key1)['multi_comp']
+                        comp = multi_comp.comparisons[key1, key2]
 
-    #                     common_unit1_ids = match_12[mask].index
-    #                     common_unit2_ids = match_12[mask].values
-    #                     metrics1 = self.get_result(key1)["sorter_analyzer"].get_extension("quality_metrics").get_data()
-    #                     metrics2 = self.get_result(key2)["sorter_analyzer"].get_extension("quality_metrics").get_data()
+                        match_12 = comp.hungarian_match_12
+                        if match_12.dtype.kind =='i':
+                            mask = match_12.values != -1
+                        if match_12.dtype.kind =='U':
+                            mask = match_12.values != ''
 
-    #                     values1 = metrics1.loc[common_unit1_ids, qm_name].values
-    #                     values2 = metrics2.loc[common_unit2_ids, qm_name].values
+                        common_unit1_ids = match_12[mask].index
+                        common_unit2_ids = match_12[mask].values
+                        metrics1 = self.get_result(key1)["sorter_analyzer"].get_extension("quality_metrics").get_data()
+                        metrics2 = self.get_result(key2)["sorter_analyzer"].get_extension("quality_metrics").get_data()
 
-    #                     print(common_unit1_ids, metrics1.columns, values1)
-    #                     print(common_unit2_ids, metrics2.columns, values2)
+                        values1 = metrics1.loc[common_unit1_ids, qm_name].values
+                        values2 = metrics2.loc[common_unit2_ids, qm_name].values
 
-    #                     ax.scatter(values1, values2)
-    #                     if i != j - 1:
-    #                         ax.set_xlabel("")
-    #                         ax.set_ylabel("")
-    #                         ax.set_xticks([])
-    #                         ax.set_yticks([])
-    #                         ax.set_xticklabels([])
-    #                         ax.set_yticklabels([])
+                        ax.scatter(values1, values2)
+                        despine(ax)
+                        if i != j - 1:
+                            ax.set_xlabel("")
+                            ax.set_ylabel("")
+                            ax.set_xticks([])
+                            ax.set_yticks([])
+                            ax.set_xticklabels([])
+                            ax.set_yticklabels([])
+                    else:
+                        if j >= 1 and i < num_methods - 1:
+                            ax = axs[i, j - 1]
+                            ax.axis("off")
