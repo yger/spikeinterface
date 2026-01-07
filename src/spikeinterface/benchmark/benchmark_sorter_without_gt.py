@@ -178,57 +178,52 @@ class SorterStudyWithoutGroundTruth(BenchmarkStudy):
             axes[0].legend()
             plt.tight_layout()
     
+
+
     def plot_residual_energies(self, figsize=None, num_bins=50, case_keys=None, levels_to_group_by=None):
         import matplotlib.pyplot as plt
+        from .benchmark_plot_tools import despine
 
         groups = self._get_comparison_groups()
         colors = self.get_colors()
 
-        for data_key, group in groups.items():
-            fig, axes = plt.subplots(1, 2, figsize=figsize)
-
-            lim0, lim1 = np.inf, -np.inf
-
-            for key in group:
-                peaks = self.get_result(key)["energies_from_residual"]
-                lim0 = min(lim0, np.min(peaks["energy"]))
-                lim1 = max(lim1, np.max(peaks["energy"]))
-
-            bins = np.linspace(lim0, lim1, num_bins)
-            if lim1 < 0:
-                lim1 = 0
-            if lim0 > 0:
-                lim0 = 0
-            
-            for key in group:
-                peaks = self.get_result(key)["energies_from_residual"]
-                count, _ = np.histogram(peaks["energy"], bins=bins)
-                axes[0].plot(bins[:-1], count, color=colors[key], label=self.cases[key]["label"])
-
-            axes[0].set_title("Residual energies")
-            axes[0].set_xlabel("Energy")
-            axes[0].set_ylabel("Count")
-            axes[0].set_yscale('log')
-            axes[0].legend()
-
-        case_keys = None
         if case_keys is None:
             case_keys = list(self.cases.keys())
+        case_keys, labels = self.get_grouped_keys_mapping(levels_to_group_by=levels_to_group_by, case_keys=case_keys)
 
-        data = []
+        num_methods = len(case_keys)
+        for data_key, group in groups.items():
+            n = len(group)
+            fig, axs = plt.subplots(ncols=n - 1, nrows=n - 1, figsize=figsize, squeeze=False)
+            for i, key1 in enumerate(group):
+                for j, key2 in enumerate(group):
+                    if i < j:
+                        ax = axs[i, j - 1]
+                        label1 = self.cases[key1]['label']
+                        label2 = self.cases[key2]['label']
 
-        case_keys, _ = self.get_grouped_keys_mapping(levels_to_group_by=levels_to_group_by, case_keys=case_keys)
-        labels = []
-        for i, key1 in enumerate(case_keys):
-            for j, key2 in enumerate(case_keys):
-                if i < j:
-                    labels += [f"{self.cases[key1]['label']}/{self.cases[key2]['label']}"]
-                    data_1 = self.get_result(key1)['energies_from_residual']["energy"]
-                    data_2 = self.get_result(key2)['energies_from_residual']["energy"]
-                    data += [data_1 / data_2]    
-                    
-        axes[1].violinplot(data, showmeans=False, showmedians=True)
-        axes[1].set_xticks(np.arange(len(data)) + 1, labels, rotation=45)
+                        if i == j - 1:
+                            ax.set_xlabel(label2)
+                            ax.set_ylabel(label1)
+
+                        data_1 = self.get_result(key1)['energies_from_residual']["energy"]
+                        data_2 = self.get_result(key2)['energies_from_residual']["energy"]
+                        
+                        ax.scatter(data_1, data_2, color='k', alpha=0.1)
+                        ax.plot([data_1.min(), data_1.max()], [data_1.min(), data_1.max()], color='r', linestyle='--')
+                        despine(ax)
+                        if i != j - 1:
+                            ax.set_xlabel("")
+                            ax.set_ylabel("")
+                            ax.set_xticks([])
+                            ax.set_yticks([])
+                            ax.set_xticklabels([])
+                            ax.set_yticklabels([])
+                    else:
+                        if j >= 1 and i < num_methods - 1:
+                            ax = axs[i, j - 1]
+                            ax.axis("off")
+        
 
     def plot_quality_metrics_comparison_on_agreement(self, qm_name='rp_contamination', 
                                                      case_keys=None, levels_to_group_by=None,figsize=None):
