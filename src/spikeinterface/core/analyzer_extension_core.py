@@ -103,7 +103,7 @@ class ComputeRandomSpikes(AnalyzerExtension):
     def _get_data(self):
         return self.data["random_spikes_indices"]
 
-    def get_random_spikes(self, outputs='numpy', concatenated=False):
+    def get_random_spikes(self, outputs='numpy', concatenated=False, return_indices=False):
         # utils to get the some_spikes vector
         # use internal cache
         if not hasattr(self, "_some_spikes"):
@@ -111,7 +111,10 @@ class ComputeRandomSpikes(AnalyzerExtension):
             self._some_spikes = spikes[self.data["random_spikes_indices"]]
         
         if outputs == 'numpy':
-            return self._some_spikes
+            if not return_indices:
+                return self._some_spikes
+            else:
+                return self._some_spikes, self.data['random_spikes_indices']
         
         elif outputs == "by_unit":
             if not hasattr(self, "_some_spikes_lexsorted"):
@@ -125,54 +128,9 @@ class ComputeRandomSpikes(AnalyzerExtension):
 
             # use the cache of indices
             #spike_indices = self.sorting_analyzer.sorting.get_spike_vector_to_indices()
-            data_by_units = {}
-            num_segments = self.sorting_analyzer.sorting.get_num_segments()
-            seg_slices = np.searchsorted(self._some_spikes_lexsorted["segment_index"], np.arange(num_segments + 1), side="left")
-            for segment_index in range(num_segments):
-                s0 = seg_slices[segment_index]
-                s1 = seg_slices[segment_index + 1]
-                unit_slices = np.searchsorted(
-                    self._some_spikes_lexsorted[s0:s1]["unit_index"], np.arange(num_units + 1), side="left"
-                )
-                data_by_units[segment_index] = {}
-                for unit_index, unit_id in enumerate(self.sorting_analyzer.unit_ids):
-                    u0 = unit_slices[unit_index]
-                    u1 = unit_slices[unit_index + 1]
-                    data_by_units[segment_index][unit_id] = self._some_spikes_lexsorted[s0+u0:s0+u1]
-
-            if concatenated:
-                data_by_units_concatenated = {
-                    unit_id: np.concatenate([data_in_segment[unit_id] for data_in_segment in data_by_units.values()])
-                    for unit_id in unit_ids
-                }
-                return data_by_units_concatenated
-
-            return data_by_units
-    
-    def get_random_spikes_indices(self, outputs='numpy', concatenated=False):
-        # utils to get the some_spikes vector
-        # use internal cache
-        
-        if not hasattr(self, "_some_spikes"):
-            spikes = self.sorting_analyzer.sorting.to_spike_vector()
-            self._some_spikes = spikes[self.data["random_spikes_indices"]]
-
-        if outputs == 'numpy':
-            return self.data["random_spikes_indices"]
-        
-        elif outputs == "by_unit":
-            if not hasattr(self, "_some_spikes_lexsorted"):
-                self._lexsort_order = np.lexsort((self._some_spikes['sample_index'], 
-                                    self._some_spikes['unit_index'], 
-                                    self._some_spikes['segment_index']))
-                self._some_spikes_lexsorted = self._some_spikes[self._lexsort_order]
             
-            unit_ids = self.sorting_analyzer.unit_ids
-            num_units = len(unit_ids)
-
-            # use the cache of indices
-            #spike_indices = self.sorting_analyzer.sorting.get_spike_vector_to_indices()
-            data_by_units = {}
+            spikes_by_units = {}
+            indices_by_units = {}
             num_segments = self.sorting_analyzer.sorting.get_num_segments()
             seg_slices = np.searchsorted(self._some_spikes_lexsorted["segment_index"], np.arange(num_segments + 1), side="left")
             for segment_index in range(num_segments):
@@ -181,20 +139,32 @@ class ComputeRandomSpikes(AnalyzerExtension):
                 unit_slices = np.searchsorted(
                     self._some_spikes_lexsorted[s0:s1]["unit_index"], np.arange(num_units + 1), side="left"
                 )
-                data_by_units[segment_index] = {}
+                spikes_by_units[segment_index] = {}
+                indices_by_units[segment_index] = {}
                 for unit_index, unit_id in enumerate(self.sorting_analyzer.unit_ids):
                     u0 = unit_slices[unit_index]
                     u1 = unit_slices[unit_index + 1]
-                    data_by_units[segment_index][unit_id] = self._lexsort_order[s0+u0:s0+u1]
+                    spikes_by_units[segment_index][unit_id] = self._some_spikes_lexsorted[s0+u0:s0+u1]
+                    indices_by_units[segment_index][unit_id] = self._lexsort_order[s0+u0:s0+u1]
 
             if concatenated:
-                data_by_units_concatenated = {
-                    unit_id: np.concatenate([data_in_segment[unit_id] for data_in_segment in data_by_units.values()])
+                spikes_by_units_concatenated = {
+                    unit_id: np.concatenate([data_in_segment[unit_id] for data_in_segment in spikes_by_units.values()])
                     for unit_id in unit_ids
                 }
-                return data_by_units_concatenated
-
-            return data_by_units
+                indices_by_units_concatenated = {
+                    unit_id: np.concatenate([data_in_segment[unit_id] for data_in_segment in indices_by_units.values()])
+                    for unit_id in unit_ids
+                }
+                if not return_indices:
+                    return spikes_by_units_concatenated
+                else:
+                    return spikes_by_units_concatenated, indices_by_units_concatenated
+            else:
+                if not return_indices:
+                    return spikes_by_units
+                else:
+                    return spikes_by_units, indices_by_units
 
     def get_selected_indices_in_spike_train(self, unit_id, segment_index):
         # useful for WaveformEselected_spikes_in_spike_trainxtractor backwards compatibility

@@ -195,9 +195,9 @@ class ComputePrincipalComponents(AnalyzerExtension):
             assert self.params["mode"] != "concatenated", "mode concatenated cannot retrieve sparse projection"
             assert sparsity is not None, "sparse projection need SortingAnalyzer to be sparse"
 
-        some_spikes = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes(output='by_unit', concatenated=True)['unit_id']
-        some_spikes_indices = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes_indices(output='by_unit', concatenated=True)['unit_id']
-        projections = self.data["pca_projection"][some_spikes_indices]
+        extension = self.sorting_analyzer.get_extension("random_spikes")
+        _, some_spikes_indices = extension.get_random_spikes(output='by_unit', concatenated=True, return_indices=True)
+        projections = self.data["pca_projection"][some_spikes_indices['unit_id']]
 
         if sparsity is None:
             return projections
@@ -338,9 +338,8 @@ class ComputePrincipalComponents(AnalyzerExtension):
         # transform
         waveforms_ext = self.sorting_analyzer.get_extension("waveforms")
         some_waveforms = waveforms_ext.data["waveforms"]
-        some_spikes = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes(outputs='by_unit', concatenated=True)
-        some_spikes_indices = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes_indices(outputs='by_unit', concatenated=True)
-
+        extension = self.sorting_analyzer.get_extension("random_spikes")
+        some_spikes, some_spikes_indices = extension.get_random_spikes(outputs='by_unit', concatenated=True, return_indices=True)
         pca_projection = self._transform_waveforms(some_spikes, some_spikes_indices, some_waveforms, pca_model, progress_bar)
 
         self.data["pca_projection"] = pca_projection
@@ -597,9 +596,8 @@ class ComputePrincipalComponents(AnalyzerExtension):
         # get waveforms + channel_inds: dense or sparse
         waveforms_ext = self.sorting_analyzer.get_extension("waveforms")
         some_waveforms = waveforms_ext.data["waveforms"]
-
-        some_spikes = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes(outputs='by_unit', concatenated=True)
-        some_spikes_indices = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes_indices(outputs='by_unit', concatenated=True)
+        extension = self.sorting_analyzer.get_extension("random_spikes")
+        some_spikes, some_spikes_indices = extension.get_random_spikes(outputs='by_unit', concatenated=True, return_indices=True)
 
         return self._get_slice_waveforms(unit_id, some_spikes, some_spikes_indices, some_waveforms)
 
