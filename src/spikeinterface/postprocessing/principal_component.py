@@ -195,11 +195,9 @@ class ComputePrincipalComponents(AnalyzerExtension):
             assert self.params["mode"] != "concatenated", "mode concatenated cannot retrieve sparse projection"
             assert sparsity is not None, "sparse projection need SortingAnalyzer to be sparse"
 
-        some_spikes = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes()
-
-        unit_index = sorting.id_to_index(unit_id)
-        spike_mask = some_spikes["unit_index"] == unit_index
-        projections = self.data["pca_projection"][spike_mask]
+        some_spikes = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes(output='by_unit', concatenated=True)['unit_id']
+        some_spikes_indices = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes_indices(output='by_unit', concatenated=True)['unit_id']
+        projections = self.data["pca_projection"][some_spikes_indices]
 
         if sparsity is None:
             return projections
@@ -287,7 +285,7 @@ class ComputePrincipalComponents(AnalyzerExtension):
 
         return some_projections, spike_unit_indices
 
-    def project_new(self, new_spikes, new_waveforms, progress_bar=True):
+    def project_new(self, new_spikes, new_spikes_indices, new_waveforms, progress_bar=True):
         """
         Projects new waveforms or traces snippets on the PC components.
 
@@ -305,7 +303,7 @@ class ComputePrincipalComponents(AnalyzerExtension):
 
         """
         pca_model = self.get_pca_model()
-        new_projections = self._transform_waveforms(new_spikes, new_waveforms, pca_model, progress_bar=progress_bar)
+        new_projections = self._transform_waveforms(new_spikes, new_spikes_indices, new_waveforms, pca_model, progress_bar=progress_bar)
         return new_projections
 
     def _run(self, verbose=False, **job_kwargs):
@@ -340,9 +338,10 @@ class ComputePrincipalComponents(AnalyzerExtension):
         # transform
         waveforms_ext = self.sorting_analyzer.get_extension("waveforms")
         some_waveforms = waveforms_ext.data["waveforms"]
-        some_spikes = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes()
+        some_spikes = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes(outputs='by_unit', concatenated=True)
+        some_spikes_indices = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes_indices(outputs='by_unit', concatenated=True)
 
-        pca_projection = self._transform_waveforms(some_spikes, some_waveforms, pca_model, progress_bar)
+        pca_projection = self._transform_waveforms(some_spikes, some_spikes_indices, some_waveforms, pca_model, progress_bar)
 
         self.data["pca_projection"] = pca_projection
 
@@ -518,7 +517,7 @@ class ComputePrincipalComponents(AnalyzerExtension):
 
         return pca_model
 
-    def _transform_waveforms(self, spikes, waveforms, pca_model, progress_bar):
+    def _transform_waveforms(self, spikes, spikes_indices, waveforms, pca_model, progress_bar):
         # transform a waveforms buffer
         # used by _run() and project_new()
 
@@ -545,7 +544,7 @@ class ComputePrincipalComponents(AnalyzerExtension):
 
             project_on_non_fitted = False
             for unit_ind, unit_id in units_loop:
-                wfs, channel_inds, spike_mask = self._get_slice_waveforms(unit_id, spikes, waveforms)
+                wfs, channel_inds, spike_mask = self._get_slice_waveforms(unit_id, spikes, spikes_indices, waveforms)
                 if wfs.size == 0:
                     continue
                 for wf_ind, chan_ind in enumerate(channel_inds):
@@ -579,11 +578,10 @@ class ComputePrincipalComponents(AnalyzerExtension):
 
         return pca_projection
 
-    def _get_slice_waveforms(self, unit_id, spikes, waveforms):
+    def _get_slice_waveforms(self, unit_id, spikes, spike_indices, waveforms):
         # slice by mask waveforms from one unit
 
-        unit_index = self.sorting_analyzer.sorting.id_to_index(unit_id)
-        spike_mask = spikes["unit_index"] == unit_index
+        spike_mask = spike_indices[unit_id]
         wfs = waveforms[spike_mask, :, :]
 
         sparsity = self.sorting_analyzer.sparsity
@@ -600,9 +598,10 @@ class ComputePrincipalComponents(AnalyzerExtension):
         waveforms_ext = self.sorting_analyzer.get_extension("waveforms")
         some_waveforms = waveforms_ext.data["waveforms"]
 
-        some_spikes = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes()
+        some_spikes = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes(outputs='by_unit', concatenated=True)
+        some_spikes_indices = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes_indices(outputs='by_unit', concatenated=True)
 
-        return self._get_slice_waveforms(unit_id, some_spikes, some_waveforms)
+        return self._get_slice_waveforms(unit_id, some_spikes, some_spikes_indices, some_waveforms)
 
 
 def _all_pc_extractor_chunk(segment_index, start_frame, end_frame, worker_ctx):
