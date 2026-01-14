@@ -358,13 +358,11 @@ class ComputeWaveforms(AnalyzerExtension):
             The waveforms (num_waveforms, num_samples, num_channels).
             In case sparsity is used, only the waveforms on sparse channels are returned.
         """
-        sorting = self.sorting_analyzer.sorting
-        unit_index = sorting.id_to_index(unit_id)
-
         waveforms = self.data["waveforms"]
-        some_spikes = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes()
+        extension = self.sorting_analyzer.get_extension("random_spikes")
+        _, some_spikes_indices = extension.get_random_spikes(outputs='by_unit', concatenated=False, return_indices=True)
 
-        spike_mask = some_spikes["unit_index"] == unit_index
+        spike_mask = some_spikes_indices[unit_id]
         wfs = waveforms[spike_mask, :, :]
 
         if self.sorting_analyzer.sparsity is not None:
