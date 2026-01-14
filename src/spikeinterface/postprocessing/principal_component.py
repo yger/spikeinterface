@@ -189,15 +189,14 @@ class ComputePrincipalComponents(AnalyzerExtension):
 
         """
         sparsity = self.sorting_analyzer.sparsity
-        sorting = self.sorting_analyzer.sorting
 
         if sparse:
             assert self.params["mode"] != "concatenated", "mode concatenated cannot retrieve sparse projection"
             assert sparsity is not None, "sparse projection need SortingAnalyzer to be sparse"
 
         extension = self.sorting_analyzer.get_extension("random_spikes")
-        _, some_spikes_indices = extension.get_random_spikes(output='by_unit', concatenated=True, return_indices=True)
-        projections = self.data["pca_projection"][some_spikes_indices['unit_id']]
+        _, some_spikes_indices = extension.get_random_spikes(outputs='by_unit', concatenated=True, return_indices=True)
+        projections = self.data["pca_projection"][some_spikes_indices[unit_id]]
 
         if sparsity is None:
             return projections
@@ -250,25 +249,30 @@ class ComputePrincipalComponents(AnalyzerExtension):
 
         sparsity = self.sorting_analyzer.sparsity
 
-        some_spikes = self.sorting_analyzer.get_extension("random_spikes").get_random_spikes()
-
-        unit_indices = sorting.ids_to_indices(unit_ids)
-        selected_inds = np.flatnonzero(np.isin(some_spikes["unit_index"], unit_indices))
-
-        spike_unit_indices = some_spikes["unit_index"][selected_inds]
-
+        extension = self.sorting_analyzer.get_extension("random_spikes")
+        
         if sparsity is None:
+            some_spikes = extension.get_random_spikes()
+            unit_indices = sorting.ids_to_indices(unit_ids)
+            selected_inds = np.flatnonzero(np.isin(some_spikes["unit_index"], unit_indices))
+            spike_unit_indices = some_spikes["unit_index"][selected_inds]
+
             if self.params["mode"] == "concatenated":
                 some_projections = all_projections[selected_inds, :]
             else:
                 some_projections = all_projections[selected_inds, :, :][:, :, channel_indices]
 
         else:
-            # need re-alignement
-            some_projections = np.zeros((selected_inds.size, num_components, channel_indices.size), dtype=dtype)
-
+            some_spikes, some_spikes_indices = extension.get_random_spikes(outputs='by_unit', concatenated=True, return_indices=True)
+            
+            total_size = 0
             for unit_id in unit_ids:
-                unit_index = sorting.id_to_index(unit_id)
+                total_size += len(some_spikes[unit_id])
+
+            # need re-alignement
+            some_projections = np.zeros((total_size, num_components, channel_indices.size), dtype=dtype)
+            spike_unit_indices = np.zeros(total_size, dtype=np.int64)
+            for unit_id in unit_ids:
                 sparse_projection, local_chan_inds = self.get_projections_one_unit(unit_id, sparse=True)
 
                 # keep only requested channels
@@ -276,13 +280,14 @@ class ComputePrincipalComponents(AnalyzerExtension):
                 sparse_projection = sparse_projection[:, :, channel_mask]
                 local_chan_inds = local_chan_inds[channel_mask]
 
-                spike_mask = np.flatnonzero(spike_unit_indices == unit_index)
+                spike_mask = some_spikes_indices[unit_id]
                 proj = np.zeros((spike_mask.size, num_components, channel_indices.size), dtype=dtype)
                 # inject in requested channels
                 channel_mask = np.isin(channel_indices, local_chan_inds)
                 proj[:, :, channel_mask] = sparse_projection
                 some_projections[spike_mask, :, :] = proj
-
+                spike_unit_indices[spike_mask] = some_spikes[unit_id]["unit_index"]
+            
         return some_projections, spike_unit_indices
 
     def project_new(self, new_spikes, new_spikes_indices, new_waveforms, progress_bar=True):
