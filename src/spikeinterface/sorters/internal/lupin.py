@@ -49,7 +49,7 @@ class LupinSorter(ComponentsBasedSorter):
         "cache_preprocessing_mode": "auto",
         "peak_sign": "neg",
         "detect_threshold": 5,
-        "n_peaks_per_channel": 5000,
+        "n_peaks_per_channel": 10000,
         "n_svd_components_per_channel": 5,
         "n_pca_features": 4,
         "clustering_recursive_depth": 3,
