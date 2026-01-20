@@ -335,6 +335,9 @@ class LupinSorter(ComponentsBasedSorter):
             is_in_uV=False,
         )
 
+        from spikeinterface.sortingcomponents.clustering.cleaning_tools import remove_linear_combinations
+        templates = remove_linear_combinations(templates, amplitudes=[0.95, 1.05], job_kwargs=job_kwargs)
+
         # this spasify more
         templates = clean_templates(
             templates,

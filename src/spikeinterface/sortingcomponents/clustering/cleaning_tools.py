@@ -536,7 +536,12 @@ def remove_duplicates(
     return labels, new_labels
 
 
-def detect_mixtures(templates, method_kwargs={}, job_kwargs={}, tmp_folder=None, multiple_passes=False):
+def detect_mixtures(templates, 
+                    amplitudes=[0.95, 1.05],
+                    method_kwargs={}, 
+                    job_kwargs={}, 
+                    tmp_folder=None, 
+                    multiple_passes=False):
 
     from spikeinterface.sortingcomponents.matching import find_spikes_from_templates
     from spikeinterface.core import BinaryRecordingExtractor, NumpyRecording, SharedMemoryRecording
@@ -576,9 +581,8 @@ def detect_mixtures(templates, method_kwargs={}, job_kwargs={}, tmp_folder=None,
     recording.annotate(is_filtered=True)
 
     local_params = method_kwargs.copy()
-    amplitudes = [0.95, 1.05]
 
-    local_params.update({"templates": templates, "amplitudes": amplitudes})
+    local_params.update({"amplitudes": amplitudes})
 
     unit_ids = templates.unit_ids
 
@@ -606,15 +610,15 @@ def detect_mixtures(templates, method_kwargs={}, job_kwargs={}, tmp_folder=None,
             sub_recording = recording.frame_slice(t_start, t_stop)
             local_params.update({"ignore_inds": ignore_inds + [i]})
 
-            spikes, more_outputs = find_spikes_from_templates(
+            spikes, precomputed = find_spikes_from_templates(
                 sub_recording,
                 templates,
-                method="circus-omp-svd",
+                method="circus-omp",
                 method_kwargs=local_params,
                 extra_outputs=True,
-                **local_job_kargs,
+                job_kwargs=local_job_kargs,
             )
-            local_params["precomputed"] = more_outputs
+            local_params["precomputed"] = precomputed
             valid = (spikes["sample_index"] >= 0) * (spikes["sample_index"] < duration + 2 * margin)
 
             if np.sum(valid) > 0:
@@ -661,26 +665,17 @@ def detect_mixtures(templates, method_kwargs={}, job_kwargs={}, tmp_folder=None,
     return similar_templates
 
 
-def remove_duplicates_via_matching(
-    templates, peak_labels, method_kwargs={}, job_kwargs={}, tmp_folder=None, multiple_passes=False
+def remove_linear_combinations(
+    templates, amplitudes=[0.95, 1.05], method_kwargs={}, job_kwargs={}, tmp_folder=None, multiple_passes=False
 ):
 
     similar_templates = detect_mixtures(
-        templates, method_kwargs, job_kwargs, tmp_folder=tmp_folder, multiple_passes=multiple_passes
+        templates, amplitudes, method_kwargs, job_kwargs, tmp_folder=tmp_folder, multiple_passes=multiple_passes
     )
-    new_labels = peak_labels.copy()
+    to_keep = templates.unit_ids[~np.isin(templates.unit_ids, similar_templates[1])]
+    return templates.select_units(unit_ids=to_keep)
 
-    labels = np.unique(new_labels)
-    labels = labels[labels >= 0]
-
-    for x, y in zip(similar_templates[0], similar_templates[1]):
-        mask = new_labels == y
-        new_labels[mask] = x
-
-    labels = np.unique(new_labels)
-    labels = labels[labels >= 0]
-
-    return labels, new_labels
+    
 
 
 def remove_duplicates_via_dip(wfs_arrays, peak_labels, dip_threshold=2.0, cosine_threshold=None):

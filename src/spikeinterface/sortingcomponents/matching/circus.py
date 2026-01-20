@@ -216,7 +216,7 @@ class CircusOMPPeeler(BaseTemplateMatching):
                 assert precomputed[key] is not None, "If templates are provided, %d should also be there" % key
                 setattr(self, key, precomputed[key])
 
-        if self.shared_memory:
+        if self.shared_memory and precomputed is None:
             self.max_overlaps = max([len(o) for o in self.overlaps])
             num_samples = len(self.overlaps[0][0])
             from spikeinterface.core.core_tools import make_shared_array
@@ -227,6 +227,9 @@ class CircusOMPPeeler(BaseTemplateMatching):
                 arr[i, :n_overlaps] = self.overlaps[i]
             self.overlaps = arr
             self.shm = shm
+        else:
+            self.overlaps = precomputed["overlaps"]
+            self.shm = None
 
         self.ignore_inds = np.array(ignore_inds)
 
@@ -330,7 +333,6 @@ class CircusOMPPeeler(BaseTemplateMatching):
         return self.margin
 
     def compute_matching(self, traces, start_frame, end_frame, segment_index):
-        import scipy.spatial
         import scipy
         from scipy import ndimage
 
