@@ -648,9 +648,7 @@ def detect_mixtures(templates,
                     if DEBUG:
                         import pylab as plt
 
-                        fig, axes = plt.subplots(1, 2)
-                        from spikeinterface.widgets import plot_traces
-
+                        _, axes = plt.subplots(1, 2)
                         # plot_traces(sub_recording, ax=axes[0])
                         axes[1].plot(templates_array[i].flatten(), label=f"{ref_norm}")
                         axes[1].plot(sum.flatten(), label=f"{tgt_norm}")
@@ -666,12 +664,20 @@ def detect_mixtures(templates,
 
 
 def remove_linear_combinations(
-    templates, amplitudes=[0.95, 1.05], method_kwargs={}, job_kwargs={}, tmp_folder=None, multiple_passes=False
+    templates, 
+    amplitudes=[0.95, 1.05], 
+    method_kwargs={}, 
+    job_kwargs={}, 
+    tmp_folder=None, 
+    multiple_passes=False,
+    verbose=True
 ):
 
     similar_templates = detect_mixtures(
         templates, amplitudes, method_kwargs, job_kwargs, tmp_folder=tmp_folder, multiple_passes=multiple_passes
     )
+    if verbose:
+        print(f"Found {len(similar_templates[0])} templates as linear combinations")
     to_keep = templates.unit_ids[~np.isin(templates.unit_ids, similar_templates[1])]
     return templates.select_units(unit_ids=to_keep)
 
