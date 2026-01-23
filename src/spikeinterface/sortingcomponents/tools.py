@@ -386,6 +386,7 @@ def cache_preprocessing(
     total_memory=None,
     job_kwargs=None,
     folder=None,
+    dump_folder=None
 ):
     """
     Cache the preprocessing of a recording object
@@ -414,6 +415,16 @@ def cache_preprocessing(
     job_kwargs = fix_job_kwargs(job_kwargs)
 
     cache_info = dict(mode=mode)
+
+    if dump_folder is not None:
+        if recording.check_serializability("json"):
+            recording_dump_file = dump_folder / "preprocessed_recording.json"
+        elif recording.check_serializability("pickle"):
+            recording_dump_file = dump_folder / "preprocessed_recording.pickle"
+        recording.dump(recording_dump_file, relative_to=None)
+        cache_info["dump_file"] = recording_dump_file
+    else:
+        cache_info["dump_file"] = None
 
     if mode == "memory":
         if total_memory is None:

@@ -166,12 +166,12 @@ class FilterRecordingSegment(BasePreprocessorSegment):
         self.dtype = dtype
 
     def get_traces(self, start_frame, end_frame, channel_indices):
-        if self.margin > MARGIN_TO_CHUNK_PERCENT_WARNING * (end_frame - start_frame):
-            warnings.warn(
-                f"The margin size ({self.margin} samples) is more than {int(MARGIN_TO_CHUNK_PERCENT_WARNING * 100)}% "
-                f"of the chunk size {(end_frame - start_frame)} samples. This may lead to performance bottlenecks when "
-                f"chunking. Consider increasing the chunk size to minimize margin overhead."
-            )
+        # if self.margin > MARGIN_TO_CHUNK_PERCENT_WARNING * (end_frame - start_frame):
+        #     warnings.warn(
+        #         f"The margin size ({self.margin} samples) is more than {int(MARGIN_TO_CHUNK_PERCENT_WARNING * 100)}% "
+        #         f"of the chunk size {(end_frame - start_frame)} samples. This may lead to performance bottlenecks when "
+        #         f"chunking. Consider increasing the chunk size to minimize margin overhead."
+        #     )
         traces_chunk, left_margin, right_margin = get_chunk_with_margin(
             self.parent_recording_segment,
             start_frame,

@@ -9,7 +9,7 @@ from spikeinterface.core import (
     NumpySorting,
     estimate_templates_with_accumulator,
     Templates,
-    compute_sparsity,
+
 )
 
 from spikeinterface.core.job_tools import fix_job_kwargs
@@ -17,7 +17,7 @@ from spikeinterface.core.job_tools import fix_job_kwargs
 from spikeinterface.preprocessing import bandpass_filter, common_reference, zscore, whiten
 from spikeinterface.core.base import minimum_spike_dtype
 
-from spikeinterface.sortingcomponents.tools import cache_preprocessing, clean_cache_preprocessing
+from spikeinterface.sortingcomponents.tools import cache_preprocessing, clean_cache_preprocessing, get_shuffled_recording_slices
 
 
 import numpy as np
@@ -38,8 +38,8 @@ class LupinSorter(ComponentsBasedSorter):
         "preprocessing_dict": None,
         "apply_motion_correction": False,
         "motion_correction_preset": "dredge_fast",
-        "clustering_ms_before": 0.3,
-        "clustering_ms_after": 1.3,
+        "clustering_ms_before": 0.5,
+        "clustering_ms_after": 1.5,
         "whitening_radius_um": 100.0,
         "detection_radius_um": 50.0,
         "features_radius_um": 75.0,
@@ -54,14 +54,14 @@ class LupinSorter(ComponentsBasedSorter):
         "n_pca_features": 4,
         "clustering_recursive_depth": 3,
         "ms_before": 1.0,
-        "ms_after": 2.5,
+        "ms_after": 2.0,
         "template_sparsify_threshold": 1.5,
         "template_min_snr_ptp": 4.0,
         "template_max_jitter_ms": 0.2,
-        "min_firing_rate": 0.1,
+        "min_firing_rate": 0.05,
         "gather_mode": "memory",
         "job_kwargs": {},
-        "seed": None,
+        "seed": 42,
         "save_array": True,
         "debug": False,
     }
@@ -201,6 +201,7 @@ class LupinSorter(ComponentsBasedSorter):
                 recording,
                 dtype="float32",
                 mode="local",
+                seed=seed,
                 radius_um=params["whitening_radius_um"],
             )
 
@@ -220,18 +221,21 @@ class LupinSorter(ComponentsBasedSorter):
 
             # Cache in mem or folder
             cache_folder = sorter_output_folder / "cache_preprocessing"
+
             recording, cache_info = cache_preprocessing(
                 recording,
                 mode=params["cache_preprocessing_mode"],
                 folder=cache_folder,
                 job_kwargs=job_kwargs,
+                dump_folder=sorter_output_folder/"recording",
             )
 
-            noise_levels = get_noise_levels(recording, return_in_uV=False)
         else:
             recording = recording_raw.astype("float32")
-            noise_levels = get_noise_levels(recording, return_in_uV=False)
             cache_info = None
+
+        noise_levels = get_noise_levels(recording, return_in_uV=False, random_slices_kwargs={"seed": seed})
+        
 
         # detection
         ms_before = params["ms_before"]
@@ -277,7 +281,9 @@ class LupinSorter(ComponentsBasedSorter):
         clustering_kwargs["clean_templates"]["sparsify_threshold"] = params["template_sparsify_threshold"]
         clustering_kwargs["clean_templates"]["min_snr"] = params["template_min_snr_ptp"]
         clustering_kwargs["clean_templates"]["max_jitter_ms"] = params["template_max_jitter_ms"]
+        clustering_kwargs["clean_templates"]["verbose"] = verbose
         clustering_kwargs["noise_levels"] = noise_levels
+        clustering_kwargs["seed"] = seed
         clustering_kwargs["clean_low_firing"]["min_firing_rate"] = params["min_firing_rate"]
         clustering_kwargs["clean_low_firing"]["subsampling_factor"] = all_peaks.size / peaks.size
 
@@ -290,6 +296,7 @@ class LupinSorter(ComponentsBasedSorter):
             method_kwargs=clustering_kwargs,
             extra_outputs=True,
             job_kwargs=job_kwargs,
+            verbose=verbose
         )
 
         mask = clustering_label >= 0
@@ -343,6 +350,7 @@ class LupinSorter(ComponentsBasedSorter):
             min_snr=params["template_min_snr_ptp"],
             max_jitter_ms=params["template_max_jitter_ms"],
             remove_empty=True,
+            verbose=verbose,
         )
 
         # Template matching
@@ -371,14 +379,18 @@ class LupinSorter(ComponentsBasedSorter):
         if auto_merge:
             # TODO expose some of theses parameters
             from spikeinterface.sorters.internal.spyking_circus2 import final_cleaning_circus
-
+            from spikeinterface.core import load
+            if cache_info["dump_file"] is not None:
+                recording_persistent = load(cache_info["dump_file"])
+            else:
+                recording_persistent = recording
             analyzer_final = final_cleaning_circus(
-                recording,
+                recording_persistent,
                 sorting,
                 templates,
                 amplitude_scalings=spikes["amplitude"],
                 noise_levels=noise_levels,
-                similarity_kwargs={"method": "l1", "support": "union", "max_lag_ms": 0.1},
+                similarity_kwargs={"method": "l1", "support": "union", "max_lag_ms": 1},
                 sparsity_overlap=0.5,
                 censor_ms=3.0,
                 max_distance_um=50,

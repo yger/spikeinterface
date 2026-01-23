@@ -19,7 +19,7 @@ def extract_peaks_svd(
     peaks,
     ms_before=0.5,
     ms_after=1.5,
-    n_peaks_fit=5000,
+    n_peaks_fit=10000,
     svd_model=None,
     n_components=5,
     radius_um=120.0,
