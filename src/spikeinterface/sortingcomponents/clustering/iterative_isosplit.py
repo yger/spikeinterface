@@ -52,7 +52,7 @@ class IterativeISOSPLITClustering:
                     # "n_init": 50,
                     "min_cluster_size": 10,
                     "max_iterations_per_pass": 500,
-                    "isocut_threshold": 2.0,
+                    "isocut_threshold": 2.5,
                     # "isocut_threshold": 2.2,
                 },
                 "min_size_split": 25,
