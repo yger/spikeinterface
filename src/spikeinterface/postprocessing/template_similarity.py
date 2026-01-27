@@ -184,7 +184,7 @@ class ComputeTemplateSimilarity(AnalyzerExtension):
             self.sorting_analyzer, return_in_uV=self.sorting_analyzer.return_in_uV
         )
         sparsity = self.sorting_analyzer.sparsity
-        similarity, _ = compute_similarity_with_templates_array(
+        similarity, lags = compute_similarity_with_templates_array(
             templates_array,
             templates_array,
             method=self.params["method"],
@@ -194,6 +194,7 @@ class ComputeTemplateSimilarity(AnalyzerExtension):
             other_sparsity=sparsity,
         )
         self.data["similarity"] = similarity
+        self.data["lags"] = lags
 
     def _get_data(self):
         return self.data["similarity"]
@@ -235,9 +236,9 @@ def _compute_similarity_matrix_numpy(
             tgt_templates = tgt_sliced_templates[overlapping_templates]
             for gcount, j in enumerate(overlapping_templates):
                 # symmetric values are handled later
-                if same_array and j < i:
+                #if same_array and  i > j:
                     # no need exhaustive looping when same template
-                    continue
+                #    continue
                 src = src_template[:, local_mask[j]].reshape(1, -1)
                 tgt = (tgt_templates[gcount][:, local_mask[j]]).reshape(1, -1)
 
@@ -258,9 +259,9 @@ def _compute_similarity_matrix_numpy(
                     distances[count, i, j] /= norm_i * norm_j
                     distances[count, i, j] = 1 - distances[count, i, j]
 
-                if same_array:
-                    distances[count, j, i] = distances[count, i, j]
-
+                #if same_array:
+                #    distances[count, j, i] = distances[count, i, j]
+        
         if same_array and num_shifts != 0:
             distances[num_shifts_both_sides - count - 1] = distances[count].T
     return distances
@@ -446,7 +447,6 @@ def compute_similarity_with_templates_array(
     lags = np.argmin(distances, axis=0) - num_shifts
     distances = np.min(distances, axis=0)
     similarity = 1 - distances
-
     return similarity, lags
 
 

@@ -70,8 +70,9 @@ class IterativeISOSPLITClustering:
         },
         "merge_from_templates": {
             "similarity_metric": "l1",
-            "num_shifts": 3,
+            "max_lag_ms": 1.0,
             "similarity_thresh": 0.8,
+            "use_lags": True,
         },
         "merge_from_features": None,
         # "merge_from_features": {"merge_radius_um": 60.0},
@@ -289,13 +290,23 @@ class IterativeISOSPLITClustering:
             post_merge_label1 = post_split_label.copy()
 
         if params["merge_from_templates"] is not None:
-            post_merge_label2, templates_array, template_sparse_mask, unit_ids = merge_peak_labels_from_templates(
+
+            merge_params = params["merge_from_templates"].copy()
+            if "max_lag_ms" in merge_params:
+                max_lag_ms = merge_params.pop("max_lag_ms")
+                max_lag_ms = min([ms_before, ms_after, max_lag_ms])
+                sampling_frequency = recording.get_sampling_frequency()
+                num_shifts = int((max_lag_ms * sampling_frequency) / 1000)
+                merge_params["num_shifts"] = num_shifts
+                merge_params["use_lags"] = True
+            
+            post_merge_label2, templates_array, template_sparse_mask, unit_ids, new_peaks = merge_peak_labels_from_templates(
                 peaks,
                 post_merge_label1,
                 unit_ids,
                 templates_array,
                 template_sparse_mask,
-                **params["merge_from_templates"],
+                **merge_params,
             )
         else:
             post_merge_label2 = post_merge_label1.copy()
@@ -333,7 +344,10 @@ class IterativeISOSPLITClustering:
 
         labels_set = templates.unit_ids
 
+        print(np.mean(peaks["sample_index"] == new_peaks["sample_index"]))
+
         more_outs = dict(
             templates=templates,
+            new_peaks=new_peaks
         )
         return labels_set, final_peak_labels, more_outs

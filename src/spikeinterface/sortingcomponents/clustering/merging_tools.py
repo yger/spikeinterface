@@ -556,17 +556,17 @@ def merge_peak_labels_from_templates(
     if not use_lags:
         lags = None
 
-    clean_labels, merge_template_array, merge_sparsity_mask, new_unit_ids = (
+    clean_labels, merge_template_array, merge_sparsity_mask, new_unit_ids, new_peaks = (
         _apply_pair_mask_on_labels_and_recompute_templates(
-            pair_mask, peak_labels, unit_ids, templates_array, template_sparse_mask, lags
+            pair_mask, peak_labels, unit_ids, templates_array, template_sparse_mask, peaks, lags
         )
     )
 
-    return clean_labels, merge_template_array, merge_sparsity_mask, new_unit_ids
+    return clean_labels, merge_template_array, merge_sparsity_mask, new_unit_ids, new_peaks
 
 
 def _apply_pair_mask_on_labels_and_recompute_templates(
-    pair_mask, peak_labels, unit_ids, templates_array, template_sparse_mask, lags=None
+    pair_mask, peak_labels, unit_ids, templates_array, template_sparse_mask, peaks, lags=None
 ):
     """
     Resolve pairs graph.
@@ -580,7 +580,10 @@ def _apply_pair_mask_on_labels_and_recompute_templates(
     clean_labels = peak_labels.copy()
     n_components, group_labels = connected_components(pair_mask, directed=False, return_labels=True)
 
-    # print("merges", templates_array.shape[0], "to", n_components)
+    if lags is None:
+        new_peaks = peaks
+    else:
+        new_peaks = peaks.copy()
 
     merge_template_array = templates_array.copy()
     merge_sparsity_mask = template_sparse_mask.copy()
@@ -603,10 +606,15 @@ def _apply_pair_mask_on_labels_and_recompute_templates(
 
             for i, l in enumerate(merge_group):
                 label = unit_ids[l]
-                weights[i] = np.sum(peak_labels == label)
+                mask = peak_labels == label
+                weights[i] = np.sum(mask)
                 if i > 0:
-                    clean_labels[peak_labels == label] = unit_ids[g0]
+                    clean_labels[mask] = unit_ids[g0]
                     keep_template[l] = False
+                    if lags is not None:
+                        shift = lags[g0, l]
+                        new_peaks["sample_index"][mask] += shift
+
             weights /= weights.sum()
 
             if lags is None:
@@ -637,4 +645,4 @@ def _apply_pair_mask_on_labels_and_recompute_templates(
     merge_template_array = merge_template_array[keep_template, :, :]
     merge_sparsity_mask = merge_sparsity_mask[keep_template, :]
 
-    return clean_labels, merge_template_array, merge_sparsity_mask, new_unit_ids
+    return clean_labels, merge_template_array, merge_sparsity_mask, new_unit_ids, new_peaks
