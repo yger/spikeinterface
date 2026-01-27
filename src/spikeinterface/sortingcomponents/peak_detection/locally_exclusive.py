@@ -7,6 +7,12 @@ if numba_spec is not None:
 else:
     HAVE_NUMBA = False
 
+try:
+    from peak_detection import detect_peaks_rust_locally_exclusive_on_chunk
+    HAVE_RUST = True
+except ImportError:
+    HAVE_RUST = False
+
 from spikeinterface.core.node_pipeline import (
     PeakDetector,
 )
@@ -56,7 +62,7 @@ class LocallyExclusivePeakDetector(PeakDetector):
         radius_um=50,
         noise_levels=None,
         return_output=True,
-        parallel_kernel=False,
+        engine="numba",
     ):
         if not HAVE_NUMBA:
             raise ModuleNotFoundError('"locally_exclusive" needs numba which is not installed')
@@ -72,7 +78,6 @@ class LocallyExclusivePeakDetector(PeakDetector):
         self.radius_um = radius_um
         self.detect_threshold = detect_threshold
         self.peak_sign = peak_sign
-        self.parallel_kernel = parallel_kernel
         # if remove_median:
 
         #     chunks = get_random_data_chunks(recording, return_in_uV=False, concatenated=True, **random_chunk_kwargs)
@@ -89,16 +94,18 @@ class LocallyExclusivePeakDetector(PeakDetector):
         return self.exclude_sweep_size
 
     def compute(self, traces, start_frame, end_frame, segment_index, max_margin):
-        assert HAVE_NUMBA, "You need to install numba"
+        assert HAVE_NUMBA or HAVE_RUST, "You need to install numba or have the rust implementation"
 
-        if self.parallel_kernel:
-            peak_sample_ind, peak_chan_ind = detect_peaks_numba_locally_exclusive_on_chunk_parallel(
-                traces, self.peak_sign, self.abs_thresholds, self.exclude_sweep_size, self.neighbours_mask,
-            )        
-        else:
+        if self.engine == "numba" and HAVE_NUMBA:
             peak_sample_ind, peak_chan_ind = detect_peaks_numba_locally_exclusive_on_chunk(
-                traces, self.peak_sign, self.abs_thresholds, self.exclude_sweep_size, self.neighbours_mask,
+                traces, self.peak_sign, self.abs_thresholds, self.exclude_sweep_size, self.neighbours_mask
             )
+        elif self.engine == "rust" and HAVE_RUST:
+            peak_sample_ind, peak_chan_ind = detect_peaks_rust_locally_exclusive_on_chunk(
+                traces, self.peak_sign, self.abs_thresholds, self.exclude_sweep_size, self.neighbours_mask
+            )
+        else:
+            raise ValueError(f"Engine {self.engine} not available")
 
         peak_amplitude = traces[peak_sample_ind, peak_chan_ind]
 
@@ -178,89 +185,6 @@ if HAVE_NUMBA:
     ):
         num_chans = traces_center.shape[1]
         for chan_ind in range(num_chans):
-            for s in range(peak_mask.shape[0]):
-                if not peak_mask[s, chan_ind]:
-                    continue
-                for neighbour in range(num_chans):
-                    if not neighbours_mask[chan_ind, neighbour]:
-                        continue
-                    for i in range(exclude_sweep_size):
-                        if chan_ind != neighbour:
-                            peak_mask[s, chan_ind] &= traces_center[s, chan_ind] <= traces_center[s, neighbour]
-                        peak_mask[s, chan_ind] &= traces_center[s, chan_ind] < traces[s + i, neighbour]
-                        peak_mask[s, chan_ind] &= (
-                            traces_center[s, chan_ind] <= traces[exclude_sweep_size + s + i + 1, neighbour]
-                        )
-                        if not peak_mask[s, chan_ind]:
-                            break
-                    if not peak_mask[s, chan_ind]:
-                        break
-        return peak_mask
-
-    def detect_peaks_numba_locally_exclusive_on_chunk_parallel(
-        traces, peak_sign, abs_thresholds, exclude_sweep_size, neighbours_mask,
-    ):
-
-        # if medians is not None:
-        #     traces = traces - medians
-
-        traces_center = traces[exclude_sweep_size:-exclude_sweep_size, :]
-
-        if peak_sign in ("pos", "both"):
-            peak_mask = traces_center > abs_thresholds[None, :]
-            peak_mask = _numba_detect_peak_pos_parallel(
-                traces, traces_center, peak_mask, exclude_sweep_size, abs_thresholds, peak_sign, neighbours_mask
-            )
-
-        if peak_sign in ("neg", "both"):
-            if peak_sign == "both":
-                peak_mask_pos = peak_mask.copy()
-
-            peak_mask = traces_center < -abs_thresholds[None, :]
-            peak_mask = _numba_detect_peak_neg_parallel(
-                traces, traces_center, peak_mask, exclude_sweep_size, abs_thresholds, peak_sign, neighbours_mask
-            )
-
-            if peak_sign == "both":
-                peak_mask = peak_mask | peak_mask_pos
-
-        # Find peaks and correct for time shift
-        peak_sample_ind, peak_chan_ind = np.nonzero(peak_mask)
-        peak_sample_ind += exclude_sweep_size
-
-        return peak_sample_ind, peak_chan_ind
-
-    @numba.jit(nopython=True, parallel=True, fastmath=True, nogil=True)
-    def _numba_detect_peak_pos_parallel(
-        traces, traces_center, peak_mask, exclude_sweep_size, abs_thresholds, peak_sign, neighbours_mask
-    ):
-        num_chans = traces_center.shape[1]
-        for chan_ind in numba.prange(num_chans):
-            for s in range(peak_mask.shape[0]):
-                if not peak_mask[s, chan_ind]:
-                    continue
-                for neighbour in range(num_chans):
-                    if not neighbours_mask[chan_ind, neighbour]:
-                        continue
-                    for i in range(exclude_sweep_size):
-                        if chan_ind != neighbour:
-                            peak_mask[s, chan_ind] &= traces_center[s, chan_ind] >= traces_center[s, neighbour]
-                        peak_mask[s, chan_ind] &= traces_center[s, chan_ind] > traces[s + i, neighbour]
-                        peak_mask[s, chan_ind] &= (
-                            traces_center[s, chan_ind] >= traces[exclude_sweep_size + s + i + 1, neighbour]
-                        )
-                        if not peak_mask[s, chan_ind]:
-                            break
-                    if not peak_mask[s, chan_ind]:
-                        break
-        return peak_mask
-
-    @numba.jit(nopython=True, parallel=True, fastmath=True, nogil=True)
-    def _numba_detect_peak_neg_parallel(
-        traces, traces_center, peak_mask, exclude_sweep_size, abs_thresholds, peak_sign, neighbours_mask
-    ):
-        num_chans = traces_center.shape[1]
-        for chan_ind in numba.prange(num_chans):
             for s in range(peak_mask.shape[0]):
                 if not peak_mask[s, chan_ind]:
                     continue
