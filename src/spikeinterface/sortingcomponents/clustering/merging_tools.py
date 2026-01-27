@@ -10,8 +10,6 @@ import numpy as np
 from spikeinterface.core.job_tools import get_poolexecutor, fix_job_kwargs
 
 try:
-    import numba
-    import networkx as nx
     import scipy.spatial
     from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
