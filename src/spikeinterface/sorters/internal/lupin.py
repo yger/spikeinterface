@@ -301,7 +301,7 @@ class LupinSorter(ComponentsBasedSorter):
         )
 
         mask = clustering_label >= 0
-        kept_peaks = peaks[mask]
+        kept_peaks = more_outs["new_peaks"][mask]
         kept_labels = clustering_label[mask]
 
         sorting_pre_peeler = NumpySorting.from_samples_and_labels(
