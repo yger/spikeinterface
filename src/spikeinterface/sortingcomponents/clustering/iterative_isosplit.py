@@ -42,7 +42,7 @@ class IterativeISOSPLITClustering:
         },
         "split": {
             # "split_radius_um": 40.0,
-            "split_radius_um": 60.0,
+            "split_radius_um": 75.0,
             "recursive": True,
             "recursive_depth": 3,
             "method_kwargs": {
@@ -58,7 +58,7 @@ class IterativeISOSPLITClustering:
                 "min_size_split": 25,
                 "n_pca_features": 6,
                 # "n_pca_features": 10,
-                "projection_mode": "tsvd",
+                "projection_mode": "tsvd",  
                 # "projection_mode": "pca",
             },
         },
@@ -71,7 +71,7 @@ class IterativeISOSPLITClustering:
         "merge_from_templates": {
             "similarity_metric": "l1",
             "max_lag_ms": 1.0,
-            "similarity_thresh": 0.8,
+            "similarity_thresh": 0.7,
             "use_lags": True,
         },
         "merge_from_features": None,
@@ -343,8 +343,6 @@ class IterativeISOSPLITClustering:
             final_peak_labels = post_merge_label2
 
         labels_set = templates.unit_ids
-
-        print(np.mean(peaks["sample_index"] == new_peaks["sample_index"]))
 
         more_outs = dict(
             templates=templates,

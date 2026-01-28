@@ -612,7 +612,7 @@ def _apply_pair_mask_on_labels_and_recompute_templates(
                     clean_labels[mask] = unit_ids[g0]
                     keep_template[l] = False
                     if lags is not None:
-                        shift = lags[g0, l]
+                        shift = -lags[g0, l]
                         new_peaks["sample_index"][mask] += shift
 
             weights /= weights.sum()
