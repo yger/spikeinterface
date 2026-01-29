@@ -43,7 +43,7 @@ class LupinSorter(ComponentsBasedSorter):
         "whitening_radius_um": 100.0,
         "detection_radius_um": 50.0,
         "features_radius_um": 120.0,
-        "split_radius_um" : 75.0,
+        "split_radius_um" : 40.0,
         "template_radius_um": 120.0,
         "freq_min": 150.0,
         "freq_max": 7000.0,

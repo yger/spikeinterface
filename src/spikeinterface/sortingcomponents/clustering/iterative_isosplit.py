@@ -42,7 +42,7 @@ class IterativeISOSPLITClustering:
         },
         "split": {
             # "split_radius_um": 40.0,
-            "split_radius_um": 75.0,
+            "split_radius_um": 40.0,
             "recursive": True,
             "recursive_depth": 3,
             "method_kwargs": {
@@ -71,7 +71,7 @@ class IterativeISOSPLITClustering:
         "merge_from_templates": {
             "similarity_metric": "l1",
             "max_lag_ms": 1.0,
-            "similarity_thresh": 0.7,
+            "similarity_thresh": 0.75,
             "use_lags": True,
         },
         "merge_from_features": None,
