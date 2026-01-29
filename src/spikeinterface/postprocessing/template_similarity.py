@@ -55,6 +55,8 @@ class ComputeTemplateSimilarity(AnalyzerExtension):
             # make compatible analyzer created between february 24 and july 24
             self.params["max_lag_ms"] = 0.0
             self.params["support"] = "union"
+        if "lags" not in self.data:
+            self.data["lags"] = np.zeros_like(self.data["similarity"], dtype=np.int32)
 
     def _set_params(self, method="cosine", max_lag_ms=0, support="union"):
         if method == "cosine_similarity":
