@@ -462,7 +462,7 @@ if __name__ == "__main__":
     tmp_path = Path(tempfile.mkdtemp())
 
     job_kwargs_main = job_kwargs()
-    # torch_job_kwargs_main = torch_job_kwargs(job_kwargs_main)
+    torch_job_kwargs_main = torch_job_kwargs(job_kwargs_main)
     # Create a temporary directory using the standard library
     # tmp_dir_main = tempfile.mkdtemp()
     # pca_model_folder_path_main = pca_model_folder_path(recording, job_kwargs_main, tmp_dir_main)
