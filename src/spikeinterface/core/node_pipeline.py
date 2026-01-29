@@ -777,29 +777,49 @@ class OnlineClustering:
     """
 
     _default_params = { "dbstream" : {"clustering_threshold" : 2,
-                                      "fading_factor" : 0.01,
-                                      "cleanup_interval" : 1000,
+                                      "fading_factor_s" : 0.01,
+                                      "cleanup_interval_s" : 1000,
                                       "intersection_factor" : 0.3,
                                       "minimum_weight" : 1},
                         "folder_path" : None,
                         "n_peaks" : 20000,
                         "recording" : None,
                         "chunk_size" : 1000,
-                        "radius_um": 50}
+                        "radius_um": 50,
+                        "engine": "rust"}
 
     def __init__(self, **kwargs):
         self.tuple_mode = None
         self.outputs = []
-        from spikeinterface.sortingcomponents.clustering.dbstream import DBSTREAM
         params = self._default_params.copy()
         params.update(kwargs)
         assert params["recording"] is not None, "You should provide the recording to dbstream"
-        self.clusterer = DBSTREAM(**params['dbstream'])
-        self.clusterer.initialize_sparsity(params['recording'], params['radius_um'])
+        self.sampling_frequency = params["recording"].get_sampling_frequency()
+        self.engine = params["engine"]
+
+        if self.engine == "python":
+            from spikeinterface.sortingcomponents.clustering.dbstream import DBSTREAM
+            self.clusterer = DBSTREAM(**params['dbstream'])
+            self.clusterer.initialize_sparsity(params['recording'], params['radius_um'])
+        elif self.engine == "rust":
+            try:
+                from clustering import Dbstream
+            except ImportError:
+                raise ImportError("Please install the rust engine for dbstream")
+
+            # we retrieve the sampling_rate and the locations from the recording
+            locations = params['recording'].get_channel_locations().astype(np.float32)
+            # we also compute the neighbours mask
+            channel_distance = get_channel_distances(params['recording'])
+            neighbours_mask = channel_distance <= params['radius_um']
+
+            self.clusterer = Dbstream(sampling_rate=self.sampling_frequency, neighbours_mask=neighbours_mask, locations=locations, **params['dbstream'])
+        else:
+            raise ValueError(f"Unknown engine {engine} for OnlineClustering")
+    
         self.folder_path = params['folder_path']
         self.count = 0
         self.chunk_size = params["chunk_size"]
-        self.sampling_frequency = params["recording"].get_sampling_frequency()
 
 
     def __call__(self, res):
@@ -808,7 +828,7 @@ class OnlineClustering:
             self.tuple_mode = isinstance(res, tuple)
         
         if res is not None:
-            peaks = res[0]
+            peaks = res[0].view(np.recarray)
             waveforms = res[1]
             projections = res[2]            
             count = 0
