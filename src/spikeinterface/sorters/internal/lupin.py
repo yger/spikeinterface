@@ -42,7 +42,8 @@ class LupinSorter(ComponentsBasedSorter):
         "clustering_ms_after": 1.3,
         "whitening_radius_um": 100.0,
         "detection_radius_um": 50.0,
-        "features_radius_um": 75.0,
+        "features_radius_um": 120.0,
+        "split_radius_um" : 75.0,
         "template_radius_um": 120.0,
         "freq_min": 150.0,
         "freq_max": 7000.0,
@@ -273,10 +274,10 @@ class LupinSorter(ComponentsBasedSorter):
         clustering_kwargs = deepcopy(clustering_methods["iterative-isosplit"]._default_params)
         clustering_kwargs["peaks_svd"]["ms_before"] = params["clustering_ms_before"]
         clustering_kwargs["peaks_svd"]["ms_after"] = params["clustering_ms_after"]
-        clustering_kwargs["peaks_svd"]["radius_um"] = params["template_radius_um"]
+        clustering_kwargs["peaks_svd"]["radius_um"] = params["features_radius_um"]
         clustering_kwargs["peaks_svd"]["n_components"] = params["n_svd_components_per_channel"]
         clustering_kwargs["split"]["recursive_depth"] = params["clustering_recursive_depth"]
-        clustering_kwargs["split"]["split_radius_um"] = params["features_radius_um"]
+        clustering_kwargs["split"]["split_radius_um"] = params["split_radius_um"]
         clustering_kwargs["split"]["method_kwargs"]["n_pca_features"] = params["n_pca_features"]
         clustering_kwargs["clean_templates"]["sparsify_threshold"] = params["template_sparsify_threshold"]
         clustering_kwargs["clean_templates"]["min_snr"] = params["template_min_snr_ptp"]
