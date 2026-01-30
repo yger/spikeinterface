@@ -52,7 +52,7 @@ class IterativeISOSPLITClustering:
                     # "n_init": 50,
                     "min_cluster_size": 10,
                     "max_iterations_per_pass": 500,
-                    "isocut_threshold": 2.25,
+                    "isocut_threshold": 2.0,
                     # "isocut_threshold": 2.2,
                 },
                 "min_size_split": 25,
@@ -70,7 +70,7 @@ class IterativeISOSPLITClustering:
         },
         "merge_from_templates": {
             "similarity_metric": "l1",
-            "max_lag_ms": 1.0,
+            "num_shifts": 3.0,
             "similarity_thresh": 0.8,
             "use_lags": True,
         },
@@ -297,7 +297,7 @@ class IterativeISOSPLITClustering:
             num_shifts = params_merge_from_templates["num_shifts"]
             num_shifts = min((num_shifts, nbefore, nafter))
             params_merge_from_templates["num_shifts"] = num_shifts
-            post_merge_label2, templates_array, template_sparse_mask, unit_ids = merge_peak_labels_from_templates(
+            post_merge_label2, templates_array, template_sparse_mask, unit_ids, new_peaks = merge_peak_labels_from_templates(
                 peaks,
                 post_merge_label1,
                 unit_ids,
