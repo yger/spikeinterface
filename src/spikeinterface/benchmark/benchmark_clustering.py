@@ -469,3 +469,21 @@ class ClusteringStudy(BenchmarkStudy, MixinStudyUnitCount):
                 print(key, "no over splited")
 
             return figs
+    
+    def get_over_splited(self, case_keys=None, oversplit_score=0.05, max_units=5):
+        if case_keys is None:
+            case_keys = list(self.cases.keys())
+        for count, key in enumerate(case_keys):
+            comp = self.get_result(key)["gt_comparison"]
+
+            gt_unit_indices = np.flatnonzero(np.sum(comp.agreement_scores.values > oversplit_score, axis=1) > 1)
+            oversplit_ids = comp.sorting1.unit_ids[gt_unit_indices]
+
+            results = {}
+
+            for i, unit_id in enumerate(oversplit_ids):
+                unit_indices = np.flatnonzero(comp.agreement_scores.loc[unit_id, :].values > oversplit_score)
+                unit_ids = comp.sorting2.unit_ids[unit_indices]
+                results[int(unit_id)] = unit_ids
+            return results
+

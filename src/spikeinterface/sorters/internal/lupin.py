@@ -226,8 +226,7 @@ class LupinSorter(ComponentsBasedSorter):
                 recording,
                 mode=params["cache_preprocessing_mode"],
                 folder=cache_folder,
-                job_kwargs=job_kwargs,
-                dump_folder=sorter_output_folder/"recording",
+                job_kwargs=job_kwargs
             )
 
         else:
@@ -380,13 +379,8 @@ class LupinSorter(ComponentsBasedSorter):
         if auto_merge:
             # TODO expose some of theses parameters
             from spikeinterface.sorters.internal.spyking_circus2 import final_cleaning_circus
-            from spikeinterface.core import load
-            if cache_info["dump_file"] is not None:
-                recording_persistent = load(cache_info["dump_file"])
-            else:
-                recording_persistent = recording
             analyzer_final = final_cleaning_circus(
-                recording_persistent,
+                recording,
                 sorting,
                 templates,
                 amplitude_scalings=spikes["amplitude"],
