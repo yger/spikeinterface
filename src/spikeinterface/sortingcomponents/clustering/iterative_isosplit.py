@@ -107,13 +107,16 @@ class IterativeISOSPLITClustering:
 
         ms_before = params["peaks_svd"]["ms_before"]
         ms_after = params["peaks_svd"]["ms_after"]
+        nbefore = int(ms_before * recording.sampling_frequency / 1000.)
+        nafter = int(ms_after * recording.sampling_frequency / 1000.)
+
         # radius_um = params["waveforms"]["radius_um"]
         verbose = params["verbose"]
 
         debug_folder = params["debug_folder"]
         seed = params["seed"]
         params_peak_svd = params["peaks_svd"].copy()
-
+        params_peak_svd["seed"] = params["seed"]
         motion = params_peak_svd["motion"]
         motion_aware = motion is not None
 
@@ -290,23 +293,17 @@ class IterativeISOSPLITClustering:
             post_merge_label1 = post_split_label.copy()
 
         if params["merge_from_templates"] is not None:
-
-            merge_params = params["merge_from_templates"].copy()
-            if "max_lag_ms" in merge_params:
-                max_lag_ms = merge_params.pop("max_lag_ms")
-                max_lag_ms = min([ms_before, ms_after, max_lag_ms])
-                sampling_frequency = recording.get_sampling_frequency()
-                num_shifts = int((max_lag_ms * sampling_frequency) / 1000)
-                merge_params["num_shifts"] = num_shifts
-                merge_params["use_lags"] = True
-            
-            post_merge_label2, templates_array, template_sparse_mask, unit_ids, new_peaks = merge_peak_labels_from_templates(
+            params_merge_from_templates = params["merge_from_templates"].copy()
+            num_shifts = params_merge_from_templates["num_shifts"]
+            num_shifts = min((num_shifts, nbefore, nafter))
+            params_merge_from_templates["num_shifts"] = num_shifts
+            post_merge_label2, templates_array, template_sparse_mask, unit_ids = merge_peak_labels_from_templates(
                 peaks,
                 post_merge_label1,
                 unit_ids,
                 templates_array,
                 template_sparse_mask,
-                **merge_params,
+                **params_merge_from_templates,
             )
         else:
             post_merge_label2 = post_merge_label1.copy()
