@@ -209,7 +209,6 @@ class LupinSorter(ComponentsBasedSorter):
                 mode="local",
                 seed=seed,
                 radius_um=params["whitening_radius_um"],
-                seed=seed,
             )
 
             if params["apply_motion_correction"]:
@@ -233,7 +232,7 @@ class LupinSorter(ComponentsBasedSorter):
                 recording,
                 mode=params["cache_preprocessing_mode"],
                 folder=cache_folder,
-                job_kwargs=job_kwargs
+                job_kwargs=job_kwargs,
             )
 
             
@@ -242,8 +241,6 @@ class LupinSorter(ComponentsBasedSorter):
             cache_info = None
         
         noise_levels = get_noise_levels(recording, return_in_uV=False, random_slices_kwargs=dict(seed=seed))
-
-        noise_levels = get_noise_levels(recording, return_in_uV=False, random_slices_kwargs={"seed": seed})
         
 
         # detection
@@ -289,15 +286,12 @@ class LupinSorter(ComponentsBasedSorter):
         clustering_kwargs["peaks_svd"]["n_components"] = params["n_svd_components_per_channel"]
         clustering_kwargs["split"]["split_radius_um"] = params["split_radius_um"]
         clustering_kwargs["split"]["recursive_depth"] = params["clustering_recursive_depth"]
-        clustering_kwargs["split"]["split_radius_um"] = params["split_radius_um"]
         clustering_kwargs["split"]["method_kwargs"]["n_pca_features"] = params["n_pca_features"]
         clustering_kwargs["clean_templates"]["sparsify_threshold"] = params["template_sparsify_threshold"]
         clustering_kwargs["clean_templates"]["min_snr"] = params["template_min_snr_ptp"]
         clustering_kwargs["clean_templates"]["max_jitter_ms"] = params["template_max_jitter_ms"]
-        clustering_kwargs["merge_from_templates"]["use_lags"] = True
         clustering_kwargs["merge_from_templates"]["num_shifts"] = num_shifts_merging
         clustering_kwargs["noise_levels"] = noise_levels
-        clustering_kwargs["seed"] = seed
         clustering_kwargs["clean_low_firing"]["min_firing_rate"] = params["min_firing_rate"]
         clustering_kwargs["clean_low_firing"]["subsampling_factor"] = all_peaks.size / peaks.size
         clustering_kwargs["seed"] = seed
