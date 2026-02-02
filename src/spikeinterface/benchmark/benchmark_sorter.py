@@ -7,7 +7,7 @@ from spikeinterface.core import NumpySorting
 from .benchmark_base import Benchmark, BenchmarkStudy, MixinStudyUnitCount
 from spikeinterface.sorters import run_sorter
 from spikeinterface.comparison import compare_sorter_to_ground_truth
-
+from spikeinterface.core.sortinganalyzer import create_sorting_analyzer
 # TODO later integrate CollisionGTComparison optionally in this class.
 
 
@@ -25,7 +25,7 @@ class SorterBenchmark(Benchmark):
         sorting = NumpySorting.from_sorting(raw_sorting)
         self.result = {"sorting": sorting}
 
-    def compute_result(self, match_score=0.5, exhaustive_gt=True):
+    def compute_result(self, with_template=False, match_score=0.5, exhaustive_gt=True, **job_kwargs):
         # run becnhmark result
         sorting = self.result["sorting"]
         comp = compare_sorter_to_ground_truth(
@@ -33,11 +33,21 @@ class SorterBenchmark(Benchmark):
         )
         self.result["gt_comparison"] = comp
 
+        if with_template:
+
+            sorting_analyzer = create_sorting_analyzer(
+                self.result["sorting"], self.recording, format="memory", sparse=False, **job_kwargs
+            )
+            sorting_analyzer.compute("random_spikes")
+            ext = sorting_analyzer.compute("templates", **job_kwargs)
+            self.result["clustering_templates"] = ext.get_data(outputs="Templates")
+
     _run_key_saved = [
         ("sorting", "sorting"),
     ]
     _result_key_saved = [
         ("gt_comparison", "pickle"),
+        ("clustering_templates", "zarr_templates"),
     ]
 
 

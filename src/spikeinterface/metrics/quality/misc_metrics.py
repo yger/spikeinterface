@@ -1853,7 +1853,7 @@ if HAVE_NUMBA:
     import numba
 
     @numba.jit(nopython=True, nogil=True, cache=False)
-    def _compute_nb_violations_numba(spike_train, t_r):
+    def _compute_nb_violations_numba(spike_train, t_c, t_r):
         n_v = 0
         N = len(spike_train)
 
@@ -1864,8 +1864,8 @@ if HAVE_NUMBA:
                 if diff > t_r:
                     break
 
-                # if diff < t_c:
-                #     continue
+                if diff < t_c:
+                    continue
 
                 n_v += 1
 
@@ -1878,4 +1878,4 @@ if HAVE_NUMBA:
     )
     def _compute_rp_violations_numba(spike_train, t_c, t_r):
 
-        return _compute_nb_violations_numba(spike_train, t_r)
+        return _compute_nb_violations_numba(spike_train, t_c, t_r)

@@ -57,7 +57,7 @@ class LupinSorter(ComponentsBasedSorter):
         "clustering_recursive_depth": 3,
         "ms_before": 1.0,
         "ms_after": 2.5,
-        "template_sparsify_threshold": 1.5,
+        "template_sparsify_threshold": 1,
         "template_min_snr_ptp": 4.0,
         "template_max_jitter_ms": 0.2,
         "min_firing_rate": 0.05,
@@ -65,7 +65,7 @@ class LupinSorter(ComponentsBasedSorter):
         "job_kwargs": {},
         "seed": 42,
         "save_array": True,
-        "debug": False,
+        "debug": True,
     }
 
     _params_description = {
@@ -287,7 +287,7 @@ class LupinSorter(ComponentsBasedSorter):
         clustering_kwargs["split"]["split_radius_um"] = params["split_radius_um"]
         clustering_kwargs["split"]["recursive_depth"] = params["clustering_recursive_depth"]
         clustering_kwargs["split"]["method_kwargs"]["n_pca_features"] = params["n_pca_features"]
-        clustering_kwargs["clean_templates"]["sparsify_threshold"] = params["template_sparsify_threshold"]
+        clustering_kwargs["clean_templates"]["sparsify_threshold"] = 3*params["template_sparsify_threshold"]
         clustering_kwargs["clean_templates"]["min_snr"] = params["template_min_snr_ptp"]
         clustering_kwargs["clean_templates"]["max_jitter_ms"] = params["template_max_jitter_ms"]
         clustering_kwargs["merge_from_templates"]["num_shifts"] = num_shifts_merging
@@ -368,11 +368,13 @@ class LupinSorter(ComponentsBasedSorter):
         if gather_mode == "npy":
             pipeline_kwargs["folder"] = sorter_output_folder / "matching"
 
+        refractory_period_frames = int(2.5 * sampling_frequency * 1e-3)
+
         spikes = find_spikes_from_templates(
             recording,
             templates,
             method="wobble",
-            method_kwargs={},
+            method_kwargs={'refractory_period_frames': refractory_period_frames},
             pipeline_kwargs=pipeline_kwargs,
             job_kwargs=job_kwargs,
         )
@@ -399,7 +401,7 @@ class LupinSorter(ComponentsBasedSorter):
                 censor_ms=3.0,
                 max_distance_um=50,
                 template_diff_thresh=np.arange(0.05, 0.4, 0.05),
-                debug_folder=None,
+                debug_folder=sorter_output_folder / "merging" if params["debug"] else None,
                 job_kwargs=job_kwargs,
             )
             sorting = NumpySorting.from_sorting(analyzer_final.sorting)

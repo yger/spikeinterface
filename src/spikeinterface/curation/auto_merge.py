@@ -273,6 +273,7 @@ def compute_merge_unit_groups(
                 refractory_period_ms=params["refractory_period_ms"],
                 censored_period_ms=params["censored_period_ms"],
             )
+            
             nb_violations = np.array(list(nb_violations.values()))
             contaminations = np.array(list(contaminations.values()))
             to_remove = contaminations > params["contamination_thresh"]
@@ -311,7 +312,6 @@ def compute_merge_unit_groups(
                 win_sizes,
                 pair_mask=pair_mask,
             )
-            # print(correlogram_diff)
             pair_mask = pair_mask & (correlogram_diff < params["corr_diff_thresh"])
             outs["correlograms"] = correlograms
             outs["bins"] = bins
@@ -1115,6 +1115,7 @@ def compute_cross_contaminations(analyzer, pair_mask, cc_thresh, refractory_peri
                 C1 = contaminations[unit_ind1]
             else:
                 C1 = None
+            
             CC[unit_ind1, unit_ind2], p_values[unit_ind1, unit_ind2] = estimate_cross_contamination(
                 spike_train1, spike_train2, sf, n_frames, refractory_period, limit=cc_thresh, C1=C1
             )
@@ -1167,7 +1168,9 @@ def check_improve_contaminations_score(
         )
 
         new_contaminations, _ = compute_refrac_period_violations(
-            sorting_analyzer_new, refractory_period_ms=refractory_period_ms, censored_period_ms=censored_period_ms
+            sorting_analyzer_new, 
+            refractory_period_ms=refractory_period_ms, 
+            censored_period_ms=censored_period_ms
         )
         c_new = new_contaminations[unit_id1]
         f_new = compute_firing_rates(sorting_analyzer_new)[unit_id1]
@@ -1177,7 +1180,6 @@ def check_improve_contaminations_score(
         score_1 = f_1 * (1 - k * c_1)
         score_2 = f_2 * (1 - k * c_2)
         score_new = f_new * (1 - k * c_new)
-
         if score_new < score_1 or score_new < score_2:
             # the score is not improved
             pair_mask[ind1, ind2] = False

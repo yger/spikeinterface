@@ -528,7 +528,10 @@ def final_cleaning_circus(
 
     presets = ["x_contaminations"] * len(template_diff_thresh)
     steps_params = [
-        {"template_similarity": {"template_diff_thresh": i}, "unit_locations": {"max_distance_um": max_distance_um}}
+        {"template_similarity": {"template_diff_thresh": i}, 
+         "unit_locations": {"max_distance_um": max_distance_um},
+         "remove_contaminated" : {"contamination_thresh": 0.5, "refractory_period_ms": 5.0, "censored_period_ms": 2.5},
+         "cross_contamination" : {"cc_thresh": 0.1, "p_value": 0.2, "refractory_period_ms": 5.0, "censored_period_ms": 2.5}}
         for i in template_diff_thresh
     ]
     final_sa = auto_merge_units(
