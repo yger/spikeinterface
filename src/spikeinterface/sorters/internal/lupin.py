@@ -368,13 +368,11 @@ class LupinSorter(ComponentsBasedSorter):
         if gather_mode == "npy":
             pipeline_kwargs["folder"] = sorter_output_folder / "matching"
 
-        refractory_period_frames = int(2.5 * sampling_frequency * 1e-3)
-
         spikes = find_spikes_from_templates(
             recording,
             templates,
-            method="wobble",
-            method_kwargs={'refractory_period_frames': refractory_period_frames},
+            method="circus-omp",
+            method_kwargs={},
             pipeline_kwargs=pipeline_kwargs,
             job_kwargs=job_kwargs,
         )

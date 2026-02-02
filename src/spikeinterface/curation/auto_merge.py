@@ -360,6 +360,7 @@ def compute_merge_unit_groups(
                 sorting_analyzer, pair_mask, params["cc_thresh"], refractory, contaminations
             )
             pair_mask = pair_mask & (p_values > params["p_value"])
+            print(np.nonzero(pair_mask))
             outs["cross_contaminations"] = CC, p_values
 
         # STEP : validate the potential merges with CC increase the contamination quality metrics

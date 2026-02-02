@@ -469,7 +469,8 @@ class WobbleMatch(BaseTemplateMatching):
 
         # buffer_ms = 10
         # self.margin = int(buffer_ms*1e-3 * recording.sampling_frequency)
-        self.margin = 300  # To ensure equivalence with spike-psvae version of the algorithm
+        # self.margin = 300  # To ensure equivalence with spike-psvae version of the algorithm
+        self.margin = 2*self.template_meta.num_samples
 
     def clean(self):
         if self.shared_memory and self.shm is not None:
