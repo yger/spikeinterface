@@ -360,7 +360,6 @@ def compute_merge_unit_groups(
                 sorting_analyzer, pair_mask, params["cc_thresh"], refractory, contaminations
             )
             pair_mask = pair_mask & (p_values > params["p_value"])
-            print(np.nonzero(pair_mask))
             outs["cross_contaminations"] = CC, p_values
 
         # STEP : validate the potential merges with CC increase the contamination quality metrics
@@ -386,7 +385,6 @@ def compute_merge_unit_groups(
     # FINAL STEP : create the final list from pair_mask boolean matrix
     ind1, ind2 = np.nonzero(pair_mask)
     merge_unit_groups = list(zip(unit_ids[ind1], unit_ids[ind2]))
-
     if resolve_graph:
         merge_unit_groups = resolve_merging_graph(sorting, merge_unit_groups)
 
@@ -485,7 +483,6 @@ def _auto_merge_units_single_iteration(
     merge_unit_groups = compute_merge_unit_groups(
         sorting_analyzer, **compute_merge_kwargs, extra_outputs=extra_outputs, force_copy=False, **job_kwargs
     )
-
     if extra_outputs:
         merge_unit_groups, outs = merge_unit_groups
 
@@ -1183,6 +1180,7 @@ def check_improve_contaminations_score(
         score_new = f_new * (1 - k * c_new)
         if score_new < score_1 or score_new < score_2:
             # the score is not improved
+            
             pair_mask[ind1, ind2] = False
             pairs_removed.append((sorting.unit_ids[ind1], sorting.unit_ids[ind2]))
 

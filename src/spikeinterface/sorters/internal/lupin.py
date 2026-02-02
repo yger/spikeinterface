@@ -65,7 +65,7 @@ class LupinSorter(ComponentsBasedSorter):
         "job_kwargs": {},
         "seed": 42,
         "save_array": True,
-        "debug": True,
+        "debug": False,
     }
 
     _params_description = {
@@ -351,6 +351,8 @@ class LupinSorter(ComponentsBasedSorter):
             is_in_uV=False,
         )
 
+        #full_templates = deepcopy(templates)
+
         # this spasify more
         templates = clean_templates(
             templates,
@@ -361,6 +363,8 @@ class LupinSorter(ComponentsBasedSorter):
             remove_empty=True,
             verbose=verbose,
         )
+
+        #full_templates = full_templates.select_units(templates.unit_ids)
 
         # Template matching
         gather_mode = params["gather_mode"]
@@ -395,10 +399,10 @@ class LupinSorter(ComponentsBasedSorter):
                 amplitude_scalings=spikes["amplitude"],
                 noise_levels=noise_levels,
                 similarity_kwargs={"method": "l1", "support": "union", "max_lag_ms": params["merge_similarity_lag_ms"]},
-                sparsity_overlap=0.5,
+                sparsity_overlap=0.25,
                 censor_ms=3.0,
                 max_distance_um=50,
-                template_diff_thresh=np.arange(0.05, 0.4, 0.05),
+                template_diff_thresh=np.arange(0.05, 0.5, 0.05),
                 debug_folder=sorter_output_folder / "merging" if params["debug"] else None,
                 job_kwargs=job_kwargs,
             )
