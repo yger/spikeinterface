@@ -399,7 +399,7 @@ class LupinSorter(ComponentsBasedSorter):
                 amplitude_scalings=spikes["amplitude"],
                 noise_levels=noise_levels,
                 similarity_kwargs={"method": "l1", "support": "union", "max_lag_ms": params["merge_similarity_lag_ms"]},
-                sparsity_overlap=0.25,
+                sparsity_overlap=0.5,
                 censor_ms=3.0,
                 max_distance_um=50,
                 template_diff_thresh=np.arange(0.05, 0.5, 0.05),
