@@ -39,6 +39,8 @@ class LocallyExclusivePeakDetector(PeakDetector):
     engine = "numba"
     need_noise_levels = True
     preferred_mp_context = None
+    # this is because numba
+    need_first_call_before_pipeline = True
     params_doc = ByChannelPeakDetector.params_doc + """
     radius_um: float
         The radius to use to select neighbour channels for locally exclusive detection.
@@ -152,15 +154,30 @@ if HAVE_NUMBA:
                 keep_peak[i] = False
                 continue
 
-            for j in range(next_start, npeaks):
-                if i == j:
+        # Find peaks and correct for time shift
+        peak_sample_ind, peak_chan_ind = np.nonzero(peak_mask)
+        peak_sample_ind += exclude_sweep_size
+
+        return peak_sample_ind, peak_chan_ind
+
+    @numba.jit(nopython=True, parallel=False, nogil=True)
+    def _numba_detect_peak_pos(
+        traces, traces_center, peak_mask, exclude_sweep_size, abs_thresholds, peak_sign, neighbours_mask
+    ):
+        num_chans = traces_center.shape[1]
+        for chan_ind in range(num_chans):
+            for s in range(peak_mask.shape[0]):
+                if not peak_mask[s, chan_ind]:
                     continue
 
-                if samples_inds[i] + exclude_sweep_size < samples_inds[j]:
-                    break
-
-                if samples_inds[i] - exclude_sweep_size > samples_inds[j]:
-                    next_start = j
+    @numba.jit(nopython=True, parallel=False, nogil=True)
+    def _numba_detect_peak_neg(
+        traces, traces_center, peak_mask, exclude_sweep_size, abs_thresholds, peak_sign, neighbours_mask
+    ):
+        num_chans = traces_center.shape[1]
+        for chan_ind in range(num_chans):
+            for s in range(peak_mask.shape[0]):
+                if not peak_mask[s, chan_ind]:
                     continue
 
                 # search for neighbors with higher amplitudes
