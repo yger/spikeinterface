@@ -653,22 +653,26 @@ def _worker_distribute_single_buffer(segment_index, start_frame, end_frame, work
     l1 = i1 + s0
 
     if l1 > l0:
-        start = spikes[l0]["sample_index"] - nbefore
-        end = spikes[l1 - 1]["sample_index"] + nafter
+        start_samples = spikes[l0:l1]["sample_index"] - nbefore
+        end_samples = spikes[l0:l1]["sample_index"] + nafter
+        start = start_samples[0]
+        end = end_samples[-1]
 
         # load trace in memory
         traces = recording.get_traces(
             start_frame=start, end_frame=end, segment_index=segment_index, return_in_uV=return_in_uV
         )
 
-        sample_indices = spikes[l0:l1]["sample_index"]
+        start_samples -= start
+        end_samples -= start
+
         unit_indices = spikes[l0:l1]["unit_index"]
         spike_indices = np.arange(l0, l1)
 
         if not HAVE_NUMBA:
             
-            for sample_index, spike_index, unit_index in zip(sample_indices, spike_indices, unit_indices):
-                wf = traces[sample_index - start - nbefore : sample_index - start + nafter, :]
+            for start_sample, end_sample, spike_index, unit_index in zip(start_samples, end_samples, spike_indices, unit_indices):
+                wf = traces[start_sample:end_sample, :]
 
                 if sparsity_mask is None:
                     all_waveforms[spike_index, :, :] = wf
@@ -677,7 +681,7 @@ def _worker_distribute_single_buffer(segment_index, start_frame, end_frame, work
                     wf = wf[:, mask]
                     all_waveforms[spike_index, :, : wf.shape[1]] = wf
         else:
-            collect_waveforms(all_waveforms, sample_indices, spike_indices, unit_indices, start, nbefore, nafter, traces, sparsity_mask)
+            collect_waveforms(all_waveforms, start_samples, end_samples, spike_indices, unit_indices, traces, sparsity_mask)
 
         if worker_dict["mode"] == "memmap":
             all_waveforms.flush()
@@ -1074,20 +1078,25 @@ def _worker_estimate_templates(segment_index, start_frame, end_frame, worker_dic
     l1 = i1 + s0
 
     if l1 > l0:
-        start = spikes[l0]["sample_index"] - nbefore
-        end = spikes[l1 - 1]["sample_index"] + nafter
+
+        start_samples = spikes[l0:l1]["sample_index"] - nbefore
+        end_samples = spikes[l0:l1]["sample_index"] + nafter
+        start = start_samples[0]
+        end = end_samples[-1]
 
         # load trace in memory
         traces = recording.get_traces(
             start_frame=start, end_frame=end, segment_index=segment_index, return_in_uV=return_in_uV
         )
 
-        sample_indices = spikes["sample_index"][l0:l1]
+        start_samples -= start
+        end_samples -= start
+
         unit_indices = spikes["unit_index"][l0:l1]
 
         if not HAVE_NUMBA:
-            for sample_index, unit_index in zip(sample_indices, unit_indices):
-                wf = traces[sample_index - start - nbefore : sample_index - start + nafter, :]
+            for start_sample, end_sample, unit_index in zip(start_samples, end_samples, unit_indices):
+                wf = traces[start_sample:end_sample, :]
 
                 if sparsity_mask is None:
                     waveform_accumulator_per_worker[worker_index, unit_index, :, :] += wf
@@ -1103,24 +1112,21 @@ def _worker_estimate_templates(segment_index, start_frame, end_frame, worker_dic
             collect_templates(
                 waveform_accumulator_per_worker,
                 waveform_squared_accumulator_per_worker,
-                sample_indices,
+                start_samples,
+                end_samples,
                 unit_indices,
-                start,
-                nbefore,
-                nafter,
                 traces,
                 worker_index,
                 sparsity_mask)
         
-
-
 if HAVE_NUMBA:
     @numba.jit(nopython=True, nogil=True)
-    def collect_templates(waveform_accumulator_per_worker, waveform_squared_accumulator_per_worker, sample_indices,
-                            unit_indices, start, nbefore, nafter, traces, worker_index, sparsity_mask):                          
+    def collect_templates(waveform_accumulator_per_worker, waveform_squared_accumulator_per_worker, 
+                          start_samples, end_samples,
+                          unit_indices, traces, worker_index, sparsity_mask):                          
         
-        for sample_index, unit_index in zip(sample_indices, unit_indices):
-            wf = traces[sample_index - start - nbefore : sample_index - start + nafter, :]
+        for start_sample, end_sample, unit_index in zip(start_samples, end_samples, unit_indices):
+            wf = traces[start_sample:end_sample, :]
 
             if sparsity_mask is None:
                 waveform_accumulator_per_worker[worker_index, unit_index, :, :] += wf
@@ -1135,11 +1141,11 @@ if HAVE_NUMBA:
                     waveform_squared_accumulator_per_worker[worker_index, unit_index, :, : wf.shape[1]] += wf**2
     
     @numba.jit(nopython=True, nogil=True)
-    def collect_waveforms(all_waveforms, sample_indices, spike_indices, unit_indices, 
-                          start, nbefore, nafter, traces, sparsity_mask):                          
+    def collect_waveforms(all_waveforms, start_samples, end_samples, spike_indices, unit_indices, 
+                        traces, sparsity_mask):                          
         
-        for sample_index, spike_index, unit_index in zip(sample_indices, spike_indices, unit_indices):
-            wf = traces[sample_index - start - nbefore : sample_index - start + nafter, :]
+        for start_sample, end_sample, spike_index, unit_index in zip(start_samples, end_samples, spike_indices, unit_indices):
+            wf = traces[start_sample:end_sample, :]
 
             if sparsity_mask is None:
                 all_waveforms[spike_index, :, :] = wf
