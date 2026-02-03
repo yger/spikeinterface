@@ -222,11 +222,21 @@ class ClusteringStudy(BenchmarkStudy, MixinStudyUnitCount):
 
         return plot_performances_ordered(self, *args, **kwargs)
 
+    def plot_some_over_merged(self, *args, **kwargs):
+        from .benchmark_plot_tools import plot_some_over_merged
+
+        return plot_some_over_merged(self, *args, **kwargs)
+
+    def plot_some_over_splited(self, *args, **kwargs):
+        from .benchmark_plot_tools import plot_some_over_splited
+
+        return plot_some_over_splited(self, *args, **kwargs)
+
     def plot_error_metrics(self, metric="cosine", case_keys=None, figsize=(15, 5)):
 
         if case_keys is None:
             case_keys = list(self.cases.keys())
-        import pylab as plt
+        import matplotlib.pyplot as plt
 
         fig, axes = plt.subplots(ncols=len(case_keys), nrows=1, figsize=figsize, squeeze=False)
 
@@ -263,7 +273,7 @@ class ClusteringStudy(BenchmarkStudy, MixinStudyUnitCount):
 
         if case_keys is None:
             case_keys = list(self.cases.keys())
-        import pylab as plt
+        import matplotlib.pyplot as plt
 
         if axes is None:
             fig, axes = plt.subplots(ncols=len(case_keys), nrows=1, figsize=figsize, squeeze=False)
@@ -322,7 +332,7 @@ class ClusteringStudy(BenchmarkStudy, MixinStudyUnitCount):
 
         if case_keys is None:
             case_keys = list(self.cases.keys())
-        import pylab as plt
+        import matplotlib.pyplot as plt
 
         fig, axes = plt.subplots(ncols=len(case_keys), nrows=1, figsize=figsize, squeeze=False)
 
@@ -391,6 +401,7 @@ class ClusteringStudy(BenchmarkStudy, MixinStudyUnitCount):
         fig.colorbar(im, cax=cbar_ax, label=metric)
 
         return fig
+<<<<<<< HEAD
 
     def plot_some_over_merged(self, case_keys=None, overmerged_score=0.05, max_units=5, figsize=None):
         if case_keys is None:
@@ -487,3 +498,5 @@ class ClusteringStudy(BenchmarkStudy, MixinStudyUnitCount):
                 results[int(unit_id)] = unit_ids
             return results
 
+=======
+>>>>>>> 6ced1014cc22730b59b4898108ee51f6e2409936
