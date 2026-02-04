@@ -1013,7 +1013,8 @@ def _init_worker_estimate_templates(
     nbefore,
     nafter,
     return_in_uV,
-    sparsity_mask
+    sparsity_mask,
+    worker_index,
 ):
     worker_dict = {}
     worker_dict["recording"] = recording
