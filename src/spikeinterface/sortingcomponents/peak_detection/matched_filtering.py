@@ -150,7 +150,7 @@ class MatchedFilteringPeakDetector(PeakDetector):
 if HAVE_NUMBA:
     import numba
 
-    @numba.jit(nopython=True, parallel=False, nogil=True)
+    @numba.jit(nopython=True, parallel=False, nogil=True, fastmath=True)
     def _numba_detect_peak_matched_filtering(
         conv_traces, exclude_sweep_size, abs_thresholds, neighbours_mask, num_channels
     ):

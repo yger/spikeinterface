@@ -622,6 +622,7 @@ def run_node_pipeline(
         need_shallow_copy = True
     else:
         need_shallow_copy = False
+    print(need_shallow_copy)
     init_args = (recording, nodes, need_shallow_copy, skip_after_n_peaks_per_worker)
 
     processor = ChunkRecordingExecutor(
