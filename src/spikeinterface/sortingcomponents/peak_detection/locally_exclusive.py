@@ -154,30 +154,15 @@ if HAVE_NUMBA:
                 keep_peak[i] = False
                 continue
 
-        # Find peaks and correct for time shift
-        peak_sample_ind, peak_chan_ind = np.nonzero(peak_mask)
-        peak_sample_ind += exclude_sweep_size
-
-        return peak_sample_ind, peak_chan_ind
-
-    @numba.jit(nopython=True, parallel=False, nogil=True)
-    def _numba_detect_peak_pos(
-        traces, traces_center, peak_mask, exclude_sweep_size, abs_thresholds, peak_sign, neighbours_mask
-    ):
-        num_chans = traces_center.shape[1]
-        for chan_ind in range(num_chans):
-            for s in range(peak_mask.shape[0]):
-                if not peak_mask[s, chan_ind]:
+            for j in range(next_start, npeaks):
+                if i == j:
                     continue
 
-    @numba.jit(nopython=True, parallel=False, nogil=True)
-    def _numba_detect_peak_neg(
-        traces, traces_center, peak_mask, exclude_sweep_size, abs_thresholds, peak_sign, neighbours_mask
-    ):
-        num_chans = traces_center.shape[1]
-        for chan_ind in range(num_chans):
-            for s in range(peak_mask.shape[0]):
-                if not peak_mask[s, chan_ind]:
+                if samples_inds[i] + exclude_sweep_size < samples_inds[j]:
+                    break
+
+                if samples_inds[i] - exclude_sweep_size > samples_inds[j]:
+                    next_start = j
                     continue
 
                 # search for neighbors with higher amplitudes
