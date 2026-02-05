@@ -284,26 +284,32 @@ def sort_template_and_locations(template, channel_locations, depth_direction="y"
     return template[:, sort_indices], channel_locations[sort_indices, :]
 
 
-def fit_velocity(peak_times, channel_dist):
+def fit_line_robust(x, y, eps=1e-12):
     """
-    Fit velocity from peak times and channel distances using robust Theilsen estimator.
+    Fit line using robust Theil-Sen estimator (median of pairwise slopes).
     """
-    # from scipy.stats import linregress
-    # slope, intercept, _, _, _ = linregress(peak_times, channel_dist)
+    import itertools
 
-    from sklearn.linear_model import TheilSenRegressor
+    # Calculate slope and bias using Theil-Sen estimator
+    slopes = []
+    for (x0, y0), (x1, y1) in itertools.combinations(zip(x, y), 2):
+        if np.abs(x1 - x0) > eps:
+            slopes.append((y1 - y0) / (x1 - x0))
+    if len(slopes) == 0:  # all x are identical
+        return np.nan, -np.inf
+    slope = np.median(slopes)
+    bias = np.median(y - slope * x)
 
-    theil = TheilSenRegressor()
-    theil.fit(peak_times.reshape(-1, 1), channel_dist)
-    slope = theil.coef_[0]
-    intercept = theil.intercept_
-    score = theil.score(peak_times.reshape(-1, 1), channel_dist)
-    return slope, intercept, score
+    # Calculate R2 score
+    y_pred = slope * x + bias
+    r2_score = 1 - ((y - y_pred) ** 2).sum() / (((y - y.mean()) ** 2).sum() + eps)
+
+    return slope, r2_score
 
 
 def get_velocity_fits(template, channel_locations, sampling_frequency, **kwargs):
     """
-    Compute both velocity above and below the max channel of the template in units um/s.
+    Compute both velocity above and below the max channel of the template in units um/ms.
 
     Parameters
     ----------
@@ -354,8 +360,10 @@ def get_velocity_fits(template, channel_locations, sampling_frequency, **kwargs)
         channel_locations_above = channel_locations[channels_above]
         peak_times_ms_above = np.argmin(template_above, 0) / sampling_frequency * 1000 - max_peak_time
         distances_um_above = np.array([np.linalg.norm(cl - max_channel_location) for cl in channel_locations_above])
-        velocity_above, _, score = fit_velocity(peak_times_ms_above, distances_um_above)
-        if score < min_r2:
+        inv_velocity_above, score = fit_line_robust(distances_um_above, peak_times_ms_above)
+        if score > min_r2 and inv_velocity_above != 0:
+            velocity_above = 1 / inv_velocity_above
+        else:
             velocity_above = np.nan
 
     # Compute velocity below
@@ -367,8 +375,10 @@ def get_velocity_fits(template, channel_locations, sampling_frequency, **kwargs)
         channel_locations_below = channel_locations[channels_below]
         peak_times_ms_below = np.argmin(template_below, 0) / sampling_frequency * 1000 - max_peak_time
         distances_um_below = np.array([np.linalg.norm(cl - max_channel_location) for cl in channel_locations_below])
-        velocity_below, _, score = fit_velocity(peak_times_ms_below, distances_um_below)
-        if score < min_r2:
+        inv_velocity_below, score = fit_line_robust(distances_um_below, peak_times_ms_below)
+        if score > min_r2 and inv_velocity_below != 0:
+            velocity_below = 1 / inv_velocity_below
+        else:
             velocity_below = np.nan
 
     return velocity_above, velocity_below
@@ -516,6 +526,9 @@ class PeakToValley(BaseMetric):
     metric_name = "peak_to_valley"
     metric_params = {}
     metric_columns = {"peak_to_valley": float}
+    metric_descriptions = {
+        "peak_to_valley": "Duration in s between the trough (minimum) and the peak (maximum) of the spike waveform."
+    }
     needs_tmp_data = True
 
     @staticmethod
@@ -535,6 +548,9 @@ class PeakToTroughRatio(BaseMetric):
     metric_name = "peak_trough_ratio"
     metric_params = {}
     metric_columns = {"peak_trough_ratio": float}
+    metric_descriptions = {
+        "peak_trough_ratio": "Ratio of the amplitude of the peak (maximum) to the trough (minimum) of the spike waveform."
+    }
     needs_tmp_data = True
 
     @staticmethod
@@ -554,6 +570,9 @@ class HalfWidth(BaseMetric):
     metric_name = "half_width"
     metric_params = {}
     metric_columns = {"half_width": float}
+    metric_descriptions = {
+        "half_width": "Duration in s at half the amplitude of the trough (minimum) of the spike waveform."
+    }
     needs_tmp_data = True
 
     @staticmethod
@@ -573,6 +592,9 @@ class RepolarizationSlope(BaseMetric):
     metric_name = "repolarization_slope"
     metric_params = {}
     metric_columns = {"repolarization_slope": float}
+    metric_descriptions = {
+        "repolarization_slope": "Slope of the repolarization phase of the spike waveform, between the trough (minimum) and return to baseline in uV/s."
+    }
     needs_tmp_data = True
 
     @staticmethod
@@ -592,6 +614,9 @@ class RecoverySlope(BaseMetric):
     metric_name = "recovery_slope"
     metric_params = {"recovery_window_ms": 0.7}
     metric_columns = {"recovery_slope": float}
+    metric_descriptions = {
+        "recovery_slope": "Slope of the recovery phase of the spike waveform, after the peak (maximum) returning to baseline in uV/s."
+    }
     needs_tmp_data = True
 
     @staticmethod
@@ -626,7 +651,12 @@ class NumberOfPeaks(BaseMetric):
     metric_function = _number_of_peaks_metric_function
     metric_params = {"peak_relative_threshold": 0.2, "peak_width_ms": 0.1}
     metric_columns = {"num_positive_peaks": int, "num_negative_peaks": int}
+    metric_descriptions = {
+        "num_positive_peaks": "Number of positive peaks in the template",
+        "num_negative_peaks": "Number of negative peaks in the template",
+    }
     needs_tmp_data = True
+    deprecated_names = ["num_positive_peaks", "num_negative_peaks"]
 
 
 single_channel_metrics = [
@@ -665,7 +695,12 @@ class VelocityFits(BaseMetric):
         "column_range": None,
     }
     metric_columns = {"velocity_above": float, "velocity_below": float}
+    metric_descriptions = {
+        "velocity_above": "Velocity of the spike propagation above the max channel in um/ms",
+        "velocity_below": "Velocity of the spike propagation below the max channel in um/ms",
+    }
     needs_tmp_data = True
+    deprecated_names = ["velocity_above", "velocity_below"]
 
 
 def multi_channel_metric(unit_function, sorting_analyzer, unit_ids, tmp_data, **metric_params):
@@ -686,6 +721,9 @@ class ExpDecay(BaseMetric):
     metric_name = "exp_decay"
     metric_params = {"peak_function": "ptp", "min_r2": 0.2}
     metric_columns = {"exp_decay": float}
+    metric_descriptions = {
+        "exp_decay": ("Exponential decay of the template amplitude over distance from the extremum channel (1/um).")
+    }
     needs_tmp_data = True
 
     @staticmethod
@@ -705,6 +743,12 @@ class Spread(BaseMetric):
     metric_name = "spread"
     metric_params = {"spread_threshold": 0.5, "spread_smooth_um": 20, "column_range": None}
     metric_columns = {"spread": float}
+    metric_descriptions = {
+        "spread": (
+            "Spread of the template amplitude in um, calculated as the distance between channels whose "
+            "templates exceed the spread_threshold."
+        )
+    }
     needs_tmp_data = True
 
     @staticmethod

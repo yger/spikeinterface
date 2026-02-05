@@ -373,9 +373,10 @@ spikeinterface.curation
     .. autofunction:: remove_redundant_units
     .. autofunction:: remove_duplicated_spikes
     .. autofunction:: remove_excess_spikes
-    .. autofunction:: auto_label_units
+    .. autofunction:: model_based_label_units
     .. autofunction:: load_model
     .. autofunction:: train_model
+    .. autofunction:: unitrefine_label_units
 
 Curation Model
 ~~~~~~~~~~~~~~
@@ -431,7 +432,7 @@ Drift
 ~~~~~
 
 .. automodule:: spikeinterface.generation
-    :noindex:
+    :no-index:
 
     .. autofunction:: generate_drifting_recording
     .. autofunction:: generate_displacement_vector
@@ -446,7 +447,7 @@ Hybrid
 ~~~~~~
 
 .. automodule:: spikeinterface.generation
-    :noindex:
+    :no-index:
 
     .. autofunction:: generate_hybrid_recording
     .. autofunction:: estimate_templates_from_recording
@@ -463,6 +464,7 @@ Noise
 ~~~~~
 
 .. automodule:: spikeinterface.generation
+    :no-index:
 
     .. autofunction:: generate_noise
 
