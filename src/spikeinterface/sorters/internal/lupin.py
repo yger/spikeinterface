@@ -238,6 +238,7 @@ class LupinSorter(ComponentsBasedSorter):
 
             
         else:
+            recording_pre_cache = recording_raw
             recording = recording_raw.astype("float32")
             cache_info = None
         
