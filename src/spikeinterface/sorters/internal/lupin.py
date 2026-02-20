@@ -43,21 +43,21 @@ class LupinSorter(ComponentsBasedSorter):
         "whitening_radius_um": 100.0,
         "detection_radius_um": 50.0,
         "features_radius_um": 120.0,
-        "split_radius_um" : 60.0,
+        "split_radius_um": 60.0,
         "template_radius_um": 100.0,
         "merge_similarity_lag_ms": 0.5,
         "freq_min": 150.0,
         "freq_max": 7000.0,
         "cache_preprocessing_mode": "auto",
         "peak_sign": "neg",
-        "detect_threshold": 5,
+        "detect_threshold": 5.0,
         "n_peaks_per_channel": 5000,
         "n_svd_components_per_channel": 5,
         "n_pca_features": 4,
         "clustering_recursive_depth": 3,
         "ms_before": 1.0,
         "ms_after": 2.5,
-        "template_sparsify_threshold": 1.,
+        "template_sparsify_threshold": 1.0,
         "template_min_snr_ptp": 4.0,
         "template_max_jitter_ms": 0.2,
         "template_matching_engine": "circus-omp",
@@ -80,7 +80,7 @@ class LupinSorter(ComponentsBasedSorter):
         "whitening_radius_um": "Radius for whitening",
         "detection_radius_um": "Radius for peak detection",
         "features_radius_um": "Radius for sparsity in SVD features",
-        "split_radius_um" : "Radius for the local split clustering",
+        "split_radius_um": "Radius for the local split clustering",
         "template_radius_um": "Radius for the sparsity of template before template matching",
         "freq_min": "Low frequency",
         "freq_max": "High frequency",
@@ -210,6 +210,7 @@ class LupinSorter(ComponentsBasedSorter):
                 mode="local",
                 seed=seed,
                 radius_um=params["whitening_radius_um"],
+                seed=seed,
             )
 
             if params["apply_motion_correction"]:
@@ -228,7 +229,7 @@ class LupinSorter(ComponentsBasedSorter):
 
             # Cache in mem or folder
             cache_folder = sorter_output_folder / "cache_preprocessing"
-            recording_pre_cache = recording
+            recording_for_analyzer = recording
             recording, cache_info = cache_preprocessing(
                 recording,
                 mode=params["cache_preprocessing_mode"],
@@ -236,14 +237,17 @@ class LupinSorter(ComponentsBasedSorter):
                 job_kwargs=job_kwargs,
             )
 
-            
         else:
-            recording_pre_cache = recording_raw
             recording = recording_raw.astype("float32")
+            recording_for_analyzer = recording
             cache_info = None
         
         noise_levels = get_noise_levels(recording, return_in_uV=False, random_slices_kwargs=dict(seed=seed))
         
+
+        noise_levels = get_noise_levels(
+            recording, return_in_uV=False, random_slices_kwargs=dict(seed=seed), **job_kwargs
+        )
 
         # detection
         ms_before = params["ms_before"]
@@ -278,7 +282,7 @@ class LupinSorter(ComponentsBasedSorter):
         if verbose:
             print(f"select_peaks(): {len(peaks)} peaks kept for clustering")
 
-        num_shifts_merging = int(sampling_frequency * params["merge_similarity_lag_ms"] / 1000.)
+        num_shifts_merging = int(sampling_frequency * params["merge_similarity_lag_ms"] / 1000.0)
 
         # Clustering
         clustering_kwargs = deepcopy(clustering_methods["iterative-isosplit"]._default_params)
@@ -292,6 +296,7 @@ class LupinSorter(ComponentsBasedSorter):
         clustering_kwargs["clean_templates"]["sparsify_threshold"] = 3*params["template_sparsify_threshold"]
         clustering_kwargs["clean_templates"]["min_snr"] = params["template_min_snr_ptp"]
         clustering_kwargs["clean_templates"]["max_jitter_ms"] = params["template_max_jitter_ms"]
+        clustering_kwargs["merge_from_templates"]["use_lags"] = True
         clustering_kwargs["merge_from_templates"]["num_shifts"] = num_shifts_merging
         clustering_kwargs["noise_levels"] = noise_levels
         clustering_kwargs["clean_low_firing"]["min_firing_rate"] = params["min_firing_rate"]
@@ -419,7 +424,7 @@ class LupinSorter(ComponentsBasedSorter):
             np.save(sorter_output_folder / "spikes.npy", spikes)
             templates.to_zarr(sorter_output_folder / "templates.zarr")
             if analyzer_final is not None:
-                analyzer_final._recording = recording_pre_cache
+                analyzer_final._recording = recording_for_analyzer
                 analyzer_final.save_as(format="binary_folder", folder=sorter_output_folder / "analyzer")
 
         sorting = sorting.save(folder=sorter_output_folder / "sorting")
