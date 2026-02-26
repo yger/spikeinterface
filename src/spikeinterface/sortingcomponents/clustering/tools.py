@@ -374,7 +374,8 @@ def online_clustering(
     online_params = {"recording" : recording, 
                      "dbstream" : dbstream_kwargs,
                      "radius_um" : radius_um, 
-                     "chunk_size" : chunk_size}
+                     "chunk_size" : chunk_size,
+                     "engine" : "python"}
 
     clusterer = run_node_pipeline(
         recording, pipeline_nodes, job_kwargs=job_kwargs, 

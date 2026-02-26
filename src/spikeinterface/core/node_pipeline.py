@@ -831,7 +831,7 @@ class OnlineClustering:
 
             self.clusterer = Dbstream(sampling_rate=self.sampling_frequency, neighbours_mask=neighbours_mask, locations=locations, **params['dbstream'])
         else:
-            raise ValueError(f"Unknown engine {engine} for OnlineClustering")
+            raise ValueError(f"Unknown engine {self.engine} for OnlineClustering")
     
         self.folder_path = params['folder_path']
         self.count = 0
