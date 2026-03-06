@@ -132,8 +132,8 @@ which applies a set of thresholds based on the available metrics (template/quali
     labels = threshold_metrics_label_units(
         sorting_analyzer=sorting_analyzer,
         thresholds={
-            "snr": {"min": 5},
-            "rp_contamination": {"max": 0.2},
+            "snr": {"greater": 5},
+            "rp_contamination": {"less": 0.2},
         },
         pass_label="good",
         fail_label="bad",
@@ -284,7 +284,7 @@ This format has two part:
     * "format_version" : format specification
     * "unit_ids" : the list of unit_ds
     * "label_definitions" : list of label categories and possible labels per category.
-                            Every category can be *exclusive=True* onely one label or *exclusive=False* several labels possible
+                            Every category can be *exclusive=True* (only one label) or *exclusive=False* (several labels possible).
 
   * **manual output** curation with the folowing keys:
 
