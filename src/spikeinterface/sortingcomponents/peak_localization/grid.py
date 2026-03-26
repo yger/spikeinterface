@@ -137,13 +137,13 @@ class LocalizeGridConvolution(LocalizeBase):
             (idx,) = np.nonzero(peaks["channel_index"] == main_chan)
             num_spikes = len(idx)
             nearest_mask = self.nearest_template_mask[main_chan, :]
-
             num_templates = np.sum(nearest_mask)
             channel_mask = np.sum(self.weights_sparsity_mask[:, :, nearest_mask], axis=(0, 2)) > 0
             sub_w = self.weights[:, channel_mask, :][:, :, nearest_mask]
             if self.peak_sign == "both":
-                waveforms_signs = np.sign(waveforms[idx][:, :, main_chan]) * self.prototype_peak_sign
-                global_products = (waveforms[idx][:, :, channel_mask] * self.prototype * waveforms_signs).sum(axis=1)
+                peaks_signs = np.sign(peaks[idx]['amplitude']) * self.prototype_peak_sign
+                peaks_signs = peaks_signs[:, np.newaxis, np.newaxis]
+                global_products = (waveforms[idx][:, :, channel_mask] * self.prototype * peaks_signs).sum(axis=1)
             else:
                 global_products = (waveforms[idx][:, :, channel_mask] * self.prototype).sum(axis=1)
 
