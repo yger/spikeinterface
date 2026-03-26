@@ -86,8 +86,14 @@ class LocalizeGridConvolution(LocalizeBase):
             if self.peak_sign == "neg":
                 self.prototype *= -1
         else:
-            self.prototype = prototype
-
+            if peak_sign == "neg":
+                assert prototype[self.nbefore] < 0, "Prototype should have a negative peak"
+                peak_sign = "pos"
+            elif peak_sign == "pos":
+                assert prototype[self.nbefore] > 0, "Prototype should have a positive peak"
+            self.prototype = prototype        
+        
+        self.prototype_peak_sign = np.sign(prototype[self.nbefore])
         self.prototype = self.prototype[:, np.newaxis]
 
         (
@@ -109,6 +115,7 @@ class LocalizeGridConvolution(LocalizeBase):
             dict(
                 radius_um=self.radius_um,
                 prototype=self.prototype,
+                prototype_peak_sign=self.prototype_peak_sign,
                 template_positions=self.template_positions,
                 nearest_template_mask=self.nearest_template_mask,
                 weights=self.weights,
@@ -132,7 +139,11 @@ class LocalizeGridConvolution(LocalizeBase):
             num_templates = np.sum(nearest_mask)
             channel_mask = np.sum(self.weights_sparsity_mask[:, :, nearest_mask], axis=(0, 2)) > 0
             sub_w = self.weights[:, channel_mask, :][:, :, nearest_mask]
-            global_products = (waveforms[idx][:, :, channel_mask] * self.prototype).sum(axis=1)
+            if self.peak_sign == "both":
+                waveforms_signs = np.sign(waveforms[idx][:, :, main_chan]) * self.prototype_peak_sign
+                global_products = (waveforms[idx][:, :, channel_mask] * self.prototype * waveforms_signs).sum(axis=1)
+            else:
+                global_products = (waveforms[idx][:, :, channel_mask] * self.prototype).sum(axis=1)
 
             dot_products = np.zeros((nb_weights, num_spikes, num_templates), dtype=np.float32)
             for count in range(nb_weights):
