@@ -81,6 +81,8 @@ class LocalizeGridConvolution(LocalizeBase):
         fs = self.recording.get_sampling_frequency()
 
         if prototype is None:
+            if peak_sign == "both":
+                raise ValueError("peak_sign should be 'neg' or 'pos' if no prototype is provided")
             time_axis = np.arange(-self.nbefore, self.nafter) * 1000 / fs
             self.prototype = np.exp(-(time_axis**2) / (2 * (sigma_ms**2)))
             if self.peak_sign == "neg":
