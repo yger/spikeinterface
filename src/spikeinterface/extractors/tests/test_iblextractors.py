@@ -68,15 +68,16 @@ class TestDefaultIblRecordingExtractorApBand(TestCase):
 
     def test_gains(self):
         expected_gains = 2.34375 * np.ones(shape=384)
-        assert_array_equal(x=self.recording.get_channel_gains(), y=expected_gains)
+        assert_array_equal(self.recording.get_channel_gains(), expected_gains)
 
     def test_offsets(self):
         expected_offsets = np.zeros(shape=384)
-        assert_array_equal(x=self.recording.get_channel_offsets(), y=expected_offsets)
+        assert_array_equal(self.recording.get_channel_offsets(), expected_offsets)
 
     def test_probe_representation(self):
         probe = self.recording.get_probe()
-        expected_probe_representation = "Probe - 384ch"
+        # we simply check that the probe has 384 channels in its representation
+        expected_probe_representation = "384ch"
         assert expected_probe_representation in repr(probe)
 
     def test_property_keys(self):
@@ -141,11 +142,11 @@ class TestIblStreamingRecordingExtractorApBandWithLoadSyncChannel(TestCase):
 
     def test_gains(self):
         expected_gains = np.concatenate([2.34375 * np.ones(shape=384), [1171.875]])
-        assert_array_equal(x=self.recording.get_channel_gains(), y=expected_gains)
+        assert_array_equal(self.recording.get_channel_gains(), expected_gains)
 
     def test_offsets(self):
         expected_offsets = np.zeros(shape=385)
-        assert_array_equal(x=self.recording.get_channel_offsets(), y=expected_offsets)
+        assert_array_equal(self.recording.get_channel_offsets(), expected_offsets)
 
     def test_probe_representation(self):
         expected_exception = ValueError

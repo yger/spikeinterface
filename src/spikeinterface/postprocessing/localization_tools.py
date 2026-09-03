@@ -1,4 +1,4 @@
-from __future__ import annotations
+from typing import Literal
 
 import warnings
 import importlib.util
@@ -46,9 +46,9 @@ def compute_monopolar_triangulation(
     ----------
     sorting_analyzer_or_templates : SortingAnalyzer | Templates
         A SortingAnalyzer or Templates object
-    unit_ids: str | int | None
+    unit_ids : str | int | None
         A list of unit_id to restrci the computation
-    method : "least_square" | "minimize_with_log_penality", default: "least_square"
+    optimizer : "least_square" | "minimize_with_log_penality", default: "least_square"
        The optimizer to use
     radius_um : float, default: 75
         For channel sparsity
@@ -90,8 +90,8 @@ def compute_monopolar_triangulation(
         unit_ids = sorting_analyzer_or_templates.unit_ids
     else:
         unit_ids = np.asanyarray(unit_ids)
-        keep = np.isin(sorting_analyzer_or_templates.unit_ids, unit_ids)
-        templates = templates[keep, :, :]
+        keep = [np.where(sorting_analyzer_or_templates.unit_ids == unit_id)[0][0] for unit_id in unit_ids]
+        templates = templates[np.array(keep), :, :]
 
     if enforce_decrease:
         neighbours_mask = np.zeros((templates.shape[0], templates.shape[2]), dtype=bool)
@@ -104,7 +104,7 @@ def compute_monopolar_triangulation(
     unit_location = np.zeros((unit_ids.size, 4), dtype="float64")
     for i, unit_id in enumerate(unit_ids):
         chan_inds = sparsity.unit_id_to_channel_indices[unit_id]
-        local_contact_locations = contact_locations[chan_inds, :]
+        local_contact_locations = contact_locations[chan_inds, :2]
 
         # wf is (nsample, nchan) - chann is only nieghboor
         wf = templates[i, :, :][:, chan_inds]
@@ -175,14 +175,14 @@ def compute_center_of_mass(
     if unit_ids is None:
         unit_ids = sorting_analyzer_or_templates.unit_ids
     else:
-        unit_ids = np.asanyarray(unit_ids)
-        keep = np.isin(sorting_analyzer_or_templates.unit_ids, unit_ids)
-        templates = templates[keep, :, :]
+        all_unit_ids = list(sorting_analyzer_or_templates.unit_ids)
+        keep_unit_indices = np.array([all_unit_ids.index(unit_id) for unit_id in unit_ids])
+        templates = templates[keep_unit_indices, :, :]
 
-    unit_location = np.zeros((unit_ids.size, 2), dtype="float64")
+    unit_location = np.zeros((len(unit_ids), 2), dtype="float64")
     for i, unit_id in enumerate(unit_ids):
         chan_inds = sparsity.unit_id_to_channel_indices[unit_id]
-        local_contact_locations = contact_locations[chan_inds, :]
+        local_contact_locations = contact_locations[chan_inds, :2]
 
         wf = templates[i, :, :]
 
@@ -247,7 +247,7 @@ def compute_grid_convolution(
     unit_location: np.array
     """
 
-    contact_locations = sorting_analyzer_or_templates.get_channel_locations()
+    contact_locations = sorting_analyzer_or_templates.get_channel_locations()[:, :2]
 
     templates = get_dense_templates_array(
         sorting_analyzer_or_templates, return_in_uV=get_return_in_uV(sorting_analyzer_or_templates)
@@ -258,9 +258,9 @@ def compute_grid_convolution(
     if unit_ids is None:
         unit_ids = sorting_analyzer_or_templates.unit_ids
     else:
-        unit_ids = np.asanyarray(unit_ids)
-        keep = np.isin(sorting_analyzer_or_templates.unit_ids, unit_ids)
-        templates = templates[keep, :, :]
+        all_unit_ids = list(sorting_analyzer_or_templates.unit_ids)
+        keep_unit_indices = np.array([all_unit_ids.index(unit_id) for unit_id in unit_ids])
+        templates = templates[keep_unit_indices, :, :]
 
     fs = sorting_analyzer_or_templates.sampling_frequency
     percentile = 100 - percentile
@@ -283,7 +283,7 @@ def compute_grid_convolution(
     weights_sparsity_mask = weights > 0
 
     nb_weights = weights.shape[0]
-    unit_location = np.zeros((unit_ids.size, 3), dtype="float64")
+    unit_location = np.zeros((len(unit_ids), 3), dtype="float64")
 
     for i, unit_id in enumerate(unit_ids):
         main_chan = peak_channels[unit_id]
@@ -661,8 +661,9 @@ if HAVE_NUMBA:
 def compute_location_max_channel(
     templates_or_sorting_analyzer: SortingAnalyzer | Templates,
     unit_ids=None,
-    peak_sign: "neg" | "pos" | "both" = "neg",
-    mode: "extremum" | "at_index" | "peak_to_peak" = "extremum",
+    peak_sign: Literal["neg", "pos", "both"] = "neg",
+    mode: Literal["extremum", "at_index", "peak_to_peak"] = "extremum",
+    operator: Literal["average", "median"] = "average",
 ) -> np.ndarray:
     """
     Localize a unit using max channel.
@@ -690,9 +691,9 @@ def compute_location_max_channel(
         2d
     """
     extremum_channels_index = get_template_extremum_channel(
-        templates_or_sorting_analyzer, peak_sign=peak_sign, mode=mode, outputs="index"
+        templates_or_sorting_analyzer, peak_sign=peak_sign, mode=mode, outputs="index", operator=operator
     )
-    contact_locations = templates_or_sorting_analyzer.get_channel_locations()
+    contact_locations = templates_or_sorting_analyzer.get_channel_locations()[:, :2]
     if unit_ids is None:
         unit_ids = templates_or_sorting_analyzer.unit_ids
     else:

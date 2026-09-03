@@ -10,9 +10,10 @@ This module implements generation of more realistics signal than `spikeinterface
 
 import numpy as np
 
-from probeinterface import generate_multi_columns_probe
+from probeinterface import generate_multi_columns_probe, get_probe, generate_tetrode
 
 from spikeinterface import Templates
+from spikeinterface.core import ms_to_samples
 from spikeinterface.core.generate import (
     generate_unit_locations,
     generate_sorting,
@@ -24,44 +25,55 @@ from .drift_tools import DriftingTemplates, make_linear_displacement, InjectDrif
 from .noise_tools import generate_noise
 
 
-# this should be moved in probeinterface but later
-_toy_probes = {
-    "Neuropixels1-384": dict(
-        num_columns=4,
-        num_contact_per_column=[96] * 4,
-        xpitch=16,
-        ypitch=40,
-        y_shift_per_column=[20, 0, 20, 0],
-        contact_shapes="square",
-        contact_shape_params={"width": 12},
-    ),
-    "Neuropixels2-384": dict(
-        num_columns=2,
-        num_contact_per_column=[192] * 2,
-        xpitch=32,
-        ypitch=15,
-        contact_shapes="square",
-        contact_shape_params={"width": 12},
-    ),
-    "Neuropixels1-128": dict(
-        num_columns=4,
-        num_contact_per_column=[32] * 4,
-        xpitch=16,
-        ypitch=40,
-        y_shift_per_column=[20, 0, 20, 0],
-        contact_shapes="square",
-        contact_shape_params={"width": 12},
-    ),
-    "Neuronexus-32": dict(
-        num_columns=3,
-        num_contact_per_column=[10, 12, 10],
-        xpitch=30,
-        ypitch=30,
-        y_shift_per_column=[0, -15, 0],
-        contact_shapes="circle",
-        contact_shape_params={"radius": 8},
-    ),
-}
+def _make_probe_by_name(probe_name: str):
+    """
+    Generates a probe from probeinterface library, using the manufacturer name combined with the probe name, e.g.
+        - 'cambridgeneurotech/ASSY-37-H7b'
+        - 'cambridgeneurotech#ASSY-37-H7b'
+        - 'imec#NP1000"
+
+    This function replace the old `_toy_probes` dict that generate probe using `generate_multi_columns_probe()`
+    """
+    if probe_name == "Neuropixels1-384":
+        probe = get_probe("imec", "NP1000")
+        probe = probe.get_slice(np.arange(384))
+    elif probe_name == "Neuropixels1-128":
+        probe = get_probe("imec", "NP1000")
+        probe = probe.get_slice(np.arange(128))
+    elif probe_name == "Neuropixels2-384":
+        probe = get_probe("imec", "NP2000")
+        probe = probe.get_slice(np.arange(384))
+    elif probe_name == "Neuropixels2-128":
+        probe = get_probe("imec", "NP2000")
+        probe = probe.get_slice(np.arange(128))
+    elif probe_name == "Neuronexus-32":
+        # this probe was not existing really, it was a 'generic' 32 channels
+        # lets keep as before
+        probe = generate_multi_columns_probe(
+            num_columns=3,
+            num_contact_per_column=[10, 12, 10],
+            xpitch=30,
+            ypitch=30,
+            y_shift_per_column=[0, -15, 0],
+            contact_shapes="circle",
+            contact_shape_params={"radius": 8},
+        )
+    elif probe_name == "tetrode":
+        probe = generate_tetrode()
+    elif probe_name == "sinaps-128":
+        probe = get_probe("sinaps-research-platform", "p1024s1NHP")
+        order = np.argsort(probe.contact_ids.astype("int64"))
+        probe = probe.get_slice(order[:128])
+    elif "/" in probe_name:
+        manufacturer, probe_name_ = probe_name.split("/")
+        probe = get_probe(manufacturer, probe_name_)
+    elif "#" in probe_name:
+        manufacturer, probe_name_ = probe_name.split("#")
+        probe = get_probe(manufacturer, probe_name_)
+    else:
+        raise ValueError("wring probe_name")
+
+    return probe
 
 
 def make_one_displacement_vector(
@@ -309,7 +321,9 @@ def generate_drifting_recording(
     duration=600.0,
     sampling_frequency=30000.0,
     probe_name="Neuropixels1-128",
+    probe=None,
     generate_probe_kwargs=None,
+    unit_locations=None,
     generate_unit_locations_kwargs=dict(
         margin_um=20.0,
         minimum_z=5.0,
@@ -321,6 +335,7 @@ def generate_drifting_recording(
         # distribution="multimodal",
         # num_modes=2,
     ),
+    displacement_data=None,
     generate_displacement_vector_kwargs=dict(
         displacement_sampling_frequency=5.0,
         drift_start_um=[0, 20],
@@ -347,7 +362,9 @@ def generate_drifting_recording(
             ellipse_angle=(0, np.pi * 2),
         ),
     ),
+    sorting=None,
     generate_sorting_kwargs=dict(firing_rates=(2.0, 8.0), refractory_period_ms=4.0),
+    noise=None,
     generate_noise_kwargs=dict(noise_levels=(6.0, 8.0), spatial_decay=25.0),
     extra_outputs=False,
     seed=None,
@@ -364,20 +381,30 @@ def generate_drifting_recording(
         The duration in seconds.
     sampling_frequency : float, dfault: 30000.
         The sampling frequency.
+    probe: Probe object, default None
+        If provided, the Probe geometry to consider
     probe_name : str, default: "Neuropixels1-128"
-        The probe type if generate_probe_kwargs is None.
+        The probe type if generate_probe_kwargs is None and probe is None.
     generate_probe_kwargs : None or dict
         A dict to generate the probe, this supersede probe_name when not None.
+    unit_locations: array, default None
+        The unit locations of the cells
     generate_unit_locations_kwargs : dict
-        Parameters given to generate_unit_locations().
+        Parameters given to generate_unit_locations() if unit_locations is None
+    displacement_data: tuple of arrays, default None
+        The output of generate_displacement_vector(), if precomputed by the user
     generate_displacement_vector_kwargs : dict
-        Parameters given to generate_displacement_vector().
+        Parameters given to generate_displacement_vector() if displacement_data is None
     generate_templates_kwargs : dict
         Parameters given to generate_templates()
+    sorting: NumpySorting, default None
+        The sorting to generate data from
     generate_sorting_kwargs : dict
-        Parameters given to generate_sorting().
+        Parameters given to generate_sorting() if sorting is None
+    noise: NoiseGenerator, default None
+        Noise generator used to generate background noise
     generate_noise_kwargs : dict
-        Parameters given to generate_noise().
+        Parameters given to generate_noise() if no noise is None
     extra_outputs : bool, default False
         Return optionaly a dict with more variables.
     seed : None ot int
@@ -406,12 +433,34 @@ def generate_drifting_recording(
 
     seed = _ensure_seed(seed)
 
+    if sorting is None:
+        sorting = generate_sorting(
+            num_units=num_units,
+            sampling_frequency=sampling_frequency,
+            durations=[
+                duration,
+            ],
+            **generate_sorting_kwargs,
+            seed=seed,
+        )
+    else:
+        num_units = sorting.get_num_units()
+        sampling_frequency = sorting.sampling_frequency
+        if sorting._recording is not None:
+            assert (
+                sorting.get_total_duration() == duration
+            ), "Sorting should have the same duration as the generated data"
+
     # probe
-    if generate_probe_kwargs is None:
-        generate_probe_kwargs = _toy_probes[probe_name]
-    probe = generate_multi_columns_probe(**generate_probe_kwargs)
-    num_channels = probe.get_contact_count()
-    probe.set_device_channel_indices(np.arange(num_channels))
+    if probe is None:
+        if generate_probe_kwargs is not None:
+            probe = generate_multi_columns_probe(**generate_probe_kwargs)
+        else:
+            probe = _make_probe_by_name(probe_name)
+        # the wiring do not matter because the traces are generated after using the channel locations
+        num_channels = probe.get_contact_count()
+        probe.set_device_channel_indices(np.arange(num_channels))
+
     channel_locations = probe.contact_positions
     # import matplotlib.pyplot as plt
     # import probeinterface.plotting
@@ -420,20 +469,34 @@ def generate_drifting_recording(
     # plt.show()
 
     # unit locations
-    unit_locations = generate_unit_locations(
-        num_units,
-        channel_locations,
-        seed=seed,
-        **generate_unit_locations_kwargs,
-    )
+    if unit_locations is None:
+        unit_locations = generate_unit_locations(
+            num_units,
+            channel_locations,
+            seed=seed,
+            **generate_unit_locations_kwargs,
+        )
+    else:
+        assert len(unit_locations) == num_units, "We should have num_units unit locations"
 
-    (
-        unit_displacements,
-        displacement_vectors,
-        displacement_unit_factor,
-        displacement_sampling_frequency,
-        displacements_steps,
-    ) = generate_displacement_vector(duration, unit_locations[:, :2], seed=seed, **generate_displacement_vector_kwargs)
+    if displacement_data is None:
+        (
+            unit_displacements,
+            displacement_vectors,
+            displacement_unit_factor,
+            displacement_sampling_frequency,
+            displacements_steps,
+        ) = generate_displacement_vector(
+            duration, unit_locations[:, :2], seed=seed, **generate_displacement_vector_kwargs
+        )
+    else:
+        (
+            unit_displacements,
+            displacement_vectors,
+            displacement_unit_factor,
+            displacement_sampling_frequency,
+            displacements_steps,
+        ) = displacement_data
 
     # unit_params need to be fixed before the displacement steps
     generate_templates_kwargs = generate_templates_kwargs.copy()
@@ -459,7 +522,7 @@ def generate_drifting_recording(
         )
 
     ms_before = generate_templates_kwargs["ms_before"]
-    nbefore = int(sampling_frequency * ms_before / 1000.0)
+    nbefore = ms_to_samples(ms_before, sampling_frequency)
     templates = Templates(
         templates_array=templates_array,
         sampling_frequency=sampling_frequency,
@@ -469,16 +532,6 @@ def generate_drifting_recording(
     )
 
     drifting_templates = DriftingTemplates.from_static_templates(templates)
-
-    sorting = generate_sorting(
-        num_units=num_units,
-        sampling_frequency=sampling_frequency,
-        durations=[
-            duration,
-        ],
-        **generate_sorting_kwargs,
-        seed=seed,
-    )
 
     sorting.set_property("gt_unit_locations", unit_locations)
 
@@ -493,13 +546,18 @@ def generate_drifting_recording(
     drifting_templates.templates_array_moved = templates_array_moved
     drifting_templates.displacements = displacements_steps
 
-    noise = generate_noise(
-        probe=probe,
-        sampling_frequency=sampling_frequency,
-        durations=[duration],
-        seed=seed,
-        **generate_noise_kwargs,
-    )
+    if noise is None:
+        noise = generate_noise(
+            probe=probe,
+            sampling_frequency=sampling_frequency,
+            durations=[duration],
+            seed=seed,
+            **generate_noise_kwargs,
+        )
+    else:
+        assert noise.sampling_frequency == sampling_frequency, "Noise sampling frequency mismatch"
+        assert noise.probe.get_contact_count() == probe.get_contact_count(), "Noise num channels mismatch"
+        assert noise.get_total_duration() == duration, "Noise duration should be the same as the recording duration"
 
     static_recording = InjectDriftingTemplatesRecording(
         sorting=sorting,
@@ -531,6 +589,7 @@ def generate_drifting_recording(
             displacement_unit_factor=displacement_unit_factor,
             unit_displacements=unit_displacements,
             templates=templates,
+            generate_templates_kwargs=generate_templates_kwargs,
         )
         return static_recording, drifting_recording, sorting, extra_infos
     else:
