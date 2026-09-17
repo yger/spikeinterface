@@ -227,9 +227,13 @@ class CircusOMPPeeler(BaseTemplateMatching):
         self.ignore_inds = np.array(ignore_inds)
 
         self.unit_overlaps_tables = {}
+        self.unit_overlaps_tables_neg = {}
         for i in range(self.num_templates):
             self.unit_overlaps_tables[i] = np.zeros(self.num_templates, dtype=int)
             self.unit_overlaps_tables[i][self.unit_overlaps_indices[i]] = np.arange(len(self.unit_overlaps_indices[i]))
+            # version with a -1 sentinel for non-overlapping units (used to replace np.isin in the peeler loop)
+            self.unit_overlaps_tables_neg[i] = np.full(self.num_templates, -1, dtype=int)
+            self.unit_overlaps_tables_neg[i][self.unit_overlaps_indices[i]] = np.arange(len(self.unit_overlaps_indices[i]))
 
         self.margin = 2 * self.num_samples
         self.is_pushed = False
@@ -388,8 +392,9 @@ class CircusOMPPeeler(BaseTemplateMatching):
 
         full_sps = scalar_products.copy()
 
-        all_amplitudes = np.zeros(0, dtype=np.float32)
-        is_in_vicinity = np.zeros(0, dtype=np.int32)
+        # fixed-size incremental bookkeeping to avoid per-iteration reallocations (np.append)
+        max_size = scalar_products.size
+        res_sps_all = np.empty(max_size, dtype=np.float32)
 
         if self.stop_criteria == "omp_min_sps":
             stop_criteria = self.omp_min_sps * np.maximum(self.norms, np.sqrt(self.num_channels * self.num_samples))
@@ -434,17 +439,18 @@ class CircusOMPPeeler(BaseTemplateMatching):
                     else:
                         local_overlaps = self.overlaps[best_cluster_ind]
 
-                    overlapping_templates = self.unit_overlaps_indices[best_cluster_ind]
-                    table = self.unit_overlaps_tables[best_cluster_ind]
+                    # table lookup replaces the np.isin over overlapping units
+                    table_neg = self.unit_overlaps_tables_neg[best_cluster_ind]
 
                     if num_selection == M.shape[0]:
                         Z = np.zeros((2 * num_selection, 2 * num_selection), dtype=np.float32)
                         Z[:num_selection, :num_selection] = M
                         M = Z
 
-                    mask = np.isin(myindices, overlapping_templates)
+                    positions = table_neg[myindices]
+                    mask = positions >= 0
                     a, b = myindices[mask], myline[mask]
-                    M[num_selection, idx[mask]] = local_overlaps[table[a], b]
+                    M[num_selection, idx[mask]] = local_overlaps[positions[mask], b]
 
                     if self.vicinity == 0:
                         solve_triangular(
@@ -485,23 +491,25 @@ class CircusOMPPeeler(BaseTemplateMatching):
                             M[num_selection, num_selection] = 1.0
                 else:
                     M[0, 0] = 1
+                    is_in_vicinity = np.empty(0, dtype=np.int64)
 
                 all_selections[:, num_selection] = [best_cluster_ind, peak_index]
                 num_selection += 1
+                res_sps_all[num_selection - 1] = full_sps[best_cluster_ind, peak_index]
 
                 selection = all_selections[:, :num_selection]
-                res_sps = full_sps[selection[0], selection[1]]
 
                 if self.vicinity == 0:
-                    new_amplitudes, _ = potrs(M[:num_selection, :num_selection], res_sps, lower=True, overwrite_b=False)
+                    new_amplitudes, _ = potrs(
+                        M[:num_selection, :num_selection], res_sps_all[:num_selection], lower=True, overwrite_b=False
+                    )
                     sub_selection = selection
                     new_amplitudes /= self.norms[sub_selection[0]]
                 else:
-                    is_in_vicinity = np.append(is_in_vicinity, num_selection - 1)
-                    all_amplitudes = np.append(all_amplitudes, np.float32(1))
-                    L = M[is_in_vicinity, :][:, is_in_vicinity]
-                    new_amplitudes, _ = potrs(L, res_sps[is_in_vicinity], lower=True, overwrite_b=False)
-                    sub_selection = selection[:, is_in_vicinity]
+                    solve_inds = np.concatenate((is_in_vicinity, np.array([num_selection - 1], dtype=is_in_vicinity.dtype)))
+                    L = M[solve_inds, :][:, solve_inds]
+                    new_amplitudes, _ = potrs(L, res_sps_all[solve_inds], lower=True, overwrite_b=False)
+                    sub_selection = selection[:, solve_inds]
                     new_amplitudes /= self.norms[sub_selection[0]]
 
                 diff_amplitudes = new_amplitudes - final_amplitudes[sub_selection[0], sub_selection[1]]
