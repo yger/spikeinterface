@@ -329,6 +329,28 @@ class CircusOMPPeeler(BaseTemplateMatching):
     def get_margin(self):
         return self.margin
 
+    def _convolve_numpy(self, scaled_filtered_data):
+        """Convolve the (rank, n_templates, n_timesteps) filtered data with the template
+        kernels along the time axis (mode="valid") and sum over the rank axis.
+
+        Uses a grouped 1D convolution when torch is available (batched, faster), falling
+        back to scipy's overlap-add FFT convolution otherwise. Both paths produce (nearly)
+        identical scalar products; only the temporal kernel orientation (flip) differs
+        because conv1d computes cross-correlation while convolve flips the kernel.
+        """
+        rank, num_templates, _ = scaled_filtered_data.shape
+        if HAVE_TORCH:
+            scaled = torch.as_tensor(scaled_filtered_data).swapaxes(0, 1)
+            scaled = scaled.reshape(1, num_templates * rank, scaled_filtered_data.shape[2])
+            temporal = torch.as_tensor(self.temporal.copy()).flip(2).swapaxes(0, 1).contiguous()
+            scalar_products = conv1d(scaled, temporal, groups=num_templates, padding="valid")
+            return scalar_products[0].cpu().numpy()
+        else:
+            from scipy.signal import oaconvolve
+
+            objective_by_rank = oaconvolve(scaled_filtered_data, self.temporal, axes=2, mode="valid")
+            return objective_by_rank.sum(axis=0)
+
     def compute_matching(self, traces, start_frame, end_frame, segment_index):
         from scipy.linalg import get_lapack_funcs, get_blas_funcs, solve_triangular
         from scipy import ndimage
@@ -368,10 +390,7 @@ class CircusOMPPeeler(BaseTemplateMatching):
             # Filter using overlap-and-add convolution
             spatially_filtered_data = np.matmul(self.spatial, traces.T[np.newaxis, :, :])
             scaled_filtered_data = spatially_filtered_data * self.singular
-            from scipy.signal import oaconvolve
-
-            objective_by_rank = oaconvolve(scaled_filtered_data, self.temporal, axes=2, mode="valid")
-            scalar_products += np.sum(objective_by_rank, axis=0)
+            scalar_products = self._convolve_numpy(scaled_filtered_data)
 
         num_peaks = scalar_products.shape[1]
 
@@ -410,10 +429,13 @@ class CircusOMPPeeler(BaseTemplateMatching):
 
         do_loop = True
 
-        while do_loop:
+        # Initial (full) argmax; afterwards only "dirty" columns are recomputed, since the
+        # projection and its best template change only in the neighbourhood of modified peaks.
+        best_cluster_inds = np.argmax(scalar_products, axis=0, keepdims=True)
+        products = np.take_along_axis(scalar_products, best_cluster_inds, axis=0)
+        dirty_mask = np.zeros(num_peaks, dtype=bool)
 
-            best_cluster_inds = np.argmax(scalar_products, axis=0, keepdims=True)
-            products = np.take_along_axis(scalar_products, best_cluster_inds, axis=0)
+        while do_loop:
 
             result = ndimage.maximum_filter(products[0], size=self.vicinity, mode="constant", cval=0)
             cond_1 = products[0] / self.norms[best_cluster_inds[0]] > 0.25
@@ -530,6 +552,16 @@ class CircusOMPPeeler(BaseTemplateMatching):
                     tdx = [idx[0] - tmp, idx[1] - tmp]
                     to_add = diff_amp * local_overlaps[:, tdx[0] : tdx[1]]
                     scalar_products[overlapping_templates, idx[0] : idx[1]] -= to_add
+                    dirty_mask[idx[0] : idx[1]] = True
+
+            # Recompute the best template and its projection only for columns touched this pass
+            if dirty_mask.any():
+                dirty_cols = np.flatnonzero(dirty_mask)
+                sub = scalar_products[:, dirty_cols]
+                bsub = np.argmax(sub, axis=0)
+                best_cluster_inds[0, dirty_cols] = bsub
+                products[0, dirty_cols] = sub[bsub, np.arange(len(dirty_cols))]
+                dirty_mask[:] = False
 
             # We stop when updates do not modify the chosen spikes anymore
             if self.stop_criteria == "omp_min_sps":
