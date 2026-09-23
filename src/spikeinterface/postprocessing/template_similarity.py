@@ -2,7 +2,7 @@ import numpy as np
 import warnings
 from itertools import chain
 import importlib.util
-
+from spikeinterface.core.core_tools import slice_rows, materialize_array
 from spikeinterface.core.sortinganalyzer import register_result_extension, AnalyzerExtension
 from spikeinterface.core.template_tools import get_dense_templates_array
 from spikeinterface.core.sparsity import ChannelSparsity
@@ -58,10 +58,11 @@ class ComputeTemplateSimilarity(AnalyzerExtension):
         params = dict(method=method, max_lag_ms=max_lag_ms, support=support)
         return params
 
-    def _select_extension_data(self, unit_ids):
+    def _select_units_extension_data(self, unit_ids):
         # filter metrics dataframe
         unit_indices = self.sorting_analyzer.sorting.ids_to_indices(unit_ids)
-        new_similarity = self.data["similarity"][unit_indices][:, unit_indices]
+        new_similarity = slice_rows(self.data["similarity"], unit_indices)
+        new_similarity = new_similarity[:, unit_indices]
         return dict(similarity=new_similarity)
 
     def _merge_extension_data(
@@ -92,7 +93,7 @@ class ComputeTemplateSimilarity(AnalyzerExtension):
             other_sparsity=new_sorting_analyzer.sparsity,
         )
 
-        old_similarity = self.data["similarity"]
+        old_similarity = materialize_array(self.data["similarity"])
 
         all_new_unit_ids = new_sorting_analyzer.unit_ids
         n = all_new_unit_ids.size
@@ -105,7 +106,7 @@ class ComputeTemplateSimilarity(AnalyzerExtension):
 
         # copy old similarity
         for old_ind1, unit_ind1 in zip(old_units_inds, sub_units_inds):
-            s = self.data["similarity"][old_ind1, old_units_inds]
+            s = old_similarity[old_ind1, old_units_inds]
             similarity[unit_ind1, sub_units_inds] = s
             similarity[sub_units_inds, unit_ind1] = s
 
@@ -260,9 +261,9 @@ def _compute_similarity_matrix_numpy(
 if HAVE_NUMBA:
 
     from math import sqrt
-    import numba
+    from numba import jit, typed, prange
 
-    @numba.jit(nopython=True, parallel=True, fastmath=True, nogil=True)
+    @jit(nopython=True, parallel=True, fastmath=True, nogil=True)
     def _compute_similarity_matrix_numba(
         templates_array,
         other_templates_array,
@@ -296,12 +297,12 @@ if HAVE_NUMBA:
         elif method == "cosine":
             metric = 2
 
-        overlapping_j_list = numba.typed.List()
-        active_channels_list = numba.typed.List()
+        overlapping_j_list = typed.List()
+        active_channels_list = typed.List()
 
         for src_unit in range(num_templates):
-            overlapping_ids = numba.typed.List()
-            overlapping_chs = numba.typed.List()
+            overlapping_ids = typed.List()
+            overlapping_chs = typed.List()
 
             start = src_unit if same_array else 0
             for tgt_unit in range(start, other_num_templates):
@@ -340,10 +341,11 @@ if HAVE_NUMBA:
             src_sliced = templates_array[:, num_shifts : num_samples - num_shifts]
             tgt_sliced = other_templates_array[:, num_shifts + shift : num_samples - num_shifts + shift]
 
-            for i in numba.prange(num_templates):
-                src_template = src_sliced[i]
-                overlapping_ids = overlapping_j_list[i]
-                overlapping_chs = active_channels_list[i]
+            for i in prange(num_templates):
+                i_ = np.int64(i)
+                src_template = src_sliced[i_]
+                overlapping_ids = overlapping_j_list[i_]
+                overlapping_chs = active_channels_list[i_]
 
                 for pair_idx in range(len(overlapping_ids)):
                     j = np.uint16(overlapping_ids[pair_idx])

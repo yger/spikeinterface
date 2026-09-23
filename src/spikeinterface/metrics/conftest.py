@@ -15,21 +15,17 @@ def make_small_analyzer():
         seed=1205,
     )
 
-    channel_ids_as_integers = [id for id in range(recording.get_num_channels())]
-    unit_ids_as_integers = [id for id in range(sorting.get_num_units())]
-    recording = recording.rename_channels(new_channel_ids=channel_ids_as_integers)
-    sorting = sorting.rename_units(new_unit_ids=unit_ids_as_integers)
-
-    sorting = sorting.select_units([2, 7, 0], ["#3", "#9", "#4"])
+    sorting = sorting.select_units(["2", "7", "0"], ["#3", "#9", "#4"])
 
     sorting_analyzer = create_sorting_analyzer(recording=recording, sorting=sorting, format="memory")
 
     extensions_to_compute = {
         "random_spikes": {"seed": 1205},
-        "noise_levels": {"seed": 1205},
+        "noise_levels": {"random_slices_kwargs": {"seed": 1205}},
         "waveforms": {},
         "templates": {"operators": ["average", "median"]},
         "spike_amplitudes": {},
+        "amplitude_scalings": {},
         "spike_locations": {},
         "principal_components": {},
     }
@@ -69,17 +65,12 @@ def sorting_analyzer_simple():
         seed=1205,
     )
 
-    channel_ids_as_integers = [id for id in range(recording.get_num_channels())]
-    unit_ids_as_integers = [id for id in range(sorting.get_num_units())]
-    recording = recording.rename_channels(new_channel_ids=channel_ids_as_integers)
-    sorting = sorting.rename_units(new_unit_ids=unit_ids_as_integers)
-
     sorting_analyzer = create_sorting_analyzer(sorting, recording, format="memory", sparse=True)
 
     sorting_analyzer.compute("random_spikes", max_spikes_per_unit=300, seed=1205)
     sorting_analyzer.compute("noise_levels")
     sorting_analyzer.compute("waveforms", **job_kwargs)
     sorting_analyzer.compute("templates")
-    sorting_analyzer.compute(["spike_amplitudes", "spike_locations"], **job_kwargs)
+    sorting_analyzer.compute(["spike_amplitudes", "spike_locations", "amplitude_scalings"], **job_kwargs)
 
     return sorting_analyzer
